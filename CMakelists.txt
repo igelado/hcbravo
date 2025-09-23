@@ -13,6 +13,7 @@ set(hcbravo_EXT ${PROJECT_SOURCE_DIR}/ext)
 add_library(hcbravo SHARED)
 target_sources(hcbravo PRIVATE
     ${hcbravo_SRC}/main.cpp
+    ${hcbravo_SRC}/profile.cpp
 )
 if(WIN32)
     target_compile_definitions(hcbravo PRIVATE IBM)

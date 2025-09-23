@@ -1,0 +1,65 @@
+name: Cessna 172S
+models:
+ - C172
+
+autopilot:
+ hdg:
+  - key: 'sim/cockpit2/autopilot/heading_mode'
+    values: 
+      - 15
+      - 13
+      - 2
+ nav:
+  - key: 'sim/cockpit2/autopilot/nav_status'
+  - key: 'sim/cockpit2/autopilot/gpss_status'
+ apr:
+  - key: 'sim/cockpit2/autopilot/approach_status'
+ rev:
+  - key: 'sim/cockpit2/autopilot/backcourse_status'
+ alt:
+  - key: 'sim/cockpit2/autopilot/altitude_hold_status'
+ vs:
+  - key: 'sim/cockpit2/autopilot/vvi_status'
+ ias:
+  - key: 'sim/cockpit2/autopilot/speed_status'
+ ap:
+  - key: 'sim/cockpit2/autopilot/servos_on'
+
+system:
+ volts:
+  - key: 'sim/cockpit2/electrical/bus_volts'
+ gear:
+  - key: 'sim/flightmodel2/gear/deploy_ratio'
+
+annunciator:
+ master_warn:
+  - key: 'sim/cockpit2/annunciators/master_warning'
+ eng_fire:
+  - key: 'sim/cockpit2/annunciators/engine_fires'
+ oil_low:
+  - key: 'sim/cockpit2/annunciators/oil_pressure_low'
+ fuel_low:
+  - key: 'sim/cockpit2/annunciators/fuel_pressure_low'
+ anti_ice:
+  - key: 'sim/cockpit2/annunciators/pitot_heat'
+ starter:
+  - key: 'sim/cockpit2/engine/actuators/starter_hit'
+ apu: 
+  - key: 'sim/cockpit2/electrical/APU_running'
+ master_caution:
+  - key: 'sim/cockpit2/annunciators/master_caution'
+ vacuum_low:
+  - key: 'sim/cockpit2/annunciators/low_vacuum'
+ hydro_low:
+  - key: 'sim/cockpit2/annunciators/hydraulic_pressure'
+ aux_fuel:
+  - key: 'sim/cockpit2/fuel/transfer_pump_left'
+  - key: 'sim/cockpit2/fuel/transfer_pump_right'
+ parking_brake:
+   - key: 'sim/cockpit2/controls/parking_brake_ratio'
+ volt_low:
+  - key: 'sim/cockpit2/annunciators/low_voltage'
+ door_open:
+  - key: 'sim/flightmodel2/misc/canopy_open_ratio'
+  - key: 'sim/flightmodel2/misc/door_open_ratio'
+  - key: 'sim/cockpit2/annunciators/cabin_door_open'
