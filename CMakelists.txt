@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.30)
 project(HCBravo)
 
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 23)
 
 include(cmake/CPM.cmake)
 CPMAddPackage("gh:libusb/hidapi#hidapi-0.15.0")
@@ -12,8 +12,10 @@ set(hcbravo_EXT ${PROJECT_SOURCE_DIR}/ext)
 
 add_library(hcbravo SHARED)
 target_sources(hcbravo PRIVATE
+    ${hcbravo_SRC}/knob.cpp
     ${hcbravo_SRC}/main.cpp
     ${hcbravo_SRC}/profile.cpp
+    ${hcbravo_SRC}/state.cpp
 )
 if(WIN32)
     target_compile_definitions(hcbravo PRIVATE IBM)

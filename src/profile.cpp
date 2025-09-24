@@ -1,5 +1,7 @@
 #include "profile.h"
 
+#include <memory>
+
 data_ref::data_ref(const YAML::Node & node) noexcept :
     data_ref_(nullptr)
 {
@@ -60,8 +62,8 @@ profile::profile(const YAML::Node & node) noexcept :
     annunciator_(node["annunciator"])
 {}
 
-profile
+profile::ptr_type
 profile::from_yaml(const std::string & path) noexcept {
     YAML::Node node = YAML::LoadFile(path);
-    return profile(node);
+    return ptr_type(new profile(node));
 }

@@ -4,6 +4,7 @@
 #include <XPLM/XPLMDataAccess.h>
 #include <yaml.h>
 
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -62,6 +63,8 @@ struct annunciator_data_ref {
 
 
 class profile {
+public:
+    using ptr_type = std::shared_ptr<profile>;
 protected:
     std::string name_;
     std::vector<std::string> models_;
@@ -71,7 +74,7 @@ protected:
 
     profile(const YAML::Node & node) noexcept;
 public:
-    static profile from_yaml(const std::string & path) noexcept;
+    static ptr_type from_yaml(const std::string & path) noexcept;
 
     inline
     const std::string &
@@ -81,5 +84,7 @@ public:
     const std::vector<std::string> &
     models() const { return this->models_; }
 };
+
+using profile_ptr = profile::ptr_type;
 
 #endif
