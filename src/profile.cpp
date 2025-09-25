@@ -1,21 +1,71 @@
 #include "profile.h"
 
 #include <memory>
+#include <optional>
 
-data_ref::data_ref(const YAML::Node & node) noexcept :
+base_data_ref::base_data_ref(const YAML::Node & node) noexcept :
     data_ref_(nullptr)
 {
     if(!node) return;
     data_ref_ = XPLMFindDataRef(node["key"].as<std::string>().c_str());
-    for(const auto & value : node["values"]) {
-        values_.push_back(value.as<unsigned>());
+}
+
+template<>
+class data_ref<bool> : public base_data_ref {
+public:
+    inline
+    data_ref(const YAML::Node & node) noexcept : base_data_ref(node) {}
+
+
+    bool is_set() const final {
+        if(this->data_ref_ == nullptr) return false;
+        return XPLMGetDatai(this->data_ref_) != 0;
     }
+};
+
+template<>
+class data_ref<int> : public base_data_ref {
+private:
+    std::vector<int> values_;
+public:
+    inline
+    data_ref(const YAML::Node & node) noexcept : base_data_ref(node) {
+        for(const auto v : node["values"]) {
+            values_.emplace_back(v.as<int>());
+        }
+    }
+
+    bool is_set() const final {
+        if(this->data_ref_ == nullptr) return false;
+        int value = XPLMGetDatai(this->data_ref_);
+        if(value == 0) return false;
+        for(const auto & v : this->values_) {
+            if(v == value) return true;
+        }
+        return false;
+    }
+};
+
+static
+std::optional<base_data_ref::ptr_type>
+make_data_ref(const YAML::Node & node) noexcept
+{
+    if(!node) return std::nullopt;
+    std::string node_type = node["type"] ? "bool" : node["type"].as<std::string>();
+    if(node_type == "bool") {
+        return base_data_ref::ptr_type(new data_ref<bool>(node));
+    }
+    else if(node_type == "int") {
+        return base_data_ref::ptr_type(new data_ref<int>(node));
+    }
+    return std::nullopt;
 }
 
 value_data_ref::value_data_ref(const YAML::Node & node) noexcept {
     if(!node) return;
     for(const auto & value : node) {
-        data_.emplace_back(value);
+        auto value = make_data_ref(node);
+        if(value.has_value()) data_.emplace_back(std::move(value.value()));
     }
 }
 

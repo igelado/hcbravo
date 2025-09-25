@@ -5,6 +5,7 @@ models:
 autopilot:
  hdg:
   - key: 'sim/cockpit2/autopilot/heading_mode'
+    type: int
     values: 
       - 15
       - 13
