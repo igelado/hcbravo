@@ -10,6 +10,7 @@ CPMAddPackage("gh:jbeder/yaml-cpp#master")
 set(hcbravo_SRC ${PROJECT_SOURCE_DIR}/src)
 set(hcbravo_EXT ${PROJECT_SOURCE_DIR}/ext)
 
+
 add_library(hcbravo SHARED)
 target_sources(hcbravo PRIVATE
     ${hcbravo_SRC}/knob.cpp
@@ -31,3 +32,6 @@ endif()
 target_compile_definitions(hcbravo PRIVATE XPLM200 XPLM210 XPLM300 XPLM400)
 target_include_directories(hcbravo PRIVATE ${hcbravo_EXT}/XPSDK411/SDK/CHeaders hidapi::include ${yaml-cpp_SOURCE_DIR}/include/yaml-cpp)
 target_link_libraries(hcbravo PRIVATE hidapi::hidapi yaml-cpp::yaml-cpp)
+
+enable_testing()
+add_subdirectory(tests)

@@ -16,6 +16,10 @@ public:
 
     base_data_ref(const YAML::Node & node) noexcept;
 
+    inline
+    const XPLMDataRef &
+    data_ref() const noexcept { return this->data_ref_; }
+
     virtual
     bool
     is_set() const = 0;
@@ -25,13 +29,13 @@ template<typename T>
 class data_ref;
 
 class value_data_ref {
-    friend class autopilot_data_ref;
-    friend class system_data_ref;
-    friend class annunciator_data_ref;
-
-
     std::vector<base_data_ref::ptr_type> data_;
+public:
     value_data_ref(const YAML::Node & node) noexcept;
+
+    inline
+    const std::vector<base_data_ref::ptr_type> &
+    data() const noexcept { return this->data_; }
 
     inline 
     bool
@@ -177,7 +181,7 @@ public:
 
     inline
     bool
-    parking_brak() const noexcept { return this->parking_brake_.is_set(); }
+    parking_brake() const noexcept { return this->parking_brake_.is_set(); }
 
     inline
     bool

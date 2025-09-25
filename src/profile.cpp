@@ -46,12 +46,14 @@ public:
     }
 };
 
+
 static
 std::optional<base_data_ref::ptr_type>
 make_data_ref(const YAML::Node & node) noexcept
 {
-    if(!node) return std::nullopt;
-    std::string node_type = node["type"] ? "bool" : node["type"].as<std::string>();
+    if(!node or !node["key"]) return std::nullopt;
+    std::string node_type = node["type"] ? node["type"].as<std::string>() : "bool";
+
     if(node_type == "bool") {
         return base_data_ref::ptr_type(new data_ref<bool>(node));
     }
@@ -62,9 +64,9 @@ make_data_ref(const YAML::Node & node) noexcept
 }
 
 value_data_ref::value_data_ref(const YAML::Node & node) noexcept {
-    if(!node) return;
+    if(!node or node.IsSequence() == false) return;
     for(const auto & value : node) {
-        auto data = make_data_ref(node);
+        auto data = make_data_ref(value);
         if(data.has_value()) data_.emplace_back(std::move(data.value()));
     }
 }
