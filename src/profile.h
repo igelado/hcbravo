@@ -16,13 +16,15 @@ public:
 
     base_data_ref(const YAML::Node & node) noexcept;
 
-    inline
-    const XPLMDataRef &
-    data_ref() const noexcept { return this->data_ref_; }
-
     virtual
     bool
     is_set() const = 0;
+
+#if defined(HCBRAVO_PROFILE_TESTS)
+    inline
+    const XPLMDataRef &
+    data_ref() const noexcept { return this->data_ref_; }
+#endif
 };
 
 template<typename T>
@@ -33,10 +35,6 @@ class value_data_ref {
 public:
     value_data_ref(const YAML::Node & node) noexcept;
 
-    inline
-    const std::vector<base_data_ref::ptr_type> &
-    data() const noexcept { return this->data_; }
-
     inline 
     bool
     is_set() const noexcept {
@@ -45,6 +43,13 @@ public:
         }
         return false;
     }
+
+#if defined(HCBRAVO_PROFILE_TESTS)
+    inline
+    const std::vector<base_data_ref::ptr_type> &
+    data() const noexcept { return this->data_; }
+#endif
+
 };
 
 
@@ -59,10 +64,9 @@ class autopilot_data_ref {
     value_data_ref ias_;
     value_data_ref ap_;
 
+public:
     autopilot_data_ref(const YAML::Node & node) noexcept;
 
-    friend class profile;
-public:
     inline
     bool
     hdg() const noexcept { return this->hdg_.is_set(); }
@@ -94,16 +98,50 @@ public:
     inline 
     bool 
     ap() const noexcept { return this->ap_.is_set(); }
+
+#if defined(HCBRAVO_PROFILE_TESTS)
+    inline
+    const value_data_ref &
+    hdg_data_ref() const noexcept { return this->hdg_; }
+
+    inline
+    const value_data_ref &
+    nav_data_ref() const noexcept { return this->nav_; }
+
+    inline
+    const value_data_ref &
+    apr_data_ref() const noexcept { return this->apr_; }
+
+    inline
+    const value_data_ref &
+    rev_data_ref() const noexcept { return this->rev_; }
+
+    inline
+    const value_data_ref &
+    alt_data_ref() const noexcept { return this->alt_; }
+
+    inline
+    const value_data_ref &
+    vs_data_ref() const noexcept { return this->vs_; }
+
+    inline
+    const value_data_ref &
+    ias_data_ref() const noexcept { return this->ias_; }
+
+    inline
+    const value_data_ref &
+    ap_data_ref() const noexcept { return this->ap_; }
+#endif
+
 };
 
 class system_data_ref {
     value_data_ref volts_;
     value_data_ref gear_;
 
-    system_data_ref(const YAML::Node & node) noexcept;
-
-    friend class profile;
 public:
+
+    system_data_ref(const YAML::Node & node) noexcept;
 
     inline 
     bool 
@@ -112,6 +150,16 @@ public:
     inline 
     bool 
     gear() const noexcept { return this->gear_.is_set(); }
+
+#if defined(HCBRAVO_PROFILE_TESTS)
+    inline
+    const value_data_ref &
+    volts_data_ref() const noexcept { return this->volts_; }
+
+    inline
+    const value_data_ref &
+    gear_data_ref() const noexcept { return this->gear_; }
+#endif
 };
 
 class annunciator_data_ref {
