@@ -61,35 +61,35 @@ class autopilot_data_ref {
 public:
     inline
     bool
-    hdg() const noexcept { this->hdg_.is_set(); }
+    hdg() const noexcept { return this->hdg_.is_set(); }
 
     inline
     bool
-    nav() const noexcept { this->nav_.is_set(); }
+    nav() const noexcept { return this->nav_.is_set(); }
 
     inline 
     bool
-    apr() const noexcept { this->apr_.is_set(); }
+    apr() const noexcept { return this->apr_.is_set(); }
 
     inline
     bool
-    rev() const noexcept { this->rev_.is_set(); }
+    rev() const noexcept { return this->rev_.is_set(); }
 
     inline 
     bool
-    alt() const noexcept { this->alt_.is_set(); }
+    alt() const noexcept { return this->alt_.is_set(); }
 
     inline 
     bool 
-    vs() const noexcept { this->vs_.is_set(); }
+    vs() const noexcept { return this->vs_.is_set(); }
 
     inline
     bool 
-    ias() const noexcept { this->ias_.is_set(); }
+    ias() const noexcept { return this->ias_.is_set(); }
 
     inline 
     bool 
-    ap() const noexcept { this->ap_.is_set(); }
+    ap() const noexcept { return this->ap_.is_set(); }
 };
 
 class system_data_ref {
@@ -103,11 +103,11 @@ public:
 
     inline 
     bool 
-    volts() const noexcept { this->volts_.is_set(); }
+    volts() const noexcept { return this->volts_.is_set(); }
 
     inline 
     bool 
-    gear() const noexcept { this->gear_.is_set(); }
+    gear() const noexcept { return this->gear_.is_set(); }
 };
 
 class annunciator_data_ref {
@@ -133,59 +133,59 @@ public:
 
     inline 
     bool 
-    master_warn() const noexcept { this->master_warn_.is_set(); }
+    master_warn() const noexcept { return this->master_warn_.is_set(); }
 
     inline 
     bool 
-    eng_fire() const noexcept { this->eng_fire_.is_set(); }
+    eng_fire() const noexcept { return this->eng_fire_.is_set(); }
 
     inline 
     bool 
-    oil_low() const noexcept { this->oil_low_.is_set(); }
+    oil_low() const noexcept { return this->oil_low_.is_set(); }
 
     inline 
     bool 
-    fuel_low() const noexcept { this->fuel_low_.is_set(); }
+    fuel_low() const noexcept { return this->fuel_low_.is_set(); }
 
     inline 
     bool 
-    anti_ice() const noexcept { this->anti_ice_.is_set(); }
+    anti_ice() const noexcept { return this->anti_ice_.is_set(); }
 
     inline 
     bool 
-    starter() const noexcept { this->starter_.is_set(); }
+    starter() const noexcept { return this->starter_.is_set(); }
 
     inline 
     bool
-    apu() const noexcept { this->apu_.is_set(); }
+    apu() const noexcept { return this->apu_.is_set(); }
 
     inline 
     bool 
-    master_caution() const noexcept { this->master_caution_.is_set(); }
+    master_caution() const noexcept { return this->master_caution_.is_set(); }
 
     inline 
     bool 
-    vacuum_low() const noexcept { this->vacuum_low_.is_set(); }
+    vacuum_low() const noexcept { return this->vacuum_low_.is_set(); }
 
     inline 
     bool 
-    hydro_low() const noexcept { this->hydro_low_.is_set(); }
+    hydro_low() const noexcept { return this->hydro_low_.is_set(); }
     
     inline
     bool
-    aux_fuel() const noexcept { this->aux_fuel_.is_set(); }
+    aux_fuel() const noexcept { return this->aux_fuel_.is_set(); }
 
     inline
     bool
-    parking_brak() const noexcept { this->parking_brake_.is_set(); }
+    parking_brak() const noexcept { return this->parking_brake_.is_set(); }
 
     inline
     bool
-    volt_low() const noexcept { this->volt_low_.is_set(); }
+    volt_low() const noexcept { return this->volt_low_.is_set(); }
     
     inline
     bool
-    door_open() const noexcept { this->door_open_.is_set(); }
+    door_open() const noexcept { return this->door_open_.is_set(); }
 };
 
 

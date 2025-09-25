@@ -64,8 +64,8 @@ make_data_ref(const YAML::Node & node) noexcept
 value_data_ref::value_data_ref(const YAML::Node & node) noexcept {
     if(!node) return;
     for(const auto & value : node) {
-        auto value = make_data_ref(node);
-        if(value.has_value()) data_.emplace_back(std::move(value.value()));
+        auto data = make_data_ref(node);
+        if(data.has_value()) data_.emplace_back(std::move(data.value()));
     }
 }
 

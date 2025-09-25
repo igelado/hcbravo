@@ -1,5 +1,7 @@
 #include "led.h"
 
+#include <cstring>
+
 led_state::led_state() noexcept :
     dirty_(false)
 {
