@@ -1,31 +1,61 @@
+#include <XPLM/XPLMMenus.h>
 #include <XPLM/XPLMPlugin.h>
+#include <XPLM/XPLMProcessing.h>
 #include <XPLM/XPLMUtilities.h>
 
 #include <expected>
+#include <memory>
+#include <string>
+#include <tuple>
 
 #include <hidapi.h>
 
+#include "led.h"
 #include "state.h"
 
-std::expected<state, int>
+float
+state::flight_iteration(float call, float iter, int counter, void * _this) noexcept {
+    state * self = reinterpret_cast<state *>(_this);
+    if(self == nullptr or self->plane_.has_value() == false) return 0;
+
+    return -1.0;
+}
+
+std::expected<state::ptr_type, int>
 state::init() noexcept
 {
+    state::ptr_type st = state::ptr_type(new state());
+
     XPLMDebugString("Initializing HID");
     int res = hid_init();
     if(res < 0) {
         XPLMDebugString("Failed to initialize HID");
-        return std::unexpected(1);
+        return std::unexpected(0);
     }
-    auto hid_handle = hid_open(0x294b, 0x1901, nullptr);
-    if(hid_handle == nullptr) {
+    st->hid_ = hid_open(0x294b, 0x1901, nullptr);
+    if(st->hid_ == nullptr) {
         XPLMDebugString("Failed to Open HoneyComb Bravo Quadrant");
-        return std::unexpected(1);
+        return std::unexpected(0);
     }
 
     auto commands = commands::init();
     if(commands.has_value() == false) return std::unexpected(commands.error());
+    st->cmds_ = std::move(commands.value());
 
-    return state(hid_handle, std::move(commands.value()));
+
+    XPLMCreateFlightLoop_t fl_params = {
+        .structSize = sizeof(XPLMCreateFlightLoop_t),
+        .phase = xplm_FlightLoop_Phase_AfterFlightModel,
+        .callbackFunc = flight_iteration,
+        .refcon = st.get(),
+    };
+    st->flight_loop_ = XPLMCreateFlightLoop(&fl_params);
+    if(st->flight_loop_ == nullptr) {
+        XPLMDebugString("Failed to Create Flight Loop");
+        return std::unexpected(0);
+    }
+
+    return st;
 }
 
 static const size_t FILES_PATH_SIZE = 64;
@@ -36,9 +66,9 @@ static char * files_indexes[FILES_INDEX_SIZE];
 
 static const char * plane_icao_label_ = "sim/aircraft/view/acf_ICAO";
 
-state::state(hid_device * hid, commands::ptr_type && commands) :
-    hid_(hid),
-    cmds_(std::move(commands)),
+state::state() noexcept :
+    hid_(nullptr),
+    cmds_(nullptr),
     plane_icao_data_ref_(
         XPLMFindDataRef(plane_icao_label_)
     ),
@@ -71,14 +101,13 @@ state::state(hid_device * hid, commands::ptr_type && commands) :
         }
         total_conf_files += file_count;
     } while(index != total_conf_files - 1);
-
-
 }
 
 
 
 bool
-state::load_plane() {
+state::load_plane() noexcept
+{
     static char icao_name[64];
     int ret = XPLMGetDatab(plane_icao_data_ref_, icao_name, 0, 64);
     if(ret < 64) icao_name[ret] = '\0';
@@ -86,8 +115,15 @@ state::load_plane() {
     auto profile = profile_map_.find(icao_name);
     if(profile != profile_map_.end()) {
         plane_.emplace(profile->second);
+        XPLMScheduleFlightLoop(this->flight_loop_, -1.0, 1);
         return true;
     }
     return false;
 }
 
+
+void
+state::unload_plane() noexcept
+{
+    this->plane_ = std::nullopt;
+}

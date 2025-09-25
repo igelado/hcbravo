@@ -8,10 +8,10 @@
 #include <string>
 #include <vector>
 
-struct data_ref {
+class data_ref {
     XPLMDataRef data_ref_;
     std::vector<unsigned> values_;
-
+public:
     data_ref(const YAML::Node & node) noexcept;
 };
 

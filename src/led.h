@@ -1,16 +1,71 @@
 #ifndef LED_H_
 #define LED_H_
 
+#include <XPLM/XPLMUtilities.h>
+
+#include <atomic>
 #include <tuple>
 #include <cstdint>
+
+#include <hidapi.h>
 
 static const size_t LED_NR_BANKS = 4;
 static const size_t LED_NR_BITS = 8;
 using led_id = std::tuple<uint8_t, uint8_t>;
-struct led_state {
-    uint8_t id;
-    uint8_t banks[LED_NR_BANKS];
-    uint8_t reserved[64 - LED_NR_BANKS];
+class led_state {
+private:
+    struct state {
+        uint8_t id_;
+        uint8_t banks_[LED_NR_BANKS];
+        uint8_t reserved_[64 - LED_NR_BANKS];
+    };
+
+    using buffer_type = uint8_t[sizeof(state)];
+
+    union {
+        state   state_;
+        buffer_type  buffer_;
+    } u;
+    hid_device_ * hid_;
+    mutable std::atomic<bool> dirty_;
+public:
+    led_state() noexcept;
+    led_state(led_state &&) noexcept;
+
+#if !defined(NDEBUG)
+    inline
+    bool
+    get_led(const led_id & id) const noexcept {
+        return (u.state_.banks_[std::get<0>(id)] & (static_cast<uint8_t>(1) << std::get<1>(id))) != 0;
+    }
+#endif
+
+    inline
+    void
+    set_led(const led_id & id) noexcept {
+        dirty_.store(true, std::memory_order_release);
+        u.state_.banks_[std::get<0>(id)] |= (static_cast<uint8_t>(1) << std::get<1>(id));
+    }
+
+    inline
+    void
+    clear_led(const led_id & id) noexcept {
+        dirty_.store(true, std::memory_order_release);
+        u.state_.banks_[std::get<0>(id)] &= ~(static_cast<uint8_t>(1) << std::get<1>(id));
+    }
+
+    inline
+    void
+    update() const {
+        auto dirty = dirty_.exchange(false, std::memory_order_acquire);
+        if(dirty) {
+            int ret = hid_send_feature_report(this->hid_, this->u.buffer_, sizeof(*this));
+            if(ret < 0) {
+                XPLMDebugString("Failed to update LED state");
+            }
+        }
+    }
+
 };
 
 // Upper button bar LEDs
@@ -37,7 +92,7 @@ static const led_id LED_ANC_MSTR_WARN = { 1, 6 };
 static const led_id LED_ANC_ENG_FIRE  = { 1, 7 };
 static const led_id LED_ANC_OIL       = { 2, 0 };
 static const led_id LED_ANC_FUEL      = { 2, 1 };
-static const led_id LED_ANC_ANTI_INCE = { 2, 2 };
+static const led_id LED_ANC_ANTI_ICE  = { 2, 2 };
 static const led_id LED_ANC_STARTER   = { 2, 3 };
 static const led_id LED_ANC_APU       = { 2, 4 };
 static const led_id LED_ANC_MSTR_CTN  = { 2, 5 };

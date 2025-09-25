@@ -15,7 +15,7 @@
 #include "profile.h"
 #include "state.h"
 
-static std::optional<state> plugin_state;
+static std::optional<state::ptr_type> plugin_state;
 
 PLUGIN_API 
 int
@@ -57,10 +57,10 @@ XPluginReceiveMessage(XPLMPluginID id, int msg, void * param)
 {
     switch(msg) {
         case XPLM_MSG_PLANE_LOADED:
-            if(plugin_state.has_value()) plugin_state.value().load_plane();
+            if(plugin_state.has_value()) plugin_state.value()->load_plane();
             break;
         case XPLM_MSG_PLANE_UNLOADED:
-            if(plugin_state.has_value()) plugin_state.value().unload_plane();
+            if(plugin_state.has_value()) plugin_state.value()->unload_plane();
             break;
     }
 }
