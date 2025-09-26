@@ -22,15 +22,17 @@ state::flight_iteration(float call, float iter, int counter, void * _this) noexc
     led_mask mask;
     const auto & system = plane->system();
     if(system.volts()) {
-        const auto & ap = plane->autopilot();
-        mask.update(LED_AP_HDG, ap.hdg());
-        mask.update(LED_AP_NAV, ap.nav());
-        mask.update(LED_AP_APR, ap.apr());
-        mask.update(LED_AP_REV, ap.rev());
-        mask.update(LED_AP_ALT, ap.alt());
-        mask.update(LED_AP_VS, ap.vs());
-        mask.update(LED_AP_IAS, ap.ias());
-        mask.update(LED_AP, ap.ap());
+        if(plane->autopilot().has_value()) {
+            const auto & ap = plane->autopilot().value();
+            mask.update(LED_AP_HDG, ap.hdg());
+            mask.update(LED_AP_NAV, ap.nav());
+            mask.update(LED_AP_APR, ap.apr());
+            mask.update(LED_AP_REV, ap.rev());
+            mask.update(LED_AP_ALT, ap.alt());
+            mask.update(LED_AP_VS, ap.vs());
+            mask.update(LED_AP_IAS, ap.ias());
+            mask.update(LED_AP, ap.ap());
+        }
 
         if(system.gear().has_value()) {
             bool status = system.gear().value();
@@ -44,22 +46,24 @@ state::flight_iteration(float call, float iter, int counter, void * _this) noexc
             mask.update(LED_LDG_R_RED, !status);
         }
 
-        const auto & ann = plane->annunciator();
-        mask.update(LED_ANC_MSTR_WARN, ann.master_warn());
-        mask.update(LED_ANC_ENG_FIRE, ann.eng_fire());
-        mask.update(LED_ANC_OIL, ann.oil_low());
-        mask.update(LED_ANC_FUEL, ann.fuel_low());
-        mask.update(LED_ANC_ANTI_ICE, ann.anti_ice());
-        mask.update(LED_ANC_STARTER, ann.starter());
-        mask.update(LED_ANC_APU, ann.apu());
-        mask.update(LED_ANC_MSTR_CTN, ann.master_caution());
-        mask.update(LED_ANC_VACUUM, ann.vacuum_low());
-        mask.update(LED_ANC_HYD, ann.hydro_low());
-        mask.update(LED_ANC_AUX_FUEL, ann.aux_fuel());
-        mask.update(LED_ANC_PRK_BRK, ann.parking_brake());
-        mask.update(LED_ANC_VOLTS, system.volts());
-        mask.update(LED_ANC_VOLTS, ann.volt_low());
-        mask.update(LED_ANC_DOOR, ann.door_open());
+        if(plane->annunciator().has_value()) {
+            const auto & ann = plane->annunciator().value();
+            mask.update(LED_ANC_MSTR_WARN, ann.master_warn());
+            mask.update(LED_ANC_ENG_FIRE, ann.eng_fire());
+            mask.update(LED_ANC_OIL, ann.oil_low());
+            mask.update(LED_ANC_FUEL, ann.fuel_low());
+            mask.update(LED_ANC_ANTI_ICE, ann.anti_ice());
+            mask.update(LED_ANC_STARTER, ann.starter());
+            mask.update(LED_ANC_APU, ann.apu());
+            mask.update(LED_ANC_MSTR_CTN, ann.master_caution());
+            mask.update(LED_ANC_VACUUM, ann.vacuum_low());
+            mask.update(LED_ANC_HYD, ann.hydro_low());
+            mask.update(LED_ANC_AUX_FUEL, ann.aux_fuel());
+            mask.update(LED_ANC_PRK_BRK, ann.parking_brake());
+            mask.update(LED_ANC_VOLTS, system.volts());
+            mask.update(LED_ANC_VOLTS, ann.volt_low());
+            mask.update(LED_ANC_DOOR, ann.door_open());
+        }
     }
 
     self->leds_.update(mask);
@@ -140,9 +144,11 @@ state::state() noexcept :
         );
         for(auto n = 0; n < file_count; ++n) {
             std::string config_file = config_file_path + std::string(sep) + std::string(files_indexes[n]);
-            profile_ptr prof = profile::from_yaml(config_file);
-            for(const auto &model : prof->models()) {
-                profile_map_.emplace(model, prof);
+            auto prof = profile::from_yaml(config_file);
+            if(prof.has_value()) {
+                for(const auto &model : prof.value()->models()) {
+                    profile_map_.emplace(model, std::move(prof.value()));
+                }
             }
         }
         total_conf_files += file_count;

@@ -67,8 +67,9 @@ class autopilot_data_ref {
     std::optional<value_data_ref> ias_;
     value_data_ref ap_;
 
-public:
     autopilot_data_ref(const YAML::Node & node) noexcept;
+
+public:
 
     static
     std::expected<autopilot_data_ref, int>
@@ -160,9 +161,9 @@ class system_data_ref {
     value_data_ref volts_;
     std::optional<value_data_ref> gear_;
 
-public:
-
     system_data_ref(const YAML::Node & node) noexcept;
+
+public:
 
     static
     std::expected<system_data_ref, int>
@@ -175,9 +176,7 @@ public:
     inline 
     std::optional<bool> 
     gear() const noexcept {
-        return this->gear_.transform([] (const auto & v) {
-            return v.is_set();
-        });
+        return this->gear_.transform(&value_data_ref::is_set);
     }
 
 #if defined(HCBRAVO_PROFILE_TESTS)
@@ -192,85 +191,111 @@ public:
 };
 
 class annunciator_data_ref {
-    value_data_ref master_warn_;
-    value_data_ref eng_fire_;
-    value_data_ref oil_low_;
-    value_data_ref fuel_low_;
-    value_data_ref anti_ice_;
-    value_data_ref starter_;
+    std::optional<value_data_ref> master_warn_;
+    std::optional<value_data_ref> eng_fire_;
+    std::optional<value_data_ref> oil_low_;
+    std::optional<value_data_ref> fuel_low_;
+    std::optional<value_data_ref> anti_ice_;
+    std::optional<value_data_ref> starter_;
     std::optional<value_data_ref> apu_;
-    value_data_ref master_caution_;
-    value_data_ref vacuum_low_;
-    value_data_ref hydro_low_;
-    value_data_ref aux_fuel_;
-    value_data_ref parking_brake_;
-    value_data_ref volt_low_;
-    value_data_ref door_open_;
+    std::optional<value_data_ref> master_caution_;
+    std::optional<value_data_ref> vacuum_low_;
+    std::optional<value_data_ref> hydro_low_;
+    std::optional<value_data_ref> aux_fuel_;
+    std::optional<value_data_ref> parking_brake_;
+    std::optional<value_data_ref> volt_low_;
+    std::optional<value_data_ref> door_open_;
 
     annunciator_data_ref(const YAML::Node & node) noexcept;
-
-    friend class profile;
 public:
 
-    inline 
-    bool 
-    master_warn() const noexcept { return this->master_warn_.is_set(); }
+    static
+    std::expected<annunciator_data_ref, int>
+    build(const YAML::Node & node) noexcept;
 
     inline 
-    bool 
-    eng_fire() const noexcept { return this->eng_fire_.is_set(); }
+    const std::optional<bool>
+    master_warn() const noexcept {
+        return this->master_warn_.transform(&value_data_ref::is_set);
+    }
 
     inline 
-    bool 
-    oil_low() const noexcept { return this->oil_low_.is_set(); }
+    const std::optional<bool> 
+    eng_fire() const noexcept {
+        return this->eng_fire_.transform(&value_data_ref::is_set);
+    }
 
     inline 
-    bool 
-    fuel_low() const noexcept { return this->fuel_low_.is_set(); }
+    const std::optional<bool> 
+    oil_low() const noexcept {
+        return this->oil_low_.transform(&value_data_ref::is_set);
+    }
 
     inline 
-    bool 
-    anti_ice() const noexcept { return this->anti_ice_.is_set(); }
+    const std::optional<bool> 
+    fuel_low() const noexcept {
+        return this->fuel_low_.transform(&value_data_ref::is_set);
+    }
 
     inline 
-    bool 
-    starter() const noexcept { return this->starter_.is_set(); }
+    const std::optional<bool> 
+    anti_ice() const noexcept { 
+        return this->anti_ice_.transform(&value_data_ref::is_set);
+    }
+
+    inline 
+    const std::optional<bool> 
+    starter() const noexcept {
+        return this->starter_.transform(&value_data_ref::is_set);
+    }
 
     inline 
     const std::optional<bool>
     apu() const noexcept {
-        return this->apu_.transform([] (const auto & v) {
-            return v.is_set();
-        });
+        return this->apu_.transform(&value_data_ref::is_set);
     }
 
     inline 
-    bool 
-    master_caution() const noexcept { return this->master_caution_.is_set(); }
+    const std::optional<bool> 
+    master_caution() const noexcept {
+        return this->master_caution_.transform(&value_data_ref::is_set);
+    }
 
     inline 
-    bool 
-    vacuum_low() const noexcept { return this->vacuum_low_.is_set(); }
+    const std::optional<bool> 
+    vacuum_low() const noexcept {
+        return this->vacuum_low_.transform(&value_data_ref::is_set);
+    }
 
     inline 
-    bool 
-    hydro_low() const noexcept { return this->hydro_low_.is_set(); }
+    const std::optional<bool> 
+    hydro_low() const noexcept {
+        return this->hydro_low_.transform(&value_data_ref::is_set);
+    }
     
     inline
-    bool
-    aux_fuel() const noexcept { return this->aux_fuel_.is_set(); }
+    const std::optional<bool>
+    aux_fuel() const noexcept {
+        return this->aux_fuel_.transform(&value_data_ref::is_set);
+    }
 
     inline
-    bool
-    parking_brake() const noexcept { return this->parking_brake_.is_set(); }
+    const std::optional<bool>
+    parking_brake() const noexcept {
+        return this->parking_brake_.transform(&value_data_ref::is_set);
+    }
 
     inline
-    bool
-    volt_low() const noexcept { return this->volt_low_.is_set(); }
+    const std::optional<bool>
+    volt_low() const noexcept {
+        return this->volt_low_.transform(&value_data_ref::is_set);
+    }
     
     inline
-    bool
-    door_open() const noexcept { return this->door_open_.is_set(); }
+    const std::optional<bool>
+    door_open() const noexcept {
+        return this->door_open_.transform(&value_data_ref::is_set);
+    }
 };
 
 
@@ -280,13 +305,17 @@ public:
 protected:
     std::string name_;
     std::vector<std::string> models_;
-    autopilot_data_ref autopilot_;
     system_data_ref system_;
-    annunciator_data_ref annunciator_;
+    std::optional<autopilot_data_ref> autopilot_;
+    std::optional<annunciator_data_ref> annunciator_;
 
-    profile(const YAML::Node & node) noexcept;
+    profile(std::string && name, std::vector<std::string> && models,
+            system_data_ref && system, std::optional<autopilot_data_ref> && autopilot,
+            std::optional<annunciator_data_ref> && annunciator) noexcept;
 public:
-    static ptr_type from_yaml(const std::string & path) noexcept;
+    static
+    std::expected<ptr_type, int>
+    from_yaml(const std::string & path) noexcept;
 
     inline
     const std::string &
@@ -297,15 +326,15 @@ public:
     models() const { return this->models_; }
 
     inline 
-    const autopilot_data_ref &
-    autopilot() const { return this->autopilot_; }
-
-    inline 
     const system_data_ref &
     system() const { return this->system_; }
 
+    inline 
+    const std::optional<autopilot_data_ref> &
+    autopilot() const { return this->autopilot_; }
+
     inline
-    const annunciator_data_ref &
+    const std::optional<annunciator_data_ref> &
     annunciator() const { return this->annunciator_; }
 };
 

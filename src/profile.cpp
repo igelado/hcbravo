@@ -110,33 +110,73 @@ system_data_ref::build(const YAML::Node & node) noexcept
 
 
 annunciator_data_ref::annunciator_data_ref(const YAML::Node & node) noexcept :
-    master_warn_(node["master_warn"]),
-    eng_fire_(node["eng_fire"]),
-    oil_low_(node["oil_low"]),
-    fuel_low_(node["fuel_low"]),
-    anti_ice_(node["anti_ice"]),
-    starter_(node["starter"]),
+    master_warn_(node["master_warn"] ? std::optional(value_data_ref(node["master_warn"])) : std::nullopt),
+    eng_fire_(node["eng_fire"] ? std::optional(value_data_ref(node["eng_fire"])) : std::nullopt),
+    oil_low_(node["oil_low"] ? std::optional(value_data_ref(node["oil_low"])) : std::nullopt),
+    fuel_low_(node["fuel_low"] ? std::optional(value_data_ref(node["fuel_low"])) : std::nullopt),
+    anti_ice_(node["anti_ice"] ? std::optional(value_data_ref(node["anti_ice"])) : std::nullopt),
+    starter_(node["starter"] ? std::optional(value_data_ref(node["starter"])) : std::nullopt),
     apu_(node["apu"] ? std::optional(value_data_ref(node["apu"])) : std::nullopt),
-    master_caution_(node["master_caution"]),
-    vacuum_low_(node["vacuum_low"]),
-    hydro_low_(node["hydro_low"]),
-    aux_fuel_(node["aux_fuel"]),
-    parking_brake_(node["parking_brake"]),
-    volt_low_(node["volt_low"]),
-    door_open_(node["door_open"])
+    master_caution_(node["master_caution"] ? std::optional(value_data_ref(node["master_caution"])) : std::nullopt),
+    vacuum_low_(node["vacuum_low"] ? std::optional(value_data_ref(node["vacuum_low"])) : std::nullopt),
+    hydro_low_(node["hydro_low"] ? std::optional(value_data_ref(node["hydro_low"])) : std::nullopt),
+    aux_fuel_(node["aux_fuel"] ? std::optional(value_data_ref(node["aux_fuel"])) : std::nullopt),
+    parking_brake_(node["parking_brake"] ? std::optional(value_data_ref(node["parking_brake"])) : std::nullopt),
+    volt_low_(node["volt_low"] ? std::optional(value_data_ref(node["volt_low"])) : std::nullopt),
+    door_open_(node["door_open"] ? std::optional(value_data_ref(node["door_open"])) : std::nullopt)
 {}
 
+std::expected<annunciator_data_ref, int>
+annunciator_data_ref::build(const YAML::Node & node) noexcept 
+{
+    return annunciator_data_ref(node);
+}
 
-profile::profile(const YAML::Node & node) noexcept :
-    name_(node["name"].as<std::string>()),
-    models_(node["models"].as<std::vector<std::string>>()),
-    autopilot_(node["autopilot"]),
-    system_(node["system"]),
-    annunciator_(node["annunciator"])
+
+profile::profile(std::string && name, std::vector<std::string> && models, 
+    system_data_ref && system, std::optional<autopilot_data_ref> && autopilot,
+    std::optional<annunciator_data_ref> && annunciator
+) noexcept :
+    name_(std::move(name)),
+    models_(std::move(models)),
+    system_(std::move(system)),
+    autopilot_(std::move(autopilot)),
+    annunciator_(std::move(annunciator))
 {}
 
-profile::ptr_type
+std::expected<profile::ptr_type, int>
 profile::from_yaml(const std::string & path) noexcept {
     YAML::Node node = YAML::LoadFile(path);
-    return ptr_type(new profile(node));
+    if(!node["name"]) return std::unexpected(0);
+    if(!node["models"] or node["models"].IsSequence() == false) return std::unexpected(0);
+    std::vector<std::string> models;
+    for(const auto & model : node["models"]) {
+        if(node.Type() != YAML::NodeType::Scalar) return std::unexpected(0);
+        models.emplace_back(node.as<std::string>());
+    }
+    if(!node["system"]) return std::unexpected(0);
+    auto system = system_data_ref::build(node["system"]);
+    if(system.has_value() == false) return std::unexpected(0);
+
+    std::optional<autopilot_data_ref> autopilot;
+    if(node["autopilot"]) {
+        auto ap_ret = autopilot_data_ref::build(node["autopilot"]);
+        if(ap_ret.has_value() == false) return std::unexpected(0);
+        autopilot = std::move(ap_ret.value());
+    }
+
+    std::optional<annunciator_data_ref> annunciator;
+    if(node["annunciator"]) {
+        auto ann_ret = annunciator_data_ref::build(node["annunciator"]);
+        if(ann_ret.has_value() == false) return std::unexpected(0);
+        annunciator = std::move(ann_ret.value());
+    }
+
+    return profile_ptr(new profile(
+        std::move(node["name"].as<std::string>()),
+        std::move(models),
+        std::move(system.value()),
+        std::move(autopilot),
+        std::move(annunciator)
+    ));
 }
