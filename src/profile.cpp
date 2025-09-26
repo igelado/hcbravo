@@ -18,6 +18,7 @@ public:
     inline
     data_ref(const YAML::Node & node) noexcept : base_data_ref(node) {}
 
+    data_ref(data_ref && other) noexcept = default;
 
     bool is_set() const final {
         if(this->data_ref_ == nullptr) return false;
@@ -36,6 +37,8 @@ public:
             values_.emplace_back(v.as<int>());
         }
     }
+
+    data_ref(data_ref && other) noexcept = default;
 
     bool is_set() const final {
         if(this->data_ref_ == nullptr) return false;

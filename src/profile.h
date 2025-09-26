@@ -17,6 +17,8 @@ public:
     using ptr_type =std::unique_ptr<base_data_ref>;
 
     base_data_ref(const YAML::Node & node) noexcept;
+    base_data_ref(base_data_ref && other) noexcept = default;
+
     virtual
     ~base_data_ref() noexcept;
 
@@ -296,6 +298,65 @@ public:
     door_open() const noexcept {
         return this->door_open_.transform(&value_data_ref::is_set);
     }
+
+#if defined(HCBRAVO_PROFILE_TESTS)
+    inline
+    const std::optional<value_data_ref> &
+    master_warn_data_ref() const noexcept { return this->master_warn_; }
+
+    inline
+    const std::optional<value_data_ref> &
+    eng_fire_data_ref() const noexcept { return this->eng_fire_; }
+
+    inline
+    const std::optional<value_data_ref> &
+    oil_low_data_ref() const noexcept { return this->oil_low_; }
+
+    inline
+    const std::optional<value_data_ref> &
+    fuel_low_data_ref() const noexcept { return this->fuel_low_; }
+
+    inline
+    const std::optional<value_data_ref> &
+    anti_ice_data_ref() const noexcept { return this->anti_ice_; }
+
+    inline
+    const std::optional<value_data_ref> &
+    starter_data_ref() const noexcept { return this->starter_; }
+
+    inline
+    const std::optional<value_data_ref> &
+    apu_data_ref() const noexcept { return this->apu_; }
+
+    inline
+    const std::optional<value_data_ref> &
+    master_caution_data_ref() const noexcept { return this->master_caution_; }
+
+    inline
+    const std::optional<value_data_ref> &
+    vacuum_low_data_ref() const noexcept { return this->vacuum_low_; }
+
+    inline
+    const std::optional<value_data_ref> &
+    hydro_low_data_ref() const noexcept { return this->hydro_low_; }
+
+    inline
+    const std::optional<value_data_ref> &
+    aux_fuel_data_ref() const noexcept { return this->aux_fuel_; }
+
+    inline
+    const std::optional<value_data_ref> &
+    parking_brake_data_ref() const noexcept { return this->parking_brake_; }
+
+    inline
+    const std::optional<value_data_ref> &
+    volt_low_data_ref() const noexcept { return this->volt_low_; }
+
+    inline
+    const std::optional<value_data_ref> &
+    door_open_data_ref() const noexcept { return this->door_open_; }
+
+#endif
 };
 
 

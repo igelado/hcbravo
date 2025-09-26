@@ -348,3 +348,200 @@ system:
     data_ref.volts_data_ref().data().front()->data_ref()->value = 1;
     ASSERT_TRUE(data_ref.volts());
 }
+
+TEST(profile_test, annunciator) {
+  auto node = YAML::Load(R"(
+annunciator:
+ master_warn:
+  - key: 'sim/cockpit2/annunciators/master_warning'
+ eng_fire:
+  - key: 'sim/cockpit2/annunciators/engine_fires'
+ oil_low:
+  - key: 'sim/cockpit2/annunciators/oil_pressure_low'
+ fuel_low:
+  - key: 'sim/cockpit2/annunciators/fuel_pressure_low'
+ anti_ice:
+  - key: 'sim/cockpit2/annunciators/pitot_heat'
+ starter:
+  - key: 'sim/cockpit2/engine/actuators/starter_hit'
+ apu: 
+  - key: 'sim/cockpit2/electrical/APU_running'
+ master_caution:
+  - key: 'sim/cockpit2/annunciators/master_caution'
+ vacuum_low:
+  - key: 'sim/cockpit2/annunciators/low_vacuum'
+ hydro_low:
+  - key: 'sim/cockpit2/annunciators/hydraulic_pressure'
+ aux_fuel:
+  - key: 'sim/cockpit2/fuel/transfer_pump_left'
+  - key: 'sim/cockpit2/fuel/transfer_pump_right'
+ parking_brake:
+   - key: 'sim/cockpit2/controls/parking_brake_ratio'
+ volt_low:
+  - key: 'sim/cockpit2/annunciators/low_voltage'
+ door_open:
+  - key: 'sim/flightmodel2/misc/canopy_open_ratio'
+  - key: 'sim/flightmodel2/misc/door_open_ratio'
+  - key: 'sim/cockpit2/annunciators/cabin_door_open'
+
+    )");
+
+
+    auto data_ref_opt = annunciator_data_ref::build(node["annunciator"]);
+    ASSERT_TRUE(data_ref_opt.has_value());
+    auto data_ref = std::move(data_ref_opt.value());
+
+    ASSERT_TRUE(data_ref.master_warn().has_value());
+    ASSERT_FALSE(data_ref.master_warn().value());
+    data_ref.master_warn_data_ref().value().data().front()->data_ref()->value = 1;
+    ASSERT_TRUE(data_ref.master_warn().value());
+
+    ASSERT_TRUE(data_ref.eng_fire().has_value());
+    ASSERT_FALSE(data_ref.eng_fire().value());
+    data_ref.eng_fire_data_ref().value().data().front()->data_ref()->value = 1;
+    ASSERT_TRUE(data_ref.eng_fire().value());
+
+    ASSERT_TRUE(data_ref.oil_low().has_value());
+    ASSERT_FALSE(data_ref.oil_low().value());
+    data_ref.oil_low_data_ref().value().data().front()->data_ref()->value = 1;
+    ASSERT_TRUE(data_ref.oil_low().value());
+
+    ASSERT_TRUE(data_ref.fuel_low().has_value());
+    ASSERT_FALSE(data_ref.fuel_low().value());
+    data_ref.fuel_low_data_ref().value().data().front()->data_ref()->value = 1;
+    ASSERT_TRUE(data_ref.fuel_low().value());
+
+    ASSERT_TRUE(data_ref.anti_ice().has_value());
+    ASSERT_FALSE(data_ref.anti_ice().value());
+    data_ref.anti_ice_data_ref().value().data().front()->data_ref()->value = 1;
+    ASSERT_TRUE(data_ref.anti_ice().value());
+
+    ASSERT_TRUE(data_ref.starter().has_value());
+    ASSERT_FALSE(data_ref.starter().value());
+    data_ref.starter_data_ref().value().data().front()->data_ref()->value = 1;
+    ASSERT_TRUE(data_ref.starter().value());
+
+    ASSERT_TRUE(data_ref.apu().has_value());
+    ASSERT_FALSE(data_ref.apu().value());
+    data_ref.apu_data_ref().value().data().front()->data_ref()->value = 1;
+    ASSERT_TRUE(data_ref.apu().value());
+
+    ASSERT_TRUE(data_ref.master_caution().has_value());
+    ASSERT_FALSE(data_ref.master_caution().value());
+    data_ref.master_caution_data_ref().value().data().front()->data_ref()->value = 1;
+    ASSERT_TRUE(data_ref.master_caution().value());
+
+    ASSERT_TRUE(data_ref.vacuum_low().has_value());
+    ASSERT_FALSE(data_ref.vacuum_low().value());
+    data_ref.vacuum_low_data_ref().value().data().front()->data_ref()->value = 1;
+    ASSERT_TRUE(data_ref.vacuum_low().value());
+
+    ASSERT_TRUE(data_ref.hydro_low().has_value());
+    ASSERT_FALSE(data_ref.hydro_low().value());
+    data_ref.hydro_low_data_ref().value().data().front()->data_ref()->value = 1;
+    ASSERT_TRUE(data_ref.hydro_low().value());
+
+    ASSERT_TRUE(data_ref.parking_brake().has_value());
+    ASSERT_FALSE(data_ref.parking_brake().value());
+    data_ref.parking_brake_data_ref().value().data().front()->data_ref()->value = 1;
+    ASSERT_TRUE(data_ref.parking_brake().value());
+
+    ASSERT_TRUE(data_ref.volt_low().has_value());
+    ASSERT_FALSE(data_ref.volt_low().value());
+    data_ref.volt_low_data_ref().value().data().front()->data_ref()->value = 1;
+    ASSERT_TRUE(data_ref.volt_low().value());
+
+    ASSERT_TRUE(data_ref.aux_fuel().has_value());
+    ASSERT_FALSE(data_ref.aux_fuel().value());
+    data_ref.aux_fuel_data_ref().value().data()[0]->data_ref()->value = 1;
+    ASSERT_TRUE(data_ref.aux_fuel().value());
+    data_ref.aux_fuel_data_ref().value().data()[0]->data_ref()->value = 0;
+    ASSERT_FALSE(data_ref.aux_fuel().value());
+    data_ref.aux_fuel_data_ref().value().data()[1]->data_ref()->value = 1;
+    ASSERT_TRUE(data_ref.aux_fuel().value());
+    data_ref.aux_fuel_data_ref().value().data()[1]->data_ref()->value = 0;
+    ASSERT_FALSE(data_ref.aux_fuel().value());
+ 
+    ASSERT_TRUE(data_ref.door_open().has_value());
+    ASSERT_FALSE(data_ref.door_open().value());
+    data_ref.door_open_data_ref().value().data()[0]->data_ref()->value = 1;
+    ASSERT_TRUE(data_ref.door_open().value());
+    data_ref.door_open_data_ref().value().data()[0]->data_ref()->value = 0;
+    ASSERT_FALSE(data_ref.door_open().value());
+    data_ref.door_open_data_ref().value().data()[1]->data_ref()->value = 1;
+    ASSERT_TRUE(data_ref.door_open().value());
+    data_ref.door_open_data_ref().value().data()[1]->data_ref()->value = 0;
+    ASSERT_FALSE(data_ref.door_open().value());
+     data_ref.door_open_data_ref().value().data()[2]->data_ref()->value = 1;
+    ASSERT_TRUE(data_ref.door_open().value());
+    data_ref.door_open_data_ref().value().data()[2]->data_ref()->value = 0;
+    ASSERT_FALSE(data_ref.door_open().value());
+}
+
+TEST(profile_test, annunciator_min) {
+  auto node = YAML::Load(R"(
+annunciator:
+ master_warn:
+  - key: 'sim/cockpit2/annunciators/master_warning'
+ oil_low:
+  - key: 'sim/cockpit2/annunciators/oil_pressure_low'
+ fuel_low:
+  - key: 'sim/cockpit2/annunciators/fuel_pressure_low'
+ starter:
+  - key: 'sim/cockpit2/engine/actuators/starter_hit'
+ master_caution:
+  - key: 'sim/cockpit2/annunciators/master_caution'
+ vacuum_low:
+  - key: 'sim/cockpit2/annunciators/low_vacuum'
+ volt_low:
+  - key: 'sim/cockpit2/annunciators/low_voltage'
+    )");
+
+
+    auto data_ref_opt = annunciator_data_ref::build(node["annunciator"]);
+    ASSERT_TRUE(data_ref_opt.has_value());
+    auto data_ref = std::move(data_ref_opt.value());
+
+    ASSERT_TRUE(data_ref.master_warn().has_value());
+    ASSERT_FALSE(data_ref.master_warn().value());
+    data_ref.master_warn_data_ref().value().data().front()->data_ref()->value = 1;
+    ASSERT_TRUE(data_ref.master_warn().value());
+
+    ASSERT_TRUE(data_ref.oil_low().has_value());
+    ASSERT_FALSE(data_ref.oil_low().value());
+    data_ref.oil_low_data_ref().value().data().front()->data_ref()->value = 1;
+    ASSERT_TRUE(data_ref.oil_low().value());
+
+    ASSERT_TRUE(data_ref.fuel_low().has_value());
+    ASSERT_FALSE(data_ref.fuel_low().value());
+    data_ref.fuel_low_data_ref().value().data().front()->data_ref()->value = 1;
+    ASSERT_TRUE(data_ref.fuel_low().value());
+
+    ASSERT_TRUE(data_ref.starter().has_value());
+    ASSERT_FALSE(data_ref.starter().value());
+    data_ref.starter_data_ref().value().data().front()->data_ref()->value = 1;
+    ASSERT_TRUE(data_ref.starter().value());
+
+    ASSERT_TRUE(data_ref.master_caution().has_value());
+    ASSERT_FALSE(data_ref.master_caution().value());
+    data_ref.master_caution_data_ref().value().data().front()->data_ref()->value = 1;
+    ASSERT_TRUE(data_ref.master_caution().value());
+
+    ASSERT_TRUE(data_ref.vacuum_low().has_value());
+    ASSERT_FALSE(data_ref.vacuum_low().value());
+    data_ref.vacuum_low_data_ref().value().data().front()->data_ref()->value = 1;
+    ASSERT_TRUE(data_ref.vacuum_low().value());
+
+    ASSERT_TRUE(data_ref.volt_low().has_value());
+    ASSERT_FALSE(data_ref.volt_low().value());
+    data_ref.volt_low_data_ref().value().data().front()->data_ref()->value = 1;
+    ASSERT_TRUE(data_ref.volt_low().value());
+
+    ASSERT_FALSE(data_ref.eng_fire().has_value());
+    ASSERT_FALSE(data_ref.anti_ice().has_value());
+    ASSERT_FALSE(data_ref.apu().has_value());
+    ASSERT_FALSE(data_ref.hydro_low().has_value());
+    ASSERT_FALSE(data_ref.parking_brake().has_value());
+    ASSERT_FALSE(data_ref.aux_fuel().has_value());
+    ASSERT_FALSE(data_ref.door_open().has_value());
+}
