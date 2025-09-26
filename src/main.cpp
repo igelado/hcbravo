@@ -27,7 +27,7 @@ XPluginStart(char * name, char * sig, char * desc) {
     XPLMDebugString("HCBravo Plugin Starts");
     auto state = state::init();
     if(state.has_value() == false) {
-        return 0;
+       return 0;
     }
     plugin_state.emplace(std::move(state.value()));
 

@@ -17,6 +17,8 @@ public:
     using ptr_type =std::unique_ptr<base_data_ref>;
 
     base_data_ref(const YAML::Node & node) noexcept;
+    virtual
+    ~base_data_ref() noexcept;
 
     virtual
     bool

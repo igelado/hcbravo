@@ -10,6 +10,8 @@ base_data_ref::base_data_ref(const YAML::Node & node) noexcept :
     data_ref_ = XPLMFindDataRef(node["key"].as<std::string>().c_str());
 }
 
+base_data_ref::~base_data_ref() noexcept {}
+
 template<>
 class data_ref<bool> : public base_data_ref {
 public:

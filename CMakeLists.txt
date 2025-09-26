@@ -1,4 +1,9 @@
 cmake_minimum_required(VERSION 3.30)
+if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin")
+    message(NOTICE "Building Universal Plug-in...")
+    set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "" FORCE)
+endif()
+
 project(HCBravo)
 
 set(CMAKE_CXX_STANDARD 23)
@@ -19,6 +24,7 @@ target_sources(hcbravo PRIVATE
     ${hcbravo_SRC}/profile.cpp
     ${hcbravo_SRC}/state.cpp
 )
+
 if(WIN32)
     target_compile_definitions(hcbravo PRIVATE IBM)
     target_compile_definitions(hcbravo PRIVATE _CRT_SECURE_NO_WARNINGS)
@@ -27,6 +33,14 @@ elseif(UNIX)
     if(NOT APPLE)
         target_compile_definitions(hcbravo PRIVATE LIN)
         target_link_libraries(hcbravo PRIVATE ${hcbravo_EXT}/XPSDK411/SDK/Libraries/Lin/XPLM_64.so) 
+    elseif(APPLE)
+        target_compile_definitions(hcbravo PRIVATE APL)
+        find_library(XPLM_LIB
+            NAME XPLM 
+            PATHS ${hcbravo_EXT}/XPSDK411/SDK/Libraries/Mac
+            REQUIRED
+        )
+        target_link_libraries(hcbravo PRIVATE ${XPLM_LIB})
     endif()
 endif()
 target_compile_definitions(hcbravo PRIVATE XPLM200 XPLM210 XPLM300 XPLM400)
