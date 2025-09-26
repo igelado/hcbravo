@@ -144,7 +144,10 @@ autopilot:
   - key: 'sim/cockpit2/autopilot/servos_on'
     )");
 
-    auto data_ref = autopilot_data_ref(node["autopilot"]);
+    auto data_ref_opt = autopilot_data_ref::build(node["autopilot"]);
+    ASSERT_TRUE(data_ref_opt.has_value());
+
+    auto data_ref = std::move(data_ref_opt.value());
     ASSERT_TRUE(data_ref.hdg().has_value());
     ASSERT_FALSE(data_ref.hdg().value());
 
@@ -209,7 +212,10 @@ autopilot:
  ap:
   - key: 'sim/cockpit2/autopilot/servos_on'
     )");
-    auto data_ref = autopilot_data_ref(node["autopilot"]);
+    auto data_ref_opt = autopilot_data_ref::build(node["autopilot"]);
+    ASSERT_TRUE(data_ref_opt.has_value());
+
+    auto data_ref = std::move(data_ref_opt.value());
     ASSERT_FALSE(data_ref.hdg().has_value());
     ASSERT_FALSE(data_ref.nav().has_value());
     ASSERT_FALSE(data_ref.apr().has_value());
@@ -246,7 +252,11 @@ autopilot:
   - key: 'sim/cockpit2/autopilot/servos_on'
     )");
 
-    auto data_ref = autopilot_data_ref(node["autopilot"]);
+    auto data_ref_opt = autopilot_data_ref::build(node["autopilot"]);
+    ASSERT_TRUE(data_ref_opt.has_value());
+
+    auto data_ref = std::move(data_ref_opt.value());
+ 
     ASSERT_TRUE(data_ref.hdg().has_value());
     ASSERT_FALSE(data_ref.hdg().value());
 
@@ -306,7 +316,10 @@ system:
 
     )");
 
-    auto data_ref = system_data_ref(node["system"]);
+    auto data_ref_opt = system_data_ref::build(node["system"]);
+    ASSERT_TRUE(data_ref_opt.has_value());
+
+    auto data_ref = std::move(data_ref_opt.value());
     ASSERT_FALSE(data_ref.volts());
     ASSERT_TRUE(data_ref.gear().has_value());
     ASSERT_FALSE(data_ref.gear().value());
@@ -325,7 +338,10 @@ system:
   - key: 'sim/cockpit2/electrical/bus_volts'
     )");
 
-    auto data_ref = system_data_ref(node["system"]);
+    auto data_ref_opt = system_data_ref::build(node["system"]);
+    ASSERT_TRUE(data_ref_opt.has_value());
+
+    auto data_ref = std::move(data_ref_opt.value());
     ASSERT_FALSE(data_ref.volts());
     ASSERT_FALSE(data_ref.gear().has_value());
 

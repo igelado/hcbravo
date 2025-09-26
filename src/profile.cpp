@@ -91,10 +91,21 @@ autopilot_data_ref::build(const YAML::Node & node) noexcept
     return autopilot_data_ref(node);
 }
 
+
 system_data_ref::system_data_ref(const YAML::Node & node) noexcept :
     volts_(node["volts"]),
     gear_(node["gear"] ? std::optional(value_data_ref(node["gear"])) : std::nullopt)
 {}
+
+std::expected<system_data_ref, int>
+system_data_ref::build(const YAML::Node & node) noexcept
+{
+    // Only the AP annunciator is required
+    if(!node["volts"]) return std::unexpected(1);
+    return system_data_ref(node);
+}
+
+
 
 annunciator_data_ref::annunciator_data_ref(const YAML::Node & node) noexcept :
     master_warn_(node["master_warn"]),

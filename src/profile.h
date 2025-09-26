@@ -68,6 +68,7 @@ class autopilot_data_ref {
 public:
     autopilot_data_ref(const YAML::Node & node) noexcept;
 
+    static
     std::expected<autopilot_data_ref, int>
     build(const YAML::Node & node) noexcept;
 
@@ -161,6 +162,7 @@ public:
 
     system_data_ref(const YAML::Node & node) noexcept;
 
+    static
     std::expected<system_data_ref, int>
     build(const YAML::Node & node) noexcept;
 
