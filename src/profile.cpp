@@ -72,15 +72,23 @@ value_data_ref::value_data_ref(const YAML::Node & node) noexcept {
 }
 
 autopilot_data_ref::autopilot_data_ref(const YAML::Node & node) noexcept :
-    hdg_(node["hdg"]),
-    nav_(node["nav"]),
-    apr_(node["apr"]),
-    rev_(node["rev"]),
-    alt_(node["alt"]),
-    vs_(node["vs"]),
-    ias_(node["ias"]),
+    hdg_(node["hdg"] ? std::optional(value_data_ref(node["hdg"])) : std::nullopt),
+    nav_(node["nav"] ? std::optional(value_data_ref(node["nav"])) : std::nullopt),
+    apr_(node["apr"] ? std::optional(value_data_ref(node["apr"])) : std::nullopt),
+    rev_(node["rev"] ? std::optional(value_data_ref(node["rev"])) : std::nullopt),
+    alt_(node["alt"] ? std::optional(value_data_ref(node["alt"])) : std::nullopt),
+    vs_ (node["vs"] ? std::optional(value_data_ref(node["vs"])) : std::nullopt),
+    ias_(node["ias"] ? std::optional(value_data_ref(node["ias"])) : std::nullopt),
     ap_(node["ap"])
 {
+}
+
+std::expected<autopilot_data_ref, int>
+autopilot_data_ref::build(const YAML::Node & node) noexcept
+{
+    // Only the AP annunciator is required
+    if(!node["ap"]) return std::unexpected(1);
+    return autopilot_data_ref(node);
 }
 
 system_data_ref::system_data_ref(const YAML::Node & node) noexcept :

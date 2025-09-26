@@ -145,42 +145,156 @@ autopilot:
     )");
 
     auto data_ref = autopilot_data_ref(node["autopilot"]);
-    ASSERT_FALSE(data_ref.hdg());
-    ASSERT_FALSE(data_ref.nav());
-    ASSERT_FALSE(data_ref.apr());
-    ASSERT_FALSE(data_ref.rev());
-    ASSERT_FALSE(data_ref.alt());
-    ASSERT_FALSE(data_ref.vs());
-    ASSERT_FALSE(data_ref.ias());
+    ASSERT_TRUE(data_ref.hdg().has_value());
+    ASSERT_FALSE(data_ref.hdg().value());
+
+    ASSERT_TRUE(data_ref.nav().has_value());
+    ASSERT_FALSE(data_ref.nav().value());
+
+    ASSERT_TRUE(data_ref.apr().has_value());
+    ASSERT_FALSE(data_ref.apr().value());
+
+    ASSERT_TRUE(data_ref.rev().has_value());
+    ASSERT_FALSE(data_ref.rev().value());
+
+    ASSERT_TRUE(data_ref.alt().has_value());
+    ASSERT_FALSE(data_ref.alt().value());
+
+    ASSERT_TRUE(data_ref.vs().has_value());
+    ASSERT_FALSE(data_ref.vs().value());
+
+    ASSERT_TRUE(data_ref.ias().has_value());
+    ASSERT_FALSE(data_ref.ias().value());
+
     ASSERT_FALSE(data_ref.ap());
 
-    data_ref.hdg_data_ref().data().front()->data_ref()->value = 13;
-    ASSERT_TRUE(data_ref.hdg());
+    ASSERT_TRUE(data_ref.hdg_data_ref().has_value());
+    data_ref.hdg_data_ref().value().data().front()->data_ref()->value = 13;
+    ASSERT_TRUE(data_ref.hdg().value());
 
-    data_ref.nav_data_ref().data()[0]->data_ref()->value = 1;
-    ASSERT_TRUE(data_ref.nav());
-    data_ref.nav_data_ref().data()[0]->data_ref()->value = 0;
-    data_ref.nav_data_ref().data()[0]->data_ref()->value = 1;
-    ASSERT_TRUE(data_ref.nav());
+    ASSERT_TRUE(data_ref.nav_data_ref().has_value());
+    data_ref.nav_data_ref().value().data()[0]->data_ref()->value = 1;
+    ASSERT_TRUE(data_ref.nav().value());
+    data_ref.nav_data_ref().value().data()[0]->data_ref()->value = 0;
+    data_ref.nav_data_ref().value().data()[0]->data_ref()->value = 1;
+    ASSERT_TRUE(data_ref.nav().value());
 
-    data_ref.apr_data_ref().data().front()->data_ref()->value = 1;
-    ASSERT_TRUE(data_ref.apr());
+    ASSERT_TRUE(data_ref.apr_data_ref().has_value());
+    data_ref.apr_data_ref().value().data().front()->data_ref()->value = 1;
+    ASSERT_TRUE(data_ref.apr().value());
 
-    data_ref.rev_data_ref().data().front()->data_ref()->value = 1;
-    ASSERT_TRUE(data_ref.rev());
+    ASSERT_TRUE(data_ref.rev_data_ref().has_value());
+    data_ref.rev_data_ref().value().data().front()->data_ref()->value = 1;
+    ASSERT_TRUE(data_ref.rev().value());
 
-    data_ref.alt_data_ref().data().front()->data_ref()->value = 1;
-    ASSERT_TRUE(data_ref.alt());
+    ASSERT_TRUE(data_ref.alt_data_ref().has_value());
+    data_ref.alt_data_ref().value().data().front()->data_ref()->value = 1;
+    ASSERT_TRUE(data_ref.alt().value());
 
-    data_ref.vs_data_ref().data().front()->data_ref()->value = 1;
-    ASSERT_TRUE(data_ref.vs());
+    ASSERT_TRUE(data_ref.vs_data_ref().has_value());
+    data_ref.vs_data_ref().value().data().front()->data_ref()->value = 1;
+    ASSERT_TRUE(data_ref.vs().value());
 
-    data_ref.ias_data_ref().data().front()->data_ref()->value = 1;
-    ASSERT_TRUE(data_ref.ias());
+    ASSERT_TRUE(data_ref.ias_data_ref().has_value());
+    data_ref.ias_data_ref().value().data().front()->data_ref()->value = 1;
+    ASSERT_TRUE(data_ref.ias().value());
 
     data_ref.ap_data_ref().data().front()->data_ref()->value = 1;
     ASSERT_TRUE(data_ref.ap());
 }
+
+TEST(profile_test, autopilot_minimal) {
+    auto node = YAML::Load(R"(
+autopilot:
+ ap:
+  - key: 'sim/cockpit2/autopilot/servos_on'
+    )");
+    auto data_ref = autopilot_data_ref(node["autopilot"]);
+    ASSERT_FALSE(data_ref.hdg().has_value());
+    ASSERT_FALSE(data_ref.nav().has_value());
+    ASSERT_FALSE(data_ref.apr().has_value());
+    ASSERT_FALSE(data_ref.rev().has_value());
+    ASSERT_FALSE(data_ref.alt().has_value());
+    ASSERT_FALSE(data_ref.vs().has_value());
+    ASSERT_FALSE(data_ref.ias().has_value());
+    ASSERT_FALSE(data_ref.ap());
+
+    data_ref.ap_data_ref().data().front()->data_ref()->value = 1;
+    ASSERT_TRUE(data_ref.ap());
+}
+
+TEST(profile_test, autopilot_kap140) {
+    auto node = YAML::Load(R"(
+autopilot:
+ hdg:
+  - key: 'sim/cockpit2/autopilot/heading_mode'
+    type: int
+    values: 
+      - 15
+      - 13
+      - 2
+ nav:
+  - key: 'sim/cockpit2/autopilot/nav_status'
+  - key: 'sim/cockpit2/autopilot/gpss_status'
+ apr:
+  - key: 'sim/cockpit2/autopilot/approach_status'
+ alt:
+  - key: 'sim/cockpit2/autopilot/altitude_hold_status'
+ vs:
+  - key: 'sim/cockpit2/autopilot/vvi_status'
+ ap:
+  - key: 'sim/cockpit2/autopilot/servos_on'
+    )");
+
+    auto data_ref = autopilot_data_ref(node["autopilot"]);
+    ASSERT_TRUE(data_ref.hdg().has_value());
+    ASSERT_FALSE(data_ref.hdg().value());
+
+    ASSERT_TRUE(data_ref.nav().has_value());
+    ASSERT_FALSE(data_ref.nav().value());
+
+    ASSERT_TRUE(data_ref.apr().has_value());
+    ASSERT_FALSE(data_ref.apr().value());
+
+    ASSERT_TRUE(data_ref.alt().has_value());
+    ASSERT_FALSE(data_ref.alt().value());
+
+    ASSERT_TRUE(data_ref.vs().has_value());
+    ASSERT_FALSE(data_ref.vs().value());
+
+    ASSERT_FALSE(data_ref.rev().has_value());
+    ASSERT_FALSE(data_ref.ias().has_value());
+
+    ASSERT_FALSE(data_ref.ap());
+
+    ASSERT_TRUE(data_ref.hdg_data_ref().has_value());
+    data_ref.hdg_data_ref().value().data().front()->data_ref()->value = 13;
+    ASSERT_TRUE(data_ref.hdg().value());
+
+    ASSERT_TRUE(data_ref.nav_data_ref().has_value());
+    data_ref.nav_data_ref().value().data()[0]->data_ref()->value = 1;
+    ASSERT_TRUE(data_ref.nav().value());
+    data_ref.nav_data_ref().value().data()[0]->data_ref()->value = 0;
+    data_ref.nav_data_ref().value().data()[0]->data_ref()->value = 1;
+    ASSERT_TRUE(data_ref.nav().value());
+
+    ASSERT_TRUE(data_ref.apr_data_ref().has_value());
+    data_ref.apr_data_ref().value().data().front()->data_ref()->value = 1;
+    ASSERT_TRUE(data_ref.apr().value());
+
+    ASSERT_TRUE(data_ref.alt_data_ref().has_value());
+    data_ref.alt_data_ref().value().data().front()->data_ref()->value = 1;
+    ASSERT_TRUE(data_ref.alt().value());
+
+    ASSERT_TRUE(data_ref.vs_data_ref().has_value());
+    data_ref.vs_data_ref().value().data().front()->data_ref()->value = 1;
+    ASSERT_TRUE(data_ref.vs().value());
+
+    data_ref.ap_data_ref().data().front()->data_ref()->value = 1;
+    ASSERT_TRUE(data_ref.ap());
+}
+
+
 
 TEST(profile_test, system) {
     auto node = YAML::Load(R"(

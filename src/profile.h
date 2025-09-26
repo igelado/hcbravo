@@ -4,7 +4,9 @@
 #include <XPLM/XPLMDataAccess.h>
 #include <yaml.h>
 
+#include <expected>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -53,47 +55,63 @@ public:
 };
 
 
-
 class autopilot_data_ref {
-    value_data_ref hdg_;
-    value_data_ref nav_;
-    value_data_ref apr_;
-    value_data_ref rev_;
-    value_data_ref alt_;
-    value_data_ref vs_;
-    value_data_ref ias_;
+    std::optional<value_data_ref> hdg_;
+    std::optional<value_data_ref> nav_;
+    std::optional<value_data_ref> apr_;
+    std::optional<value_data_ref> rev_;
+    std::optional<value_data_ref> alt_;
+    std::optional<value_data_ref> vs_;
+    std::optional<value_data_ref> ias_;
     value_data_ref ap_;
 
 public:
     autopilot_data_ref(const YAML::Node & node) noexcept;
 
-    inline
-    bool
-    hdg() const noexcept { return this->hdg_.is_set(); }
+    std::expected<autopilot_data_ref, int>
+    build(const YAML::Node & node) noexcept;
 
     inline
-    bool
-    nav() const noexcept { return this->nav_.is_set(); }
+    std::optional<bool>
+    hdg() const noexcept {
+        return this->hdg_.transform(&value_data_ref::is_set);
+    }
+
+    inline
+    std::optional<bool>
+    nav() const noexcept {
+        return this->nav_.transform(&value_data_ref::is_set);
+    }
 
     inline 
-    bool
-    apr() const noexcept { return this->apr_.is_set(); }
+    std::optional<bool>
+    apr() const noexcept {
+        return this->apr_.transform(&value_data_ref::is_set);
+    }
 
     inline
-    bool
-    rev() const noexcept { return this->rev_.is_set(); }
+    std::optional<bool>
+    rev() const noexcept {
+        return this->rev_.transform(&value_data_ref::is_set);
+    }
 
     inline 
-    bool
-    alt() const noexcept { return this->alt_.is_set(); }
+    std::optional<bool>
+    alt() const noexcept {
+        return this->alt_.transform(&value_data_ref::is_set);
+    }
 
     inline 
-    bool 
-    vs() const noexcept { return this->vs_.is_set(); }
+    std::optional<bool>
+    vs() const noexcept {
+        return this->vs_.transform(&value_data_ref::is_set);
+    }
 
     inline
-    bool 
-    ias() const noexcept { return this->ias_.is_set(); }
+    std::optional<bool>
+    ias() const noexcept {
+        return this->ias_.transform(&value_data_ref::is_set);
+    }
 
     inline 
     bool 
@@ -101,31 +119,31 @@ public:
 
 #if defined(HCBRAVO_PROFILE_TESTS)
     inline
-    const value_data_ref &
+    const std::optional<value_data_ref> &
     hdg_data_ref() const noexcept { return this->hdg_; }
 
     inline
-    const value_data_ref &
+    const std::optional<value_data_ref> &
     nav_data_ref() const noexcept { return this->nav_; }
 
     inline
-    const value_data_ref &
+    const std::optional<value_data_ref> &
     apr_data_ref() const noexcept { return this->apr_; }
 
     inline
-    const value_data_ref &
+    const std::optional<value_data_ref> &
     rev_data_ref() const noexcept { return this->rev_; }
 
     inline
-    const value_data_ref &
+    const std::optional<value_data_ref> &
     alt_data_ref() const noexcept { return this->alt_; }
 
     inline
-    const value_data_ref &
+    const std::optional<value_data_ref> &
     vs_data_ref() const noexcept { return this->vs_; }
 
     inline
-    const value_data_ref &
+    const std::optional<value_data_ref> &
     ias_data_ref() const noexcept { return this->ias_; }
 
     inline
@@ -142,6 +160,9 @@ class system_data_ref {
 public:
 
     system_data_ref(const YAML::Node & node) noexcept;
+
+    std::expected<system_data_ref, int>
+    build(const YAML::Node & node) noexcept;
 
     inline 
     bool 
