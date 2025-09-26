@@ -3,7 +3,7 @@
 
 #include <XPLM/XPLMUtilities.h>
 
-#include <atomic>
+#include <optional>
 #include <tuple>
 #include <cstdint>
 
@@ -12,6 +12,29 @@
 static const size_t LED_NR_BANKS = 4;
 static const size_t LED_NR_BITS = 8;
 using led_id = std::tuple<uint8_t, uint8_t>;
+
+class led_mask {
+    uint8_t banks_[LED_NR_BANKS];
+    friend class led_state;
+public:
+    inline
+    led_mask() noexcept {
+        ::memset(banks_, 0, sizeof(banks_));
+    }
+
+    inline
+    void update(const led_id & id, bool value) noexcept {
+        if(value == true) {
+            banks_[std::get<0>(id)] |= (1 << std::get<1>(id));
+        }
+    }
+
+    inline
+    void update(const led_id & id, const std::optional<bool> & value) noexcept {
+        if(value.has_value()) update(id, value.value());
+    }
+};
+
 class led_state {
 private:
     struct state {
@@ -27,7 +50,6 @@ private:
         buffer_type  buffer_;
     } u;
     hid_device_ * hid_;
-    mutable std::atomic<bool> dirty_;
 public:
     led_state() noexcept;
     led_state(led_state &&) noexcept;
@@ -42,27 +64,16 @@ public:
 
     inline
     void
-    set_led(const led_id & id) noexcept {
-        dirty_.store(true, std::memory_order_release);
-        u.state_.banks_[std::get<0>(id)] |= (static_cast<uint8_t>(1) << std::get<1>(id));
-    }
-
-    inline
-    void
-    clear_led(const led_id & id) noexcept {
-        dirty_.store(true, std::memory_order_release);
-        u.state_.banks_[std::get<0>(id)] &= ~(static_cast<uint8_t>(1) << std::get<1>(id));
-    }
-
-    inline
-    void
-    update() const {
-        auto dirty = dirty_.exchange(false, std::memory_order_acquire);
-        if(dirty) {
-            int ret = hid_send_feature_report(this->hid_, this->u.buffer_, sizeof(*this));
-            if(ret < 0) {
-                XPLMDebugString("Failed to update LED state");
-            }
+    update(const led_mask & mask) {
+        size_t n;
+        for(n = 0; n < LED_NR_BANKS; ++n) {
+            if(u.state_.banks_[n] != mask.banks_[n]) break;
+        }
+        if(n == LED_NR_BANKS) return;
+        ::memcpy(u.state_.banks_, mask.banks_, sizeof(mask.banks_));
+        int ret = hid_send_feature_report(this->hid_, this->u.buffer_, sizeof(*this));
+        if(ret < 0) {
+            XPLMDebugString("Failed to update LED state");
         }
     }
 

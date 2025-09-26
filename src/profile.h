@@ -137,7 +137,7 @@ public:
 
 class system_data_ref {
     value_data_ref volts_;
-    value_data_ref gear_;
+    std::optional<value_data_ref> gear_;
 
 public:
 
@@ -148,8 +148,12 @@ public:
     volts() const noexcept { return this->volts_.is_set(); }
 
     inline 
-    bool 
-    gear() const noexcept { return this->gear_.is_set(); }
+    std::optional<bool> 
+    gear() const noexcept {
+        return this->gear_.transform([] (const auto & v) {
+            return v.is_set();
+        });
+    }
 
 #if defined(HCBRAVO_PROFILE_TESTS)
     inline
@@ -157,7 +161,7 @@ public:
     volts_data_ref() const noexcept { return this->volts_; }
 
     inline
-    const value_data_ref &
+    const std::optional<value_data_ref> &
     gear_data_ref() const noexcept { return this->gear_; }
 #endif
 };
@@ -169,7 +173,7 @@ class annunciator_data_ref {
     value_data_ref fuel_low_;
     value_data_ref anti_ice_;
     value_data_ref starter_;
-    value_data_ref apu_;
+    std::optional<value_data_ref> apu_;
     value_data_ref master_caution_;
     value_data_ref vacuum_low_;
     value_data_ref hydro_low_;
@@ -208,8 +212,12 @@ public:
     starter() const noexcept { return this->starter_.is_set(); }
 
     inline 
-    bool
-    apu() const noexcept { return this->apu_.is_set(); }
+    const std::optional<bool>
+    apu() const noexcept {
+        return this->apu_.transform([] (const auto & v) {
+            return v.is_set();
+        });
+    }
 
     inline 
     bool 

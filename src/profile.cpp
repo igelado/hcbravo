@@ -85,7 +85,7 @@ autopilot_data_ref::autopilot_data_ref(const YAML::Node & node) noexcept :
 
 system_data_ref::system_data_ref(const YAML::Node & node) noexcept :
     volts_(node["volts"]),
-    gear_(node["gear"])
+    gear_(node["gear"] ? std::optional(value_data_ref(node["gear"])) : std::nullopt)
 {}
 
 annunciator_data_ref::annunciator_data_ref(const YAML::Node & node) noexcept :
@@ -95,7 +95,7 @@ annunciator_data_ref::annunciator_data_ref(const YAML::Node & node) noexcept :
     fuel_low_(node["fuel_low"]),
     anti_ice_(node["anti_ice"]),
     starter_(node["starter"]),
-    apu_(node["apu"]),
+    apu_(node["apu"] ? std::optional(value_data_ref(node["apu"])) : std::nullopt),
     master_caution_(node["master_caution"]),
     vacuum_low_(node["vacuum_low"]),
     hydro_low_(node["hydro_low"]),

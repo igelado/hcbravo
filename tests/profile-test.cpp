@@ -194,11 +194,27 @@ system:
 
     auto data_ref = system_data_ref(node["system"]);
     ASSERT_FALSE(data_ref.volts());
-    ASSERT_FALSE(data_ref.gear());
+    ASSERT_TRUE(data_ref.gear().has_value());
+    ASSERT_FALSE(data_ref.gear().value());
 
     data_ref.volts_data_ref().data().front()->data_ref()->value = 1;
     ASSERT_TRUE(data_ref.volts());
 
-    data_ref.gear_data_ref().data().front()->data_ref()->value = 1;
+    data_ref.gear_data_ref().value().data().front()->data_ref()->value = 1;
     ASSERT_TRUE(data_ref.gear());
+}
+
+TEST(profile_test, system_no_gear) {
+    auto node = YAML::Load(R"(
+system:
+ volts:
+  - key: 'sim/cockpit2/electrical/bus_volts'
+    )");
+
+    auto data_ref = system_data_ref(node["system"]);
+    ASSERT_FALSE(data_ref.volts());
+    ASSERT_FALSE(data_ref.gear().has_value());
+
+    data_ref.volts_data_ref().data().front()->data_ref()->value = 1;
+    ASSERT_TRUE(data_ref.volts());
 }

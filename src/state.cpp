@@ -17,6 +17,49 @@ float
 state::flight_iteration(float call, float iter, int counter, void * _this) noexcept {
     state * self = reinterpret_cast<state *>(_this);
     if(self == nullptr or self->plane_.has_value() == false) return 0;
+    const auto plane = self->plane_.value();
+
+    const auto & ap = plane->autopilot();
+    led_mask mask;
+    mask.update(LED_AP_HDG, ap.hdg());
+    mask.update(LED_AP_NAV, ap.nav());
+    mask.update(LED_AP_APR, ap.apr());
+    mask.update(LED_AP_REV, ap.rev());
+    mask.update(LED_AP_ALT, ap.alt());
+    mask.update(LED_AP_VS, ap.vs());
+    mask.update(LED_AP_IAS, ap.ias());
+    mask.update(LED_AP, ap.ap());
+
+    const auto & system = plane->system();
+    if(system.gear().has_value()) {
+        bool status = system.gear().value();
+        mask.update(LED_LDG_L_GREEN, status);
+        mask.update(LED_LDG_L_RED, !status);
+
+        mask.update(LED_LDG_N_GREEN, status);
+        mask.update(LED_LDG_N_RED, !status);
+ 
+        mask.update(LED_LDG_R_GREEN, status);
+        mask.update(LED_LDG_R_RED, !status);
+    }
+
+    const auto & ann = plane->annunciator();
+    mask.update(LED_ANC_MSTR_WARN, ann.master_warn());
+    mask.update(LED_ANC_ENG_FIRE, ann.eng_fire());
+    mask.update(LED_ANC_OIL, ann.oil_low());
+    mask.update(LED_ANC_FUEL, ann.fuel_low());
+    mask.update(LED_ANC_ANTI_ICE, ann.anti_ice());
+    mask.update(LED_ANC_STARTER, ann.starter());
+    mask.update(LED_ANC_APU, ann.apu());
+    mask.update(LED_ANC_MSTR_CTN, ann.master_caution());
+    mask.update(LED_ANC_VACUUM, ann.vacuum_low());
+    mask.update(LED_ANC_HYD, ann.hydro_low());
+    mask.update(LED_ANC_AUX_FUEL, ann.aux_fuel());
+    mask.update(LED_ANC_PRK_BRK, ann.parking_brake());
+    mask.update(LED_ANC_VOLTS, system.volts());
+    mask.update(LED_ANC_DOOR, ann.door_open());
+
+    self->leds_.update(mask);
 
     return -1.0;
 }

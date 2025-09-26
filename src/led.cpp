@@ -2,14 +2,12 @@
 
 #include <cstring>
 
-led_state::led_state() noexcept :
-    dirty_(false)
+led_state::led_state() noexcept 
 {
     ::memset(reinterpret_cast<void *>(&u), 0, sizeof(u));
 }
 
-led_state::led_state(led_state && other) noexcept :
-    dirty_(other.dirty_.load(std::memory_order_acquire))
+led_state::led_state(led_state && other) noexcept 
 {
     ::memcpy(&u, &other.u, sizeof(u));
 }

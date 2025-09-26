@@ -52,18 +52,6 @@ public:
 
     void
     unload_plane() noexcept;
-
-    inline
-    void
-    set_led(const led_id & id) { this->leds_.set_led(id); }
-
-    inline
-    void
-    clear_led(const led_id & id) { this->leds_.clear_led(id); }
-
-    inline
-    void
-    update() const { leds_.update(); }
 };
 
 
