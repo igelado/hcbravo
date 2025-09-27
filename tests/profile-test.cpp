@@ -33,7 +33,7 @@ tag:
     )");
     auto data_ref = value_data_ref(node["tag"]);
     ASSERT_FALSE(data_ref.data().empty());
-    data_ref.data().front()->data_ref()->value = 1;
+    data_ref.data().front()->data_ref()->value.i = 1;
     ASSERT_TRUE(data_ref.is_set());
 }
 
@@ -89,13 +89,13 @@ tag:
     auto data_ref = value_data_ref(node["tag"]);
     ASSERT_FALSE(data_ref.data().empty());
 
-    data_ref.data().front()->data_ref()->value = 1;
+    data_ref.data().front()->data_ref()->value.i = 1;
     ASSERT_TRUE(data_ref.is_set());
 
-    data_ref.data().front()->data_ref()->value = 2;
+    data_ref.data().front()->data_ref()->value.i = 2;
     ASSERT_TRUE(data_ref.is_set());
 
-    data_ref.data().front()->data_ref()->value = 5;
+    data_ref.data().front()->data_ref()->value.i = 5;
     ASSERT_TRUE(data_ref.is_set());
 }
 
@@ -113,13 +113,13 @@ tag:
     ASSERT_FALSE(data_ref.data().empty());
     ASSERT_FALSE(data_ref.is_set());
 
-    data_ref.data().front()->data_ref()->value = 4;
+    data_ref.data().front()->data_ref()->value.i = 4;
     ASSERT_FALSE(data_ref.is_set());
 }
 
-TEST(profile_test, autopilot) {
+TEST(profile_test, autopilot_mode) {
     auto node = YAML::Load(R"(
-autopilot:
+mode:
  hdg:
   - key: 'sim/cockpit2/autopilot/heading_mode'
     type: int
@@ -144,7 +144,7 @@ autopilot:
   - key: 'sim/cockpit2/autopilot/servos_on'
     )");
 
-    auto data_ref_opt = autopilot_mode_data_ref::build(node["autopilot"]);
+    auto data_ref_opt = autopilot_mode_data_ref::build(node["mode"]);
     ASSERT_TRUE(data_ref_opt.has_value());
 
     auto data_ref = std::move(data_ref_opt.value());
@@ -172,47 +172,47 @@ autopilot:
     ASSERT_FALSE(data_ref.ap());
 
     ASSERT_TRUE(data_ref.hdg_data_ref().has_value());
-    data_ref.hdg_data_ref().value().data().front()->data_ref()->value = 13;
+    data_ref.hdg_data_ref().value().data().front()->data_ref()->value.i = 13;
     ASSERT_TRUE(data_ref.hdg().value());
 
     ASSERT_TRUE(data_ref.nav_data_ref().has_value());
-    data_ref.nav_data_ref().value().data()[0]->data_ref()->value = 1;
+    data_ref.nav_data_ref().value().data()[0]->data_ref()->value.i = 1;
     ASSERT_TRUE(data_ref.nav().value());
-    data_ref.nav_data_ref().value().data()[0]->data_ref()->value = 0;
-    data_ref.nav_data_ref().value().data()[0]->data_ref()->value = 1;
+    data_ref.nav_data_ref().value().data()[0]->data_ref()->value.i = 0;
+    data_ref.nav_data_ref().value().data()[0]->data_ref()->value.i = 1;
     ASSERT_TRUE(data_ref.nav().value());
 
     ASSERT_TRUE(data_ref.apr_data_ref().has_value());
-    data_ref.apr_data_ref().value().data().front()->data_ref()->value = 1;
+    data_ref.apr_data_ref().value().data().front()->data_ref()->value.i = 1;
     ASSERT_TRUE(data_ref.apr().value());
 
     ASSERT_TRUE(data_ref.rev_data_ref().has_value());
-    data_ref.rev_data_ref().value().data().front()->data_ref()->value = 1;
+    data_ref.rev_data_ref().value().data().front()->data_ref()->value.i = 1;
     ASSERT_TRUE(data_ref.rev().value());
 
     ASSERT_TRUE(data_ref.alt_data_ref().has_value());
-    data_ref.alt_data_ref().value().data().front()->data_ref()->value = 1;
+    data_ref.alt_data_ref().value().data().front()->data_ref()->value.i = 1;
     ASSERT_TRUE(data_ref.alt().value());
 
     ASSERT_TRUE(data_ref.vs_data_ref().has_value());
-    data_ref.vs_data_ref().value().data().front()->data_ref()->value = 1;
+    data_ref.vs_data_ref().value().data().front()->data_ref()->value.i = 1;
     ASSERT_TRUE(data_ref.vs().value());
 
     ASSERT_TRUE(data_ref.ias_data_ref().has_value());
-    data_ref.ias_data_ref().value().data().front()->data_ref()->value = 1;
+    data_ref.ias_data_ref().value().data().front()->data_ref()->value.i = 1;
     ASSERT_TRUE(data_ref.ias().value());
 
-    data_ref.ap_data_ref().data().front()->data_ref()->value = 1;
+    data_ref.ap_data_ref().data().front()->data_ref()->value.i = 1;
     ASSERT_TRUE(data_ref.ap());
 }
 
-TEST(profile_test, autopilot_minimal) {
+TEST(profile_test, autopilot_mode_minimal) {
     auto node = YAML::Load(R"(
-autopilot:
+mode:
  ap:
   - key: 'sim/cockpit2/autopilot/servos_on'
     )");
-    auto data_ref_opt = autopilot_mode_data_ref::build(node["autopilot"]);
+    auto data_ref_opt = autopilot_mode_data_ref::build(node["mode"]);
     ASSERT_TRUE(data_ref_opt.has_value());
 
     auto data_ref = std::move(data_ref_opt.value());
@@ -225,13 +225,13 @@ autopilot:
     ASSERT_FALSE(data_ref.ias().has_value());
     ASSERT_FALSE(data_ref.ap());
 
-    data_ref.ap_data_ref().data().front()->data_ref()->value = 1;
+    data_ref.ap_data_ref().data().front()->data_ref()->value.i = 1;
     ASSERT_TRUE(data_ref.ap());
 }
 
-TEST(profile_test, autopilot_kap140) {
+TEST(profile_test, autopilot_mode_kap140) {
     auto node = YAML::Load(R"(
-autopilot:
+mode:
  hdg:
   - key: 'sim/cockpit2/autopilot/heading_mode'
     type: int
@@ -252,7 +252,7 @@ autopilot:
   - key: 'sim/cockpit2/autopilot/servos_on'
     )");
 
-    auto data_ref_opt = autopilot_mode_data_ref::build(node["autopilot"]);
+    auto data_ref_opt = autopilot_mode_data_ref::build(node["mode"]);
     ASSERT_TRUE(data_ref_opt.has_value());
 
     auto data_ref = std::move(data_ref_opt.value());
@@ -278,33 +278,93 @@ autopilot:
     ASSERT_FALSE(data_ref.ap());
 
     ASSERT_TRUE(data_ref.hdg_data_ref().has_value());
-    data_ref.hdg_data_ref().value().data().front()->data_ref()->value = 13;
+    data_ref.hdg_data_ref().value().data().front()->data_ref()->value.i = 13;
     ASSERT_TRUE(data_ref.hdg().value());
 
     ASSERT_TRUE(data_ref.nav_data_ref().has_value());
-    data_ref.nav_data_ref().value().data()[0]->data_ref()->value = 1;
+    data_ref.nav_data_ref().value().data()[0]->data_ref()->value.i = 1;
     ASSERT_TRUE(data_ref.nav().value());
-    data_ref.nav_data_ref().value().data()[0]->data_ref()->value = 0;
-    data_ref.nav_data_ref().value().data()[0]->data_ref()->value = 1;
+    data_ref.nav_data_ref().value().data()[0]->data_ref()->value.i = 0;
+    data_ref.nav_data_ref().value().data()[0]->data_ref()->value.i = 1;
     ASSERT_TRUE(data_ref.nav().value());
 
     ASSERT_TRUE(data_ref.apr_data_ref().has_value());
-    data_ref.apr_data_ref().value().data().front()->data_ref()->value = 1;
+    data_ref.apr_data_ref().value().data().front()->data_ref()->value.i = 1;
     ASSERT_TRUE(data_ref.apr().value());
 
     ASSERT_TRUE(data_ref.alt_data_ref().has_value());
-    data_ref.alt_data_ref().value().data().front()->data_ref()->value = 1;
+    data_ref.alt_data_ref().value().data().front()->data_ref()->value.i = 1;
     ASSERT_TRUE(data_ref.alt().value());
 
     ASSERT_TRUE(data_ref.vs_data_ref().has_value());
-    data_ref.vs_data_ref().value().data().front()->data_ref()->value = 1;
+    data_ref.vs_data_ref().value().data().front()->data_ref()->value.i = 1;
     ASSERT_TRUE(data_ref.vs().value());
 
-    data_ref.ap_data_ref().data().front()->data_ref()->value = 1;
+    data_ref.ap_data_ref().data().front()->data_ref()->value.i = 1;
     ASSERT_TRUE(data_ref.ap());
 }
 
+TEST(profile_test, autopilot_dial) {
+  auto node = YAML::Load(R"(
+dials:
+  airspeed:
+    is_mach: 'sim/cockpit2/autopilot/airspeed_is_mach'
+    value: 'sim/cockpit2/autopilot/airspeed_dial_kts_mach'
+  course: 'sim/cockpit2/radios/actuators/nav1_obs_deg_mag_pilot'
+  heading: 'sim/cockpit2/autopilot/heading_dial_deg_mag_pilot'
+  vs: 'sim/cockpit2/autopilot/vvi_dial_fpm'
+  alt: 'sim/cockpit/autopilot/current_altitude'
+  )");
 
+  auto data_ref_opt = autopilot_dial_data_ref::build(node["dials"]);
+  ASSERT_TRUE(data_ref_opt.has_value());
+
+  auto data_ref = std::move(data_ref_opt.value());
+  ASSERT_TRUE(data_ref.ias());
+  ASSERT_EQ(data_ref.ias().value().unit(), airspeed_unit::Knots);
+  data_ref.ias().value().unit_data_ref()->value.i = 1;
+  ASSERT_EQ(data_ref.ias().value().unit(), airspeed_unit::Mach);
+  ASSERT_EQ(data_ref.ias().value().get(), 0.0f);
+  data_ref.ias().value().set(1.2345f);
+  ASSERT_EQ(data_ref.ias().value().get(), 1.2345f);
+
+  ASSERT_TRUE(data_ref.course());
+  ASSERT_EQ(data_ref.course().value().get(), 0.0f);
+  data_ref.course().value().set(3.14159f);
+  ASSERT_EQ(data_ref.course().value().get(), 3.14159f);
+
+  ASSERT_TRUE(data_ref.heading());
+  ASSERT_EQ(data_ref.heading().value().get(), 0.0f);
+  data_ref.heading().value().set(9.8765f);
+  ASSERT_EQ(data_ref.heading().value().get(), 9.8765f);
+
+  ASSERT_TRUE(data_ref.vs());
+  ASSERT_EQ(data_ref.vs().value().get(), 0.0f);
+  data_ref.vs().value().set(2.71828f);
+  ASSERT_EQ(data_ref.vs().value().get(), 2.71828f);
+
+  ASSERT_TRUE(data_ref.alt());
+  ASSERT_EQ(data_ref.alt().value().get(), 0.0f);
+  data_ref.alt().value().set(-1.5f);
+  ASSERT_EQ(data_ref.alt().value().get(), -1.5f);
+}
+
+TEST(profile_test, autopilot_dial_kap140) {
+   auto node = YAML::Load(R"(
+dials:
+  course: 'sim/cockpit2/radios/actuators/nav1_obs_deg_mag_pilot'
+  heading: 'sim/cockpit2/autopilot/heading_dial_deg_mag_pilot'
+  vs: 'sim/cockpit2/autopilot/vvi_dial_fpm'
+  alt: 'sim/cockpit/autopilot/current_altitude'
+  )");
+
+  auto data_ref_opt = autopilot_dial_data_ref::build(node["dials"]);
+  ASSERT_TRUE(data_ref_opt.has_value());
+
+  auto data_ref = std::move(data_ref_opt.value());
+  ASSERT_FALSE(data_ref.ias());
+ 
+}
 
 TEST(profile_test, system) {
     auto node = YAML::Load(R"(
@@ -324,10 +384,10 @@ system:
     ASSERT_TRUE(data_ref.gear().has_value());
     ASSERT_FALSE(data_ref.gear().value());
 
-    data_ref.volts_data_ref().data().front()->data_ref()->value = 1;
+    data_ref.volts_data_ref().data().front()->data_ref()->value.i = 1;
     ASSERT_TRUE(data_ref.volts());
 
-    data_ref.gear_data_ref().value().data().front()->data_ref()->value = 1;
+    data_ref.gear_data_ref().value().data().front()->data_ref()->value.i = 1;
     ASSERT_TRUE(data_ref.gear());
 }
 
@@ -345,7 +405,7 @@ system:
     ASSERT_FALSE(data_ref.volts());
     ASSERT_FALSE(data_ref.gear().has_value());
 
-    data_ref.volts_data_ref().data().front()->data_ref()->value = 1;
+    data_ref.volts_data_ref().data().front()->data_ref()->value.i = 1;
     ASSERT_TRUE(data_ref.volts());
 }
 
@@ -393,88 +453,88 @@ annunciator:
 
     ASSERT_TRUE(data_ref.master_warn().has_value());
     ASSERT_FALSE(data_ref.master_warn().value());
-    data_ref.master_warn_data_ref().value().data().front()->data_ref()->value = 1;
+    data_ref.master_warn_data_ref().value().data().front()->data_ref()->value.i = 1;
     ASSERT_TRUE(data_ref.master_warn().value());
 
     ASSERT_TRUE(data_ref.eng_fire().has_value());
     ASSERT_FALSE(data_ref.eng_fire().value());
-    data_ref.eng_fire_data_ref().value().data().front()->data_ref()->value = 1;
+    data_ref.eng_fire_data_ref().value().data().front()->data_ref()->value.i = 1;
     ASSERT_TRUE(data_ref.eng_fire().value());
 
     ASSERT_TRUE(data_ref.oil_low().has_value());
     ASSERT_FALSE(data_ref.oil_low().value());
-    data_ref.oil_low_data_ref().value().data().front()->data_ref()->value = 1;
+    data_ref.oil_low_data_ref().value().data().front()->data_ref()->value.i = 1;
     ASSERT_TRUE(data_ref.oil_low().value());
 
     ASSERT_TRUE(data_ref.fuel_low().has_value());
     ASSERT_FALSE(data_ref.fuel_low().value());
-    data_ref.fuel_low_data_ref().value().data().front()->data_ref()->value = 1;
+    data_ref.fuel_low_data_ref().value().data().front()->data_ref()->value.i = 1;
     ASSERT_TRUE(data_ref.fuel_low().value());
 
     ASSERT_TRUE(data_ref.anti_ice().has_value());
     ASSERT_FALSE(data_ref.anti_ice().value());
-    data_ref.anti_ice_data_ref().value().data().front()->data_ref()->value = 1;
+    data_ref.anti_ice_data_ref().value().data().front()->data_ref()->value.i = 1;
     ASSERT_TRUE(data_ref.anti_ice().value());
 
     ASSERT_TRUE(data_ref.starter().has_value());
     ASSERT_FALSE(data_ref.starter().value());
-    data_ref.starter_data_ref().value().data().front()->data_ref()->value = 1;
+    data_ref.starter_data_ref().value().data().front()->data_ref()->value.i = 1;
     ASSERT_TRUE(data_ref.starter().value());
 
     ASSERT_TRUE(data_ref.apu().has_value());
     ASSERT_FALSE(data_ref.apu().value());
-    data_ref.apu_data_ref().value().data().front()->data_ref()->value = 1;
+    data_ref.apu_data_ref().value().data().front()->data_ref()->value.i = 1;
     ASSERT_TRUE(data_ref.apu().value());
 
     ASSERT_TRUE(data_ref.master_caution().has_value());
     ASSERT_FALSE(data_ref.master_caution().value());
-    data_ref.master_caution_data_ref().value().data().front()->data_ref()->value = 1;
+    data_ref.master_caution_data_ref().value().data().front()->data_ref()->value.i = 1;
     ASSERT_TRUE(data_ref.master_caution().value());
 
     ASSERT_TRUE(data_ref.vacuum_low().has_value());
     ASSERT_FALSE(data_ref.vacuum_low().value());
-    data_ref.vacuum_low_data_ref().value().data().front()->data_ref()->value = 1;
+    data_ref.vacuum_low_data_ref().value().data().front()->data_ref()->value.i = 1;
     ASSERT_TRUE(data_ref.vacuum_low().value());
 
     ASSERT_TRUE(data_ref.hydro_low().has_value());
     ASSERT_FALSE(data_ref.hydro_low().value());
-    data_ref.hydro_low_data_ref().value().data().front()->data_ref()->value = 1;
+    data_ref.hydro_low_data_ref().value().data().front()->data_ref()->value.i = 1;
     ASSERT_TRUE(data_ref.hydro_low().value());
 
     ASSERT_TRUE(data_ref.parking_brake().has_value());
     ASSERT_FALSE(data_ref.parking_brake().value());
-    data_ref.parking_brake_data_ref().value().data().front()->data_ref()->value = 1;
+    data_ref.parking_brake_data_ref().value().data().front()->data_ref()->value.i = 1;
     ASSERT_TRUE(data_ref.parking_brake().value());
 
     ASSERT_TRUE(data_ref.volt_low().has_value());
     ASSERT_FALSE(data_ref.volt_low().value());
-    data_ref.volt_low_data_ref().value().data().front()->data_ref()->value = 1;
+    data_ref.volt_low_data_ref().value().data().front()->data_ref()->value.i = 1;
     ASSERT_TRUE(data_ref.volt_low().value());
 
     ASSERT_TRUE(data_ref.aux_fuel().has_value());
     ASSERT_FALSE(data_ref.aux_fuel().value());
-    data_ref.aux_fuel_data_ref().value().data()[0]->data_ref()->value = 1;
+    data_ref.aux_fuel_data_ref().value().data()[0]->data_ref()->value.i = 1;
     ASSERT_TRUE(data_ref.aux_fuel().value());
-    data_ref.aux_fuel_data_ref().value().data()[0]->data_ref()->value = 0;
+    data_ref.aux_fuel_data_ref().value().data()[0]->data_ref()->value.i = 0;
     ASSERT_FALSE(data_ref.aux_fuel().value());
-    data_ref.aux_fuel_data_ref().value().data()[1]->data_ref()->value = 1;
+    data_ref.aux_fuel_data_ref().value().data()[1]->data_ref()->value.i = 1;
     ASSERT_TRUE(data_ref.aux_fuel().value());
-    data_ref.aux_fuel_data_ref().value().data()[1]->data_ref()->value = 0;
+    data_ref.aux_fuel_data_ref().value().data()[1]->data_ref()->value.i = 0;
     ASSERT_FALSE(data_ref.aux_fuel().value());
  
     ASSERT_TRUE(data_ref.door_open().has_value());
     ASSERT_FALSE(data_ref.door_open().value());
-    data_ref.door_open_data_ref().value().data()[0]->data_ref()->value = 1;
+    data_ref.door_open_data_ref().value().data()[0]->data_ref()->value.i = 1;
     ASSERT_TRUE(data_ref.door_open().value());
-    data_ref.door_open_data_ref().value().data()[0]->data_ref()->value = 0;
+    data_ref.door_open_data_ref().value().data()[0]->data_ref()->value.i = 0;
     ASSERT_FALSE(data_ref.door_open().value());
-    data_ref.door_open_data_ref().value().data()[1]->data_ref()->value = 1;
+    data_ref.door_open_data_ref().value().data()[1]->data_ref()->value.i = 1;
     ASSERT_TRUE(data_ref.door_open().value());
-    data_ref.door_open_data_ref().value().data()[1]->data_ref()->value = 0;
+    data_ref.door_open_data_ref().value().data()[1]->data_ref()->value.i = 0;
     ASSERT_FALSE(data_ref.door_open().value());
-     data_ref.door_open_data_ref().value().data()[2]->data_ref()->value = 1;
+     data_ref.door_open_data_ref().value().data()[2]->data_ref()->value.i = 1;
     ASSERT_TRUE(data_ref.door_open().value());
-    data_ref.door_open_data_ref().value().data()[2]->data_ref()->value = 0;
+    data_ref.door_open_data_ref().value().data()[2]->data_ref()->value.i = 0;
     ASSERT_FALSE(data_ref.door_open().value());
 }
 
@@ -504,37 +564,37 @@ annunciator:
 
     ASSERT_TRUE(data_ref.master_warn().has_value());
     ASSERT_FALSE(data_ref.master_warn().value());
-    data_ref.master_warn_data_ref().value().data().front()->data_ref()->value = 1;
+    data_ref.master_warn_data_ref().value().data().front()->data_ref()->value.i = 1;
     ASSERT_TRUE(data_ref.master_warn().value());
 
     ASSERT_TRUE(data_ref.oil_low().has_value());
     ASSERT_FALSE(data_ref.oil_low().value());
-    data_ref.oil_low_data_ref().value().data().front()->data_ref()->value = 1;
+    data_ref.oil_low_data_ref().value().data().front()->data_ref()->value.i = 1;
     ASSERT_TRUE(data_ref.oil_low().value());
 
     ASSERT_TRUE(data_ref.fuel_low().has_value());
     ASSERT_FALSE(data_ref.fuel_low().value());
-    data_ref.fuel_low_data_ref().value().data().front()->data_ref()->value = 1;
+    data_ref.fuel_low_data_ref().value().data().front()->data_ref()->value.i = 1;
     ASSERT_TRUE(data_ref.fuel_low().value());
 
     ASSERT_TRUE(data_ref.starter().has_value());
     ASSERT_FALSE(data_ref.starter().value());
-    data_ref.starter_data_ref().value().data().front()->data_ref()->value = 1;
+    data_ref.starter_data_ref().value().data().front()->data_ref()->value.i = 1;
     ASSERT_TRUE(data_ref.starter().value());
 
     ASSERT_TRUE(data_ref.master_caution().has_value());
     ASSERT_FALSE(data_ref.master_caution().value());
-    data_ref.master_caution_data_ref().value().data().front()->data_ref()->value = 1;
+    data_ref.master_caution_data_ref().value().data().front()->data_ref()->value.i = 1;
     ASSERT_TRUE(data_ref.master_caution().value());
 
     ASSERT_TRUE(data_ref.vacuum_low().has_value());
     ASSERT_FALSE(data_ref.vacuum_low().value());
-    data_ref.vacuum_low_data_ref().value().data().front()->data_ref()->value = 1;
+    data_ref.vacuum_low_data_ref().value().data().front()->data_ref()->value.i = 1;
     ASSERT_TRUE(data_ref.vacuum_low().value());
 
     ASSERT_TRUE(data_ref.volt_low().has_value());
     ASSERT_FALSE(data_ref.volt_low().value());
-    data_ref.volt_low_data_ref().value().data().front()->data_ref()->value = 1;
+    data_ref.volt_low_data_ref().value().data().front()->data_ref()->value.i = 1;
     ASSERT_TRUE(data_ref.volt_low().value());
 
     ASSERT_FALSE(data_ref.eng_fire().has_value());

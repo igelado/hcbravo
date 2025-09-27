@@ -7,7 +7,12 @@ base_data_ref::base_data_ref(const YAML::Node & node) noexcept :
     data_ref_(nullptr)
 {
     if(!node) return;
-    data_ref_ = XPLMFindDataRef(node["key"].as<std::string>().c_str());
+    if(node.IsMap()) {
+        data_ref_ = XPLMFindDataRef(node["key"].as<std::string>().c_str());
+    }
+    else {
+        data_ref_ = XPLMFindDataRef(node.as<std::string>().c_str());
+    }
 }
 
 template<>
@@ -74,14 +79,42 @@ value_data_ref::value_data_ref(const YAML::Node & node) noexcept {
     }
 }
 
-autopilot_dial_data_ref::autopilot_dial_data_ref(const YAML::Node & node) noexcept :
-    ias_is_mach_(node["ias_is_mach"] ? make_bool_data_ref(node["ias_is_mach"]) : std::nullopt),
-    ias_(node["ias"] ? std::optional(float_data_ref(node["ias"])) : std::nullopt),
+airspeed_data_ref::airspeed_data_ref(
+    XPLMDataRef && is_mach, XPLMDataRef && value
+) noexcept :
+    is_mach_(std::move(is_mach)),
+    value_(std::move(value))
+{}
+
+std::expected<airspeed_data_ref, int>
+airspeed_data_ref::build(const YAML::Node & node) noexcept {
+    if(!node["is_mach"] or !node["value"]) return std::unexpected(0);
+    
+    auto is_mach = XPLMFindDataRef(node["is_mach"].as<std::string>().c_str());
+    auto value = XPLMFindDataRef(node["value"].as<std::string>().c_str());
+    if(is_mach == nullptr or value == nullptr) return std::unexpected(0);
+
+    return airspeed_data_ref(std::move(is_mach), std::move(value)); 
+}
+
+autopilot_dial_data_ref::autopilot_dial_data_ref(std::optional<airspeed_data_ref> && ias, const YAML::Node & node) noexcept :
+    ias_(std::move(ias)),
     course_(node["course"] ? std::optional(float_data_ref(node["course"])) : std::nullopt),
     heading_(node["heading"] ? std::optional(float_data_ref(node["heading"])) : std::nullopt),
     vs_(node["vs"] ? std::optional(float_data_ref(node["vs"])) : std::nullopt),
     alt_(node["alt"] ? std::optional(float_data_ref(node["alt"])) : std::nullopt)
 {}
+
+std::expected<autopilot_dial_data_ref, int>
+autopilot_dial_data_ref::build(const YAML::Node & node) noexcept
+{
+    if(node["airspeed"]) {
+        auto ias = airspeed_data_ref::build(node["airspeed"]);
+        if(ias.has_value() == false) return std::unexpected(0);
+        return autopilot_dial_data_ref(std::move(ias.value()), node);
+    }
+    return autopilot_dial_data_ref(std::nullopt, node);
+}
 
 autopilot_mode_data_ref::autopilot_mode_data_ref(const YAML::Node & node) noexcept :
     hdg_(node["hdg"] ? std::optional(value_data_ref(node["hdg"])) : std::nullopt),
@@ -118,10 +151,14 @@ autopilot_data_ref::build(const YAML::Node & node) noexcept
     auto mode = autopilot_mode_data_ref::build(node["mode"]);
     if(mode.has_value() == false) return std::unexpected(0);
 
-    std::optional<autopilot_dial_data_ref> dial = node["dial"] ?
-        std::optional(autopilot_dial_data_ref(node)) : std::nullopt;
+    if(node["dial"]) {
+        auto dial = autopilot_dial_data_ref::build(node);
+        if(dial.has_value() == false) return std::unexpected(0);
 
-    return autopilot_data_ref(std::move(mode.value()), std::move(dial));
+        return autopilot_data_ref(std::move(mode.value()), std::move(dial.value()));
+    }
+
+    return autopilot_data_ref(std::move(mode.value()), std::nullopt);
 }
 
 system_data_ref::system_data_ref(const YAML::Node & node) noexcept :

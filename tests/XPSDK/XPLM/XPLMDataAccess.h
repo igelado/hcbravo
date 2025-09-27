@@ -9,7 +9,10 @@
 
 struct xplm_data_ref {
     std::string name;
-    int value;
+    union {
+        int i;
+        float f;
+    } value;
 
     inline
     xplm_data_ref(std::string && name, int value) noexcept :
@@ -22,6 +25,7 @@ struct xplm_data_ref {
     operator=(xplm_data_ref && other) noexcept {
         this->name = std::move(other.name);
         this->value = std::move(other.value);
+        return *this;
     }
 };
 
@@ -35,17 +39,17 @@ XPLMDataRef XPLMFindDataRef(const char * key) noexcept {
 
 static inline
 int XPLMGetDatai(const XPLMDataRef & data_ref) noexcept {
-    return data_ref->value;
+    return data_ref->value.i;
 }
 
 static inline
 float XPLMGetDataf(const XPLMDataRef & data_ref) noexcept {
-    return 0.0;
+    return data_ref->value.f;
 }
 
 static inline
 void XPLMSetDataf(const XPLMDataRef & data_ref, float value) noexcept {
-
+    data_ref->value.f = value;
 }
 
 #endif

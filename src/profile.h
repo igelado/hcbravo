@@ -92,17 +92,55 @@ public:
 
 };
 
+enum class airspeed_unit {
+    Knots,
+    Mach
+};
+
+class airspeed_data_ref {
+protected:
+    XPLMDataRef is_mach_;
+    XPLMDataRef value_;
+
+    airspeed_data_ref(XPLMDataRef && is_mach, XPLMDataRef && value) noexcept;
+public:
+
+    airspeed_data_ref(airspeed_data_ref && other) noexcept = default;
+
+    static
+    std::expected<airspeed_data_ref, int>
+    build(const YAML::Node &) noexcept;
+
+    inline
+    airspeed_unit
+    unit() const noexcept {
+        return XPLMGetDatai(this->is_mach_) ? airspeed_unit::Mach : airspeed_unit::Knots;
+    }
+
+    inline
+    float get() const noexcept {
+        return XPLMGetDataf(this->value_);
+    }
+
+    inline
+    void set(float value) const noexcept {
+        XPLMSetDataf(this->value_, value);
+    }
+#if defined(HCBRAVO_PROFILE_TESTS)
+    inline
+    XPLMDataRef &
+    unit_data_ref() noexcept { return this->is_mach_; }
+#endif
+};
+
 class autopilot_dial_data_ref {
-    std::optional<bool_data_ref::ptr_type> ias_is_mach_;
-    std::optional<float_data_ref> ias_;
+    std::optional<airspeed_data_ref> ias_;
     std::optional<float_data_ref> course_;
     std::optional<float_data_ref> heading_;
     std::optional<float_data_ref> vs_;
     std::optional<float_data_ref> alt_;
 
-    autopilot_dial_data_ref(const YAML::Node & node) noexcept;
-
-    friend class autopilot_data_ref;
+    autopilot_dial_data_ref(std::optional<airspeed_data_ref> && ias, const YAML::Node & node) noexcept;
 public:
 
     autopilot_dial_data_ref(autopilot_dial_data_ref && other) noexcept = default;
@@ -112,45 +150,39 @@ public:
     build(const YAML::Node & node) noexcept;
 
     inline
-    std::optional<bool>
-    ias_is_mach() const noexcept {
-        return this->ias_is_mach_.transform(&bool_data_ref::is_set);
-    }
-
-    inline
-    const std::optional<float_data_ref> &
+    const std::optional<airspeed_data_ref> &
     ias() const noexcept { return this->ias_; }
     inline
-    std::optional<float_data_ref> &
+    std::optional<airspeed_data_ref> &
     ias() noexcept { return this->ias_; }
 
     inline
     const std::optional<float_data_ref> &
-    course() const noexcept { return this->ias_; }
+    course() const noexcept { return this->course_; }
     inline
     std::optional<float_data_ref> &
-    course() noexcept { return this->ias_; }
+    course() noexcept { return this->course_; }
 
     inline
     const std::optional<float_data_ref> &
-    heading() const noexcept { return this->ias_; }
+    heading() const noexcept { return this->heading_; }
     inline
     std::optional<float_data_ref> &
-    heading() noexcept { return this->ias_; }
+    heading() noexcept { return this->heading_; }
 
     inline
     const std::optional<float_data_ref> &
-    vs() const noexcept { return this->ias_; }
+    vs() const noexcept { return this->vs_; }
     inline
     std::optional<float_data_ref> &
-    vs() noexcept { return this->ias_; }
+    vs() noexcept { return this->vs_; }
 
     inline
     const std::optional<float_data_ref> &
-    alt() const noexcept { return this->ias_; }
+    alt() const noexcept { return this->alt_; }
     inline
     std::optional<float_data_ref> &
-    alt() noexcept { return this->ias_; }
+    alt() noexcept { return this->alt_; }
 };
 
 
