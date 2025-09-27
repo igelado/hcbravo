@@ -125,7 +125,13 @@ state::state() noexcept :
     plane_(std::nullopt)
 {
     memset(&this->leds_, 0, sizeof(led_state));
+    this->reload();
+}
 
+void
+state::reload() noexcept
+{
+    if(profile_map_.empty() == false) { profile_map_.clear(); }
 
     XPLMDebugString("Reading Plugin Configuration Files");
     auto id = XPLMGetMyID();
@@ -153,9 +159,8 @@ state::state() noexcept :
         }
         total_conf_files += file_count;
     } while(index != total_conf_files - 1);
+
 }
-
-
 
 bool
 state::load_plane() noexcept

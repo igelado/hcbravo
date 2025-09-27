@@ -19,13 +19,6 @@ public:
     base_data_ref(const YAML::Node & node) noexcept;
     base_data_ref(base_data_ref && other) noexcept = default;
 
-    virtual
-    ~base_data_ref() noexcept;
-
-    virtual
-    bool
-    is_set() const = 0;
-
 #if defined(HCBRAVO_PROFILE_TESTS)
     inline
     const XPLMDataRef &
@@ -33,11 +26,52 @@ public:
 #endif
 };
 
+class bool_data_ref : public base_data_ref {
+public:
+    using ptr_type =std::unique_ptr<bool_data_ref>;
+
+    inline
+    bool_data_ref(const YAML::Node & node) noexcept : base_data_ref(node) {}
+
+    bool_data_ref(bool_data_ref && other) noexcept = default;
+
+    inline
+    virtual
+    ~bool_data_ref() noexcept {}
+
+    virtual
+    bool
+    is_set() const noexcept = 0;
+};
+
 template<typename T>
 class data_ref;
 
+template<>
+class data_ref<float> : base_data_ref {
+public:
+    inline
+    data_ref(const YAML::Node & node) noexcept : base_data_ref(node) {}
+
+    inline
+    data_ref(data_ref && other) noexcept = default;
+
+    inline
+    float get() const noexcept {
+        return XPLMGetDataf(this->data_ref_);
+    }
+
+    inline
+    void set(float value) noexcept {
+        XPLMSetDataf(this->data_ref_, value);
+    }
+};
+
+using float_data_ref = data_ref<float>;
+
 class value_data_ref {
-    std::vector<base_data_ref::ptr_type> data_;
+protected:
+    std::vector<bool_data_ref::ptr_type> data_;
 public:
     value_data_ref(const YAML::Node & node) noexcept;
 
@@ -52,14 +86,75 @@ public:
 
 #if defined(HCBRAVO_PROFILE_TESTS)
     inline
-    const std::vector<base_data_ref::ptr_type> &
+    const std::vector<bool_data_ref::ptr_type> &
     data() const noexcept { return this->data_; }
 #endif
 
 };
 
+class autopilot_dial_data_ref {
+    std::optional<bool_data_ref::ptr_type> ias_is_mach_;
+    std::optional<float_data_ref> ias_;
+    std::optional<float_data_ref> course_;
+    std::optional<float_data_ref> heading_;
+    std::optional<float_data_ref> vs_;
+    std::optional<float_data_ref> alt_;
 
-class autopilot_data_ref {
+    autopilot_dial_data_ref(const YAML::Node & node) noexcept;
+
+    friend class autopilot_data_ref;
+public:
+
+    autopilot_dial_data_ref(autopilot_dial_data_ref && other) noexcept = default;
+
+    static
+    std::expected<autopilot_dial_data_ref, int>
+    build(const YAML::Node & node) noexcept;
+
+    inline
+    std::optional<bool>
+    ias_is_mach() const noexcept {
+        return this->ias_is_mach_.transform(&bool_data_ref::is_set);
+    }
+
+    inline
+    const std::optional<float_data_ref> &
+    ias() const noexcept { return this->ias_; }
+    inline
+    std::optional<float_data_ref> &
+    ias() noexcept { return this->ias_; }
+
+    inline
+    const std::optional<float_data_ref> &
+    course() const noexcept { return this->ias_; }
+    inline
+    std::optional<float_data_ref> &
+    course() noexcept { return this->ias_; }
+
+    inline
+    const std::optional<float_data_ref> &
+    heading() const noexcept { return this->ias_; }
+    inline
+    std::optional<float_data_ref> &
+    heading() noexcept { return this->ias_; }
+
+    inline
+    const std::optional<float_data_ref> &
+    vs() const noexcept { return this->ias_; }
+    inline
+    std::optional<float_data_ref> &
+    vs() noexcept { return this->ias_; }
+
+    inline
+    const std::optional<float_data_ref> &
+    alt() const noexcept { return this->ias_; }
+    inline
+    std::optional<float_data_ref> &
+    alt() noexcept { return this->ias_; }
+};
+
+
+class autopilot_mode_data_ref {
     std::optional<value_data_ref> hdg_;
     std::optional<value_data_ref> nav_;
     std::optional<value_data_ref> apr_;
@@ -69,12 +164,12 @@ class autopilot_data_ref {
     std::optional<value_data_ref> ias_;
     value_data_ref ap_;
 
-    autopilot_data_ref(const YAML::Node & node) noexcept;
+    autopilot_mode_data_ref(const YAML::Node & node) noexcept;
 
 public:
 
     static
-    std::expected<autopilot_data_ref, int>
+    std::expected<autopilot_mode_data_ref, int>
     build(const YAML::Node & node) noexcept;
 
     inline
@@ -157,6 +252,28 @@ public:
     ap_data_ref() const noexcept { return this->ap_; }
 #endif
 
+};
+
+class autopilot_data_ref {
+protected:
+    autopilot_mode_data_ref mode_;
+    std::optional<autopilot_dial_data_ref> dial_;
+
+    autopilot_data_ref(autopilot_mode_data_ref && mode,
+                       std::optional<autopilot_dial_data_ref> && dial) noexcept;
+public:
+
+    static
+    std::expected<autopilot_data_ref, int>
+    build(const YAML::Node & node) noexcept;
+
+    inline
+    const autopilot_mode_data_ref &
+    mode() const noexcept { return this->mode_; }
+
+    inline
+    const std::optional<autopilot_dial_data_ref> &
+    dial() const noexcept { return this->dial_; }
 };
 
 class system_data_ref {
@@ -367,11 +484,11 @@ protected:
     std::string name_;
     std::vector<std::string> models_;
     system_data_ref system_;
-    std::optional<autopilot_data_ref> autopilot_;
+    std::optional<autopilot_mode_data_ref> autopilot_;
     std::optional<annunciator_data_ref> annunciator_;
 
     profile(std::string && name, std::vector<std::string> && models,
-            system_data_ref && system, std::optional<autopilot_data_ref> && autopilot,
+            system_data_ref && system, std::optional<autopilot_mode_data_ref> && autopilot,
             std::optional<annunciator_data_ref> && annunciator) noexcept;
 public:
     static
@@ -391,7 +508,7 @@ public:
     system() const { return this->system_; }
 
     inline 
-    const std::optional<autopilot_data_ref> &
+    const std::optional<autopilot_mode_data_ref> &
     autopilot() const { return this->autopilot_; }
 
     inline

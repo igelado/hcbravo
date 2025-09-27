@@ -3,28 +3,38 @@ models:
  - C172
 
 autopilot:
- hdg:
-  - key: 'sim/cockpit2/autopilot/heading_mode'
-    type: int
-    values: 
-      - 15
-      - 13
-      - 2
- nav:
-  - key: 'sim/cockpit2/autopilot/nav_status'
-  - key: 'sim/cockpit2/autopilot/gpss_status'
- apr:
-  - key: 'sim/cockpit2/autopilot/approach_status'
- rev:
-  - key: 'sim/cockpit2/autopilot/backcourse_status'
- alt:
-  - key: 'sim/cockpit2/autopilot/altitude_hold_status'
- vs:
-  - key: 'sim/cockpit2/autopilot/vvi_status'
- ias:
-  - key: 'sim/cockpit2/autopilot/speed_status'
- ap:
-  - key: 'sim/cockpit2/autopilot/servos_on'
+ dials:
+  airspeed:
+    is_mach: 'sim/cockpit2/autopilot/airspeed_is_mach'
+    value: 'sim/cockpit2/autopilot/airspeed_dial_kts_mach'
+  course: 'sim/cockpit2/radios/actuators/nav1_obs_deg_mag_pilot'
+  heading: 'sim/cockpit2/autopilot/heading_dial_deg_mag_pilot'
+  vs: 'sim/cockpit2/autopilot/vvi_dial_fpm'
+  alt: 'sim/cockpit/autopilot/current_altitude'
+
+ modes:
+  hdg:
+   - key: 'sim/cockpit2/autopilot/heading_mode'
+     type: int
+     values: 
+       - 15
+       - 13
+       - 2
+  nav:
+   - key: 'sim/cockpit2/autopilot/nav_status'
+   - key: 'sim/cockpit2/autopilot/gpss_status'
+  apr:
+   - key: 'sim/cockpit2/autopilot/approach_status'
+  rev:
+   - key: 'sim/cockpit2/autopilot/backcourse_status'
+  alt:
+   - key: 'sim/cockpit2/autopilot/altitude_hold_status'
+  vs:
+   - key: 'sim/cockpit2/autopilot/vvi_status'
+  ias:
+   - key: 'sim/cockpit2/autopilot/speed_status'
+  ap:
+   - key: 'sim/cockpit2/autopilot/servos_on'
 
 system:
  volts:

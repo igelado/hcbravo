@@ -144,7 +144,7 @@ autopilot:
   - key: 'sim/cockpit2/autopilot/servos_on'
     )");
 
-    auto data_ref_opt = autopilot_data_ref::build(node["autopilot"]);
+    auto data_ref_opt = autopilot_mode_data_ref::build(node["autopilot"]);
     ASSERT_TRUE(data_ref_opt.has_value());
 
     auto data_ref = std::move(data_ref_opt.value());
@@ -212,7 +212,7 @@ autopilot:
  ap:
   - key: 'sim/cockpit2/autopilot/servos_on'
     )");
-    auto data_ref_opt = autopilot_data_ref::build(node["autopilot"]);
+    auto data_ref_opt = autopilot_mode_data_ref::build(node["autopilot"]);
     ASSERT_TRUE(data_ref_opt.has_value());
 
     auto data_ref = std::move(data_ref_opt.value());
@@ -252,7 +252,7 @@ autopilot:
   - key: 'sim/cockpit2/autopilot/servos_on'
     )");
 
-    auto data_ref_opt = autopilot_data_ref::build(node["autopilot"]);
+    auto data_ref_opt = autopilot_mode_data_ref::build(node["autopilot"]);
     ASSERT_TRUE(data_ref_opt.has_value());
 
     auto data_ref = std::move(data_ref_opt.value());

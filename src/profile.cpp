@@ -10,29 +10,27 @@ base_data_ref::base_data_ref(const YAML::Node & node) noexcept :
     data_ref_ = XPLMFindDataRef(node["key"].as<std::string>().c_str());
 }
 
-base_data_ref::~base_data_ref() noexcept {}
-
 template<>
-class data_ref<bool> : public base_data_ref {
+class data_ref<bool> : public bool_data_ref {
 public:
     inline
-    data_ref(const YAML::Node & node) noexcept : base_data_ref(node) {}
+    data_ref(const YAML::Node & node) noexcept : bool_data_ref(node) {}
 
     data_ref(data_ref && other) noexcept = default;
 
-    bool is_set() const final {
+    bool is_set() const noexcept final {
         if(this->data_ref_ == nullptr) return false;
         return XPLMGetDatai(this->data_ref_) != 0;
     }
 };
 
 template<>
-class data_ref<int> : public base_data_ref {
+class data_ref<int> : public bool_data_ref {
 private:
     std::vector<int> values_;
 public:
     inline
-    data_ref(const YAML::Node & node) noexcept : base_data_ref(node) {
+    data_ref(const YAML::Node & node) noexcept : bool_data_ref(node) {
         for(const auto v : node["values"]) {
             values_.emplace_back(v.as<int>());
         }
@@ -40,7 +38,7 @@ public:
 
     data_ref(data_ref && other) noexcept = default;
 
-    bool is_set() const final {
+    bool is_set() const noexcept final {
         if(this->data_ref_ == nullptr) return false;
         int value = XPLMGetDatai(this->data_ref_);
         if(value == 0) return false;
@@ -53,17 +51,17 @@ public:
 
 
 static
-std::optional<base_data_ref::ptr_type>
-make_data_ref(const YAML::Node & node) noexcept
+std::optional<bool_data_ref::ptr_type>
+make_bool_data_ref(const YAML::Node & node) noexcept
 {
     if(!node or !node["key"]) return std::nullopt;
     std::string node_type = node["type"] ? node["type"].as<std::string>() : "bool";
 
     if(node_type == "bool") {
-        return base_data_ref::ptr_type(new data_ref<bool>(node));
+        return bool_data_ref::ptr_type(new data_ref<bool>(node));
     }
     else if(node_type == "int") {
-        return base_data_ref::ptr_type(new data_ref<int>(node));
+        return bool_data_ref::ptr_type(new data_ref<int>(node));
     }
     return std::nullopt;
 }
@@ -71,12 +69,21 @@ make_data_ref(const YAML::Node & node) noexcept
 value_data_ref::value_data_ref(const YAML::Node & node) noexcept {
     if(!node or node.IsSequence() == false) return;
     for(const auto & value : node) {
-        auto data = make_data_ref(value);
+        auto data = make_bool_data_ref(value);
         if(data.has_value()) data_.emplace_back(std::move(data.value()));
     }
 }
 
-autopilot_data_ref::autopilot_data_ref(const YAML::Node & node) noexcept :
+autopilot_dial_data_ref::autopilot_dial_data_ref(const YAML::Node & node) noexcept :
+    ias_is_mach_(node["ias_is_mach"] ? make_bool_data_ref(node["ias_is_mach"]) : std::nullopt),
+    ias_(node["ias"] ? std::optional(float_data_ref(node["ias"])) : std::nullopt),
+    course_(node["course"] ? std::optional(float_data_ref(node["course"])) : std::nullopt),
+    heading_(node["heading"] ? std::optional(float_data_ref(node["heading"])) : std::nullopt),
+    vs_(node["vs"] ? std::optional(float_data_ref(node["vs"])) : std::nullopt),
+    alt_(node["alt"] ? std::optional(float_data_ref(node["alt"])) : std::nullopt)
+{}
+
+autopilot_mode_data_ref::autopilot_mode_data_ref(const YAML::Node & node) noexcept :
     hdg_(node["hdg"] ? std::optional(value_data_ref(node["hdg"])) : std::nullopt),
     nav_(node["nav"] ? std::optional(value_data_ref(node["nav"])) : std::nullopt),
     apr_(node["apr"] ? std::optional(value_data_ref(node["apr"])) : std::nullopt),
@@ -85,17 +92,37 @@ autopilot_data_ref::autopilot_data_ref(const YAML::Node & node) noexcept :
     vs_ (node["vs"] ? std::optional(value_data_ref(node["vs"])) : std::nullopt),
     ias_(node["ias"] ? std::optional(value_data_ref(node["ias"])) : std::nullopt),
     ap_(node["ap"])
+{}
+
+std::expected<autopilot_mode_data_ref, int>
+autopilot_mode_data_ref::build(const YAML::Node & node) noexcept
 {
+    // Only the AP annunciator is required
+    if(!node["ap"]) return std::unexpected(1);
+    return autopilot_mode_data_ref(node);
 }
+
+
+autopilot_data_ref::autopilot_data_ref(
+    autopilot_mode_data_ref && mode,
+    std::optional<autopilot_dial_data_ref> && dial
+) noexcept :
+    mode_(std::move(mode)),
+    dial_(std::move(dial))
+{}
 
 std::expected<autopilot_data_ref, int>
 autopilot_data_ref::build(const YAML::Node & node) noexcept
 {
-    // Only the AP annunciator is required
-    if(!node["ap"]) return std::unexpected(1);
-    return autopilot_data_ref(node);
-}
+    if(!node["mode"]) return std::unexpected(0);
+    auto mode = autopilot_mode_data_ref::build(node["mode"]);
+    if(mode.has_value() == false) return std::unexpected(0);
 
+    std::optional<autopilot_dial_data_ref> dial = node["dial"] ?
+        std::optional(autopilot_dial_data_ref(node)) : std::nullopt;
+
+    return autopilot_data_ref(std::move(mode.value()), std::move(dial));
+}
 
 system_data_ref::system_data_ref(const YAML::Node & node) noexcept :
     volts_(node["volts"]),
@@ -137,7 +164,7 @@ annunciator_data_ref::build(const YAML::Node & node) noexcept
 
 
 profile::profile(std::string && name, std::vector<std::string> && models, 
-    system_data_ref && system, std::optional<autopilot_data_ref> && autopilot,
+    system_data_ref && system, std::optional<autopilot_mode_data_ref> && autopilot,
     std::optional<annunciator_data_ref> && annunciator
 ) noexcept :
     name_(std::move(name)),
@@ -161,9 +188,9 @@ profile::from_yaml(const std::string & path) noexcept {
     auto system = system_data_ref::build(node["system"]);
     if(system.has_value() == false) return std::unexpected(0);
 
-    std::optional<autopilot_data_ref> autopilot;
+    std::optional<autopilot_mode_data_ref> autopilot;
     if(node["autopilot"]) {
-        auto ap_ret = autopilot_data_ref::build(node["autopilot"]);
+        auto ap_ret = autopilot_mode_data_ref::build(node["autopilot"]);
         if(ap_ret.has_value() == false) return std::unexpected(0);
         autopilot = std::move(ap_ret.value());
     }

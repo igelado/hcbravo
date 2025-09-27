@@ -47,6 +47,9 @@ public:
     std::expected<state::ptr_type, int>
     init() noexcept;
 
+    void
+    reload() noexcept;
+
     bool
     load_plane() noexcept;
 
