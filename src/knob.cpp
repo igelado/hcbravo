@@ -3,7 +3,10 @@
 
 #include <XPLM/XPLMUtilities.h>
 
+#include <algorithm>
 #include <expected>
+
+#undef max
 
 struct descriptor {
     const char * path;
@@ -34,7 +37,8 @@ static const factor factors[] = {
 
 
 int
-commands::ap_knob_select(XPLMCommandRef cmd, XPLMCommandPhase phase, void * ref) {
+commands::ap_knob_select(XPLMCommandRef cmd, XPLMCommandPhase phase, void * ref) noexcept
+{
     commands * self = reinterpret_cast<commands *>(ref);
 
     if(cmd == self->sel_alt_) {
@@ -63,9 +67,8 @@ commands::ap_knob_select(XPLMCommandRef cmd, XPLMCommandPhase phase, void * ref)
 
 
 
-enum class dir : int { inc = 1, dec = -1 };
 
-template<selector Sel, dir Dir>
+template<selector Sel, commands::dir Dir>
 static inline
 float
 get_update_value(bool fast) noexcept {
@@ -74,11 +77,12 @@ get_update_value(bool fast) noexcept {
     return value * static_cast<int>(Dir);
 }
 
-
+template<commands::dir Dir>
+static inline
 int
-commands::ap_knob_up(XPLMCommandRef cmd, XPLMCommandPhase phase, void * ref)
+commands::ap_knob_update(void * ref) noexcept
 {
-    commands * self = reinterpret_cast<commands *>(ref);
+   commands * self = reinterpret_cast<commands *>(ref);
 
     // No plane is slected
     if(!self->state_.active_plane()) return 0;
@@ -101,7 +105,7 @@ commands::ap_knob_up(XPLMCommandRef cmd, XPLMCommandPhase phase, void * ref)
             dials.alt().value().set(
                 std::max(
                     0.0f,
-                    (dials.alt().value().get() + get_update_value<selector::alt, dir::inc>(fast))
+                    dials.alt().value().get() + get_update_value<selector::alt, dir::inc>(fast)
                 )
             );
             break;
@@ -113,21 +117,46 @@ commands::ap_knob_up(XPLMCommandRef cmd, XPLMCommandPhase phase, void * ref)
             );
             break;
         case selector::hdg:
+            if(!dials.heading()) return 0;
+            dials.heading().value().set(
+                dials.heading().value().get() + get_update_value<selector::hdg, dir::inc>(fast)
+            );
             break;
         case selector::crs:
+            if(!dials.course()) return 0;
+            dials.course().value().set(
+                dials.course().value().get() + get_update_value<selector::crs, dir::inc>(fast)
+            );
             break;
         case selector::ias:
+            if(!dials.ias()) return 0;
+            dials.ias().value().set(
+                std::max(
+                0.0f,
+                dials.ias().value().get() + 
+                    ((dials.ias().value().unit() == airspeed_unit::Knots) ?
+                        get_update_value<selector::ias, dir::inc>(fast) : 
+                        get_update_value<selector::ias, dir::inc>(fast) * 0.1f)
+                )
+            );
             break;
     }
-    
     
     self->last_cmd_ = now;
     return 0;
 }
 
 int
-commands::ap_knob_down(XPLMCommandRef cmd, XPLMCommandPhase phase, void * ref) {
-    return 0;
+commands::ap_knob_up(XPLMCommandRef cmd, XPLMCommandPhase phase, void * ref) noexcept
+{
+    return ap_knob_update<dir::inc>(ref);
+}
+ 
+
+int
+commands::ap_knob_down(XPLMCommandRef cmd, XPLMCommandPhase phase, void * ref) noexcept
+{
+    return ap_knob_update<dir::dec>(ref);
 }
 
 

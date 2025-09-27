@@ -22,17 +22,23 @@ class state;
 class commands {
 public:
     using ptr_type = std::unique_ptr<commands>;
+
+    enum class dir : int { inc = 1, dec = -1 };
 private:
     static descriptor descriptors[];
 
+    template<dir Dir>
     static int
-    ap_knob_select(XPLMCommandRef cmd, XPLMCommandPhase phase, void * ref);
+    ap_knob_update(void * ref) noexcept;
 
     static int
-    ap_knob_up(XPLMCommandRef cmd, XPLMCommandPhase phase, void * ref);
+    ap_knob_select(XPLMCommandRef cmd, XPLMCommandPhase phase, void * ref) noexcept;
 
     static int
-    ap_knob_down(XPLMCommandRef cmd, XPLMCommandPhase phase, void * ref);
+    ap_knob_up(XPLMCommandRef cmd, XPLMCommandPhase phase, void * ref) noexcept;
+
+    static int
+    ap_knob_down(XPLMCommandRef cmd, XPLMCommandPhase phase, void * ref) noexcept;
 
 
     const state & state_;
