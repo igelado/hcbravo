@@ -3,18 +3,21 @@
 
 #include <XPLM/XPLMUtilities.h>
 
+#include <chrono>
 #include <expected>
 #include <memory>
 
-enum class selector {
-    alt,
-    vs,
-    hdg,
-    crs,
-    ias
+enum class selector : size_t {
+    alt = 0,
+    vs = 1,
+    hdg = 2,
+    crs = 3,
+    ias = 4
 };
 
 struct descriptor;
+
+class state;
 
 class commands {
 public:
@@ -31,6 +34,9 @@ private:
     static int
     ap_knob_down(XPLMCommandRef cmd, XPLMCommandPhase phase, void * ref);
 
+
+    const state & state_;
+
     XPLMCommandRef sel_alt_;
     XPLMCommandRef sel_vs_;
     XPLMCommandRef sel_hdg_;
@@ -40,23 +46,27 @@ private:
     XPLMCommandRef dec_;
 
     selector active_;
+    std::chrono::steady_clock::time_point   last_cmd_;
 
     inline
-    commands() :
+    commands(const state & state) :
+        state_(state),
         sel_alt_(nullptr),
         sel_vs_(nullptr),
         sel_hdg_(nullptr),
         sel_crs_(nullptr),
         sel_ias_(nullptr),
         inc_(nullptr),
-        dec_(nullptr)
+        dec_(nullptr),
+        last_cmd_(std::chrono::steady_clock::now())
     {}
+
 public:
     ~commands() noexcept;
 
     static
     std::expected<ptr_type, int>
-    init() noexcept;
+    init(const state & state) noexcept;
 
     inline
     const selector &

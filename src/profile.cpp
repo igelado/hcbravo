@@ -138,10 +138,10 @@ autopilot_mode_data_ref::build(const YAML::Node & node) noexcept
 
 autopilot_data_ref::autopilot_data_ref(
     autopilot_mode_data_ref && mode,
-    std::optional<autopilot_dial_data_ref> && dial
+    std::optional<autopilot_dial_data_ref> && dials
 ) noexcept :
     mode_(std::move(mode)),
-    dial_(std::move(dial))
+    dials_(std::move(dials))
 {}
 
 std::expected<autopilot_data_ref, int>
@@ -201,7 +201,7 @@ annunciator_data_ref::build(const YAML::Node & node) noexcept
 
 
 profile::profile(std::string && name, std::vector<std::string> && models, 
-    system_data_ref && system, std::optional<autopilot_mode_data_ref> && autopilot,
+    system_data_ref && system, std::optional<autopilot_data_ref> && autopilot,
     std::optional<annunciator_data_ref> && annunciator
 ) noexcept :
     name_(std::move(name)),
@@ -225,9 +225,9 @@ profile::from_yaml(const std::string & path) noexcept {
     auto system = system_data_ref::build(node["system"]);
     if(system.has_value() == false) return std::unexpected(0);
 
-    std::optional<autopilot_mode_data_ref> autopilot;
+    std::optional<autopilot_data_ref> autopilot;
     if(node["autopilot"]) {
-        auto ap_ret = autopilot_mode_data_ref::build(node["autopilot"]);
+        auto ap_ret = autopilot_data_ref::build(node["autopilot"]);
         if(ap_ret.has_value() == false) return std::unexpected(0);
         autopilot = std::move(ap_ret.value());
     }

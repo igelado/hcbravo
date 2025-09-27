@@ -23,7 +23,7 @@ state::flight_iteration(float call, float iter, int counter, void * _this) noexc
     const auto & system = plane->system();
     if(system.volts()) {
         if(plane->autopilot().has_value()) {
-            const auto & ap = plane->autopilot().value();
+            const auto & ap = plane->autopilot().value().mode();
             mask.update(LED_AP_HDG, ap.hdg());
             mask.update(LED_AP_NAV, ap.nav());
             mask.update(LED_AP_APR, ap.apr());
@@ -88,7 +88,7 @@ state::init() noexcept
         return std::unexpected(0);
     }
 
-    auto commands = commands::init();
+    auto commands = commands::init(*st);
     if(commands.has_value() == false) return std::unexpected(commands.error());
     st->cmds_ = std::move(commands.value());
 

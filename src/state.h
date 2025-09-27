@@ -55,6 +55,13 @@ public:
 
     void
     unload_plane() noexcept;
+
+    inline
+    const std::optional<profile::ptr_type> &
+    active_plane() const noexcept {
+        return this->plane_;
+    }
+
 };
 
 

@@ -19,6 +19,9 @@ public:
     base_data_ref(const YAML::Node & node) noexcept;
     base_data_ref(base_data_ref && other) noexcept = default;
 
+    base_data_ref &
+    operator=(base_data_ref && other) noexcept = default;
+
 #if defined(HCBRAVO_PROFILE_TESTS)
     inline
     const XPLMDataRef &
@@ -56,13 +59,16 @@ public:
     inline
     data_ref(data_ref && other) noexcept = default;
 
+    data_ref &
+    operator=(data_ref && other) noexcept = default;
+
     inline
     float get() const noexcept {
         return XPLMGetDataf(this->data_ref_);
     }
 
     inline
-    void set(float value) noexcept {
+    void set(float value) const noexcept {
         XPLMSetDataf(this->data_ref_, value);
     }
 };
@@ -107,6 +113,9 @@ public:
 
     airspeed_data_ref(airspeed_data_ref && other) noexcept = default;
 
+    airspeed_data_ref &
+    operator=(airspeed_data_ref && other) noexcept = default;
+
     static
     std::expected<airspeed_data_ref, int>
     build(const YAML::Node &) noexcept;
@@ -144,6 +153,9 @@ class autopilot_dial_data_ref {
 public:
 
     autopilot_dial_data_ref(autopilot_dial_data_ref && other) noexcept = default;
+
+    autopilot_dial_data_ref &
+    operator=(autopilot_dial_data_ref && other) noexcept = default;
 
     static
     std::expected<autopilot_dial_data_ref, int>
@@ -289,11 +301,17 @@ public:
 class autopilot_data_ref {
 protected:
     autopilot_mode_data_ref mode_;
-    std::optional<autopilot_dial_data_ref> dial_;
+    std::optional<autopilot_dial_data_ref> dials_;
 
     autopilot_data_ref(autopilot_mode_data_ref && mode,
                        std::optional<autopilot_dial_data_ref> && dial) noexcept;
 public:
+
+    autopilot_data_ref(autopilot_data_ref && other) noexcept = default;
+
+    inline
+    autopilot_data_ref &
+    operator=(autopilot_data_ref && other) noexcept = default;
 
     static
     std::expected<autopilot_data_ref, int>
@@ -305,7 +323,7 @@ public:
 
     inline
     const std::optional<autopilot_dial_data_ref> &
-    dial() const noexcept { return this->dial_; }
+    dials() const noexcept { return this->dials_; }
 };
 
 class system_data_ref {
@@ -516,11 +534,11 @@ protected:
     std::string name_;
     std::vector<std::string> models_;
     system_data_ref system_;
-    std::optional<autopilot_mode_data_ref> autopilot_;
+    std::optional<autopilot_data_ref> autopilot_;
     std::optional<annunciator_data_ref> annunciator_;
 
     profile(std::string && name, std::vector<std::string> && models,
-            system_data_ref && system, std::optional<autopilot_mode_data_ref> && autopilot,
+            system_data_ref && system, std::optional<autopilot_data_ref> && autopilot,
             std::optional<annunciator_data_ref> && annunciator) noexcept;
 public:
     static
@@ -540,7 +558,7 @@ public:
     system() const { return this->system_; }
 
     inline 
-    const std::optional<autopilot_mode_data_ref> &
+    const std::optional<autopilot_data_ref> &
     autopilot() const { return this->autopilot_; }
 
     inline
