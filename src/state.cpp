@@ -66,7 +66,6 @@ state::flight_iteration(float call, float iter, int counter, void * _this) noexc
         mask.update(LED_ANC_HYD, ann.hydro_low());
         mask.update(LED_ANC_AUX_FUEL, ann.aux_fuel());
         mask.update(LED_ANC_PRK_BRK, ann.parking_brake());
-        mask.update(LED_ANC_VOLTS, system.volts());
         mask.update(LED_ANC_VOLTS, ann.volt_low());
         mask.update(LED_ANC_DOOR, ann.door_open());
     }
