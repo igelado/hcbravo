@@ -20,5 +20,80 @@ this plugin uses YAML configuration files to define different profiles for knobs
 so adding support for a new aircraft is as straightforward as adding a new configuration
 file into the `conf` directory of the plugin.
 
+## Aircraft Profile Configuration Format
 
-## More Details To Come
+Configuration files are YAML files a **MUST** have a `.yaml` extension.
+
+### Configuration File Structure
+
+The YAML file has three compulsory labels (`name`, `models`, and `system`) and two optional labels (`autopilot` and `annunciator`).
+
+The `name` label is a scalar that contains a string with the name of the profile, e.g., `Cessna 172SP`.
+The plugin uses this string to identify the profile, but its value **does not** affect how profiles are selected for a given aircraft.
+
+The `models` label is an enumeration where each element is a valid ICAO model for which the profile is valid.
+The plugin uses the list of models to determine which aircraft profiles are available for a given aircraft.
+
+#### XPlane DataRef Labels
+
+Configuration entries to define XPlane DataRefs have a short and a long form.
+The short form only applies to scalar boolean or interger values, and it consists of a label whose value is the string that defines the path to the DataRef.
+```yaml
+course: 'sim/cockpit2/radios/actuators/nav1_obs_deg_mag_pilot'
+```
+
+Long form DataRef labels are sequences of maps. Each element in the sequence has a compulsory `key` label, whose value is the string defining the path to the DataRef.
+For instance, the following long form would be analogous to the previous example:
+```yaml
+course:
+  - key: 'sim/cockpit2/radios/actuators/nav1_obs_deg_mag_pilot' 
+```
+
+The first usage of the long form is to define parameters that are defined by more than one DataRef.
+For instance, to know whether any door is open we could use
+```yaml
+ door_open:
+  - key: 'sim/flightmodel2/misc/canopy_open_ratio'
+  - key: 'sim/flightmodel2/misc/door_open_ratio'
+  - key: 'sim/cockpit2/annunciators/cabin_door_open'
+```
+In this case, we treat each DataRef as a boolean value, and if any of them is `true`, the label will evaluate to `true`.
+
+The second usage og the long form is to allow complex DataRef entries.
+The long form also accepts additional labels to characterize the DataRef:
+ - `type` identifies the DataRef type. Allowed values are `bool`, `int` and `float`.
+ - `index` identifies the DataRef as a vector, and specifies the vector index where the value is located.
+ - `invert` indicates that when the DataRef is used as a boolean, the result should be negated.
+ - `values` a sequence of values that will make the DataRef return `true` when used as a boolean.
+
+For instance, the following example indicates that heading mode is enable when the corresponding DataRef takes one of multiple values:
+```yaml
+  hdg:
+   - key: 'sim/cockpit2/autopilot/heading_mode'
+     type: int
+     values: 
+       - 1
+       - 14
+```
+
+Another example, is to use a specific index of a vector DataRef to read the current voltage on the electric bus:
+```yaml
+ volts:
+  - key: 'sim/cockpit2/electrical/bus_volts'
+    type: float
+    index: 0
+```
+
+#### Aircraft Systems Configuration
+
+The `system` label is map that defines the XPlane DataRef the profile uses to obtain system values.
+
+The only required label in the map is `volts`, which identifies the DataRef to query to known when the aircraft electrical system has
+voltage, and thus it can start lighting the Bravo throttle annunciators.
+The `system` map also has an optional `gear` field to define the DataRef used to know the state of the landing gear.
+Obviously, if a given aircraft has fixed gear, this field is not required and the landing gear LEDs will remain off.
+
+#### Autopilot Configuration
+
+
+#### Annunciators Configuration

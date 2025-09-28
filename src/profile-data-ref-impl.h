@@ -177,7 +177,8 @@ public:
         if(this->data_ref_ == nullptr) return 0.0f;
         if(this->index_) {
             float ret;
-            XPLMGetDatavf(this->data_ref_, &ret, this->index_.value(), 1);
+            XPLMGetDatavf(this->data_ref_, &ret,
+                this->index_.value(), 1);
             return ret;
         }
         return XPLMGetDataf(this->data_ref_);
@@ -186,7 +187,13 @@ public:
     inline
     void set(float value) const noexcept {
         if(this->data_ref_ == nullptr) return;
-        XPLMSetDataf(this->data_ref_, value);
+        if(this->index_) {
+            XPLMSetDatavf(this->data_ref_, &value,
+                this->index_.value(), 1);
+        }
+        else {
+            XPLMSetDataf(this->data_ref_, value);
+        }
     }
 };
 

@@ -66,11 +66,15 @@ int XPLMGetDatavf(const XPLMDataRef & data_ref, float * out, int off, int size) 
     return 1;
 }
 
-
-
 static inline
 void XPLMSetDataf(const XPLMDataRef & data_ref, float value) noexcept {
     data_ref->value.f = value;
+}
+
+static inline
+int XPLMSetDatavf(const XPLMDataRef & data_ref, float * value, int off, int size) noexcept {
+    if(value != nullptr) data_ref->value.f = *value;
+    return 1;
 }
 
 #endif
