@@ -95,5 +95,67 @@ Obviously, if a given aircraft has fixed gear, this field is not required and th
 
 #### Autopilot Configuration
 
+The autopilot configuration is map with two entries: `dials` and `modes`.
+The `dials` entry is itself another map, which selects the DataRef to set the value for each of the positions in the selector knob:
+`crs`, `hdg`, `vs`, `alt`.
+If not specified, the plugin assumes that the DataRef in each of these labels takes a `float` value.
+The `ias` label is not directly a DataRef, but a map with two labels pointing to two related DataRefs:
+  - `is_mach` a boolean DataRef that is true if the airspeed is reported in Mach values
+  - `value` a `float` DataRef that specifies the Indicated Airspeed the autopilot should maintain in KNOTS or MACH, depending on the `is_mach` value
+
+The `modes` entry is also map that identifies the DataRef that indicates whether a given autopilot mode is armed.
+All the DataRefs in `modes` are treated as boolean values.
+The only required label in `modes` is `ap`, which identifies whether the Autopilot is armed or not.
+The remaining labels are optional and indentifies other potential Autopilot modes that might be armed:
+  - `hdg` Heading Mode
+  - `nav` Nav Mode (both VOR and GPS)
+  - `rev` Reverse course mode
+  - `vs` Vertical Speed mode
+  - `ias` Indicated Air Speed mode (or Flight Level Change)
 
 #### Annunciators Configuration
+
+The annunciators entry is a map that contanis one entry per LED indicator in the Bravo throttle.
+As in the case of the autopilot modes, all DataRefs are interpreted as boolean values, and all labels in the `annunciator` map are optional:
+ - `master_warn` Master Warning
+ - `eng_fire` Engine Fire
+ - `oil_low` Low Oil Pressure
+ - `fuel_low` Low Fuel
+ - `anti_ice` Anti-ice active
+ - `starter` Starter engaged
+ - `apu` Auxiliary Power Unit active
+ - `master_caution` Master Caution
+ - `vacuum_low` Low Vacuum
+ - `hydro_low` Low Hydrolic Pressure
+ - `aux_fuel` Auxiliary Fuel in use
+ - `parking_brake` Parking Brake engaged
+ - `volt_low` Low Voltage
+ - `door_open` Open Door 
+
+ ## Compiling from Source
+
+ We use CMake to compile the plugin in all supported Operating Systems.
+ After installing CMake, you only need to configure, build, and pack the project:
+ ```
+ mkdir build && cd build
+ cmake -DCMAKE_BUILD_TYPE=Release ..
+ cmake --build .
+ cpack
+ ```
+
+ After running those comands, there should a `hcbravo.zip` file that contains the plugin and the configuration files.
+ You can unzip that archive into the XPlane plugins directory.
+
+
+ ## Using the Plugin in XPlane
+
+ After installing the plugin, you need to configure HoneyComb Bravo to use the plugin commands for the Autopilot knobs:
+  - `HCBravo/Alt`
+  - `HCBravo/VS`
+  - `HCBravo/HDG`
+  - `HCBravo/CRS`
+  - `HCBravo/IAS`
+
+Additonally you need to assign the plugin commands to dial knob in the autopilot panel:
+  - `HCBravo/INC`
+  - `HCBravo/DEC` 

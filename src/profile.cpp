@@ -78,8 +78,8 @@ build_optional_data_ref(const YAML::Node & node, const std::string & key) noexce
 
 autopilot_dial_data_ref::autopilot_dial_data_ref(std::optional<airspeed_data_ref> && ias, const YAML::Node & node) noexcept :
     ias_(std::move(ias)),
-    course_(build_optional_data_ref<float>(node, "course")),
-    heading_(build_optional_data_ref<float>(node, "heading")),
+    course_(build_optional_data_ref<float>(node, "crs")),
+    heading_(build_optional_data_ref<float>(node, "hdg")),
     vs_(build_optional_data_ref<float>(node, "vs")),
     alt_(build_optional_data_ref<float>(node, "alt"))
 {}
@@ -93,8 +93,8 @@ autopilot_dial_data_ref::build(const YAML::Node & node) noexcept
         return std::unexpected(0);
     }
 
-    if(node["airspeed"]) {
-        auto ias = airspeed_data_ref::build(node["airspeed"]);
+    if(node["ias"]) {
+        auto ias = airspeed_data_ref::build(node["ias"]);
         if(ias.has_value() == false) return std::unexpected(0);
         return autopilot_dial_data_ref(std::move(ias.value()), node);
     }
