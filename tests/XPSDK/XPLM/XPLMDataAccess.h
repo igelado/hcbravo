@@ -1,3 +1,10 @@
+// SPDX-License-Identifier: LGPL-2.1-only
+//
+// tests/XPSDK/XPLM/XPLMDataAccess.h
+// XPlane Plugin for HoneyComb Bravo Throttle Controller
+//
+// Copyright (C) 2005 Isaac Gelado
+
 #ifndef _XPLMDataAccess_h_
 #define _XPLMDataAccess_h_
 

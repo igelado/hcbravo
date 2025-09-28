@@ -1,3 +1,11 @@
+// SPDX-License-Identifier: LGPL-2.1-only
+//
+// src/knob.h
+// XPlane Plugin for HoneyComb Bravo Throttle Controller
+//
+// Copyright (C) 2005 Isaac Gelado
+
+
 #ifndef COMMAND_H_
 #define COMMAND_H_
 

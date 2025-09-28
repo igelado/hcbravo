@@ -1,3 +1,10 @@
+// SPDX-License-Identifier: LGPL-2.1-only
+//
+// src/state.h
+// XPlane Plugin for HoneyComb Bravo Throttle Controller
+//
+// Copyright (C) 2005 Isaac Gelado
+
 #ifndef STATE_H_
 #define STATE_H_
 

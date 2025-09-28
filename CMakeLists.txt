@@ -1,3 +1,11 @@
+# SPDX-License-Identifier: LGPL-2.1-only
+#
+# CMakeLists.txt
+# XPlane Plugin for HoneyComb Bravo Throttle Controller
+#
+# Copyright (C) 2005 Isaac Gelado
+
+
 cmake_minimum_required(VERSION 3.30)
 if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin")
     message(NOTICE "Building Universal Plug-in...")

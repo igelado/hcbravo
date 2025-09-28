@@ -1,3 +1,10 @@
+# SPDX-License-Identifier: LGPL-2.1-only
+#
+# tests/CMakeLists.txt
+# XPlane Plugin for HoneyComb Bravo Throttle Controller
+#
+# Copyright (C) 2005 Isaac Gelado
+
 
 CPMAddPackage("gh:google/googletest@1.17.0")
 

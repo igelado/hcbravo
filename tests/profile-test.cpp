@@ -1,3 +1,11 @@
+// SPDX-License-Identifier: LGPL-2.1-only
+//
+// tests/profile-test.cpp
+// XPlane Plugin for HoneyComb Bravo Throttle Controller
+//
+// Copyright (C) 2005 Isaac Gelado
+
+
 #include <gtest/gtest.h>
 
 #define HCBRAVO_PROFILE_TESTS
