@@ -196,4 +196,8 @@ void
 state::unload_plane() noexcept
 {
     this->plane_ = std::nullopt;
+
+    // Turn off all lights
+    led_mask mask;
+    this->leds_.update(mask);
 }
