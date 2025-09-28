@@ -6,87 +6,6 @@
 #include <memory>
 #include <optional>
 
-base_data_ref::base_data_ref(const YAML::Node & node) noexcept :
-    data_ref_(nullptr),
-    invert_(false),
-    index_(std::nullopt)
-{
-    if(!node) return;
-    if(node.IsMap()) {
-        data_ref_ = XPLMFindDataRef(node["key"].as<std::string>().c_str());
-        if(node["index"]) this->index_ = node["index"].as<size_t>();
-        if(node["invert"]) this->invert_ = node["invert"].as<bool>();
-    }
-    else if(node.IsScalar()) {
-        data_ref_ = XPLMFindDataRef(node.as<std::string>().c_str());
-    }
-    else {
-        logger() << "Invalid node " << node;
-        return;
-    }
-
-    // TODO: Detect array values and add a zero-index if no index
-    // is specified
-}
-
-template<>
-class data_ref<bool> : public bool_data_ref {
-public:
-    inline
-    data_ref(const YAML::Node & node) noexcept : bool_data_ref(node) {}
-
-    data_ref(data_ref && other) noexcept = default;
-
-    bool is_set() const noexcept final {
-        if(this->data_ref_ == nullptr) return false;
-        int value = 0;
-        if(this->index_) {
-            XPLMGetDatavi(this->data_ref_, &value, this->index_.value(), 1);
-        }
-        else { 
-            value = XPLMGetDatai(this->data_ref_);
-        }
-        return this->invert_ ? value == 0 : value != 0;
-    }
-};
-
-template<>
-class data_ref<int> : public bool_data_ref {
-private:
-    std::vector<int> values_;
-public:
-    inline
-    data_ref(const YAML::Node & node) noexcept : bool_data_ref(node) {
-        if(node.IsMap()) {
-            for(const auto v : node["values"]) {
-                values_.emplace_back(v.as<int>());
-            }
-        }
-    }
-
-    data_ref(data_ref && other) noexcept = default;
-
-    bool is_set() const noexcept final {
-        if(this->data_ref_ == nullptr) return false;
-        int value = 0;
-        if(this->index_) {
-            XPLMGetDatavi(this->data_ref_, &value, this->index_.value(), 1);
-        }
-        else { 
-            value = XPLMGetDatai(this->data_ref_);
-        }
-        // If not specific values are specified, we compare against 0
-        if(this->values_.empty()) {
-            return this->invert_ ? value == 0 : value != 0;
-        }
-        // When values are specified, we compare against the targets
-        for(const auto & v : this->values_) {
-            if(v == value) return this->invert_ ? false : true;
-        }
-        return this->invert_ ? true : false;
-    }
-};
-
 
 static
 std::optional<bool_data_ref::ptr_type>
@@ -96,13 +15,19 @@ make_bool_data_ref(const YAML::Node & node) noexcept
     std::string node_type = node["type"] ? node["type"].as<std::string>() : "bool";
 
     if(node_type == "bool") {
-        return bool_data_ref::ptr_type(new data_ref<bool>(node));
+        auto data = data_ref<bool>::build(node);
+        if(data.has_value() == false) return std::nullopt;
+        return bool_data_ref::ptr_type(new data_ref<bool>(std::move(data.value())));
     }
     else if(node_type == "int") {
-        return bool_data_ref::ptr_type(new data_ref<int>(node));
+        auto data = data_ref<int>::build(node);
+        if(data.has_value() == false) return std::nullopt;
+        return bool_data_ref::ptr_type(new data_ref<int>(std::move(data.value())));
     }
     else if(node_type == "float") {
-        return bool_data_ref::ptr_type(new data_ref<float>(node));
+        auto data = data_ref<float>::build(node);
+        if(data.has_value() == false) return std::nullopt;
+        return bool_data_ref::ptr_type(new data_ref<float>(std::move(data.value())));
     }
     return std::nullopt;
 }
@@ -133,18 +58,34 @@ airspeed_data_ref::build(const YAML::Node & node) noexcept {
     return airspeed_data_ref(std::move(is_mach), std::move(value)); 
 }
 
+template<typename T>
+static inline
+std::optional<data_ref<T>>
+build_optional_data_ref(const YAML::Node & node, const std::string & key) noexcept
+{
+    if(!node[key]) return std::nullopt;
+    auto ret = data_ref<T>::build(node[key]);
+    if(ret.has_value() == false) return std::nullopt;
+    return std::optional(std::move(ret.value()));
+}
+
 autopilot_dial_data_ref::autopilot_dial_data_ref(std::optional<airspeed_data_ref> && ias, const YAML::Node & node) noexcept :
     ias_(std::move(ias)),
-    course_(node["course"] ? std::optional(float_data_ref(node["course"])) : std::nullopt),
-    heading_(node["heading"] ? std::optional(float_data_ref(node["heading"])) : std::nullopt),
-    vs_(node["vs"] ? std::optional(float_data_ref(node["vs"])) : std::nullopt),
-    alt_(node["alt"] ? std::optional(float_data_ref(node["alt"])) : std::nullopt)
+    course_(build_optional_data_ref<float>(node, "course")),
+    heading_(build_optional_data_ref<float>(node, "heading")),
+    vs_(build_optional_data_ref<float>(node, "vs")),
+    alt_(build_optional_data_ref<float>(node, "alt"))
 {}
 
 std::expected<autopilot_dial_data_ref, int>
 autopilot_dial_data_ref::build(const YAML::Node & node) noexcept
 {
     logger() << "Reading Autopilot Dials";
+    if(node.IsMap() == false) {
+        logger() << "Invalid Autopilot Configuration";
+        return std::unexpected(0);
+    }
+
     if(node["airspeed"]) {
         auto ias = airspeed_data_ref::build(node["airspeed"]);
         if(ias.has_value() == false) return std::unexpected(0);
@@ -170,6 +111,7 @@ autopilot_mode_data_ref::build(const YAML::Node & node) noexcept
     logger() << "Reading Autopilot Modes";
     // Only the AP annunciator is required
     if(!node["ap"]) return std::unexpected(1);
+    
     return autopilot_mode_data_ref(node);
 }
 
@@ -190,11 +132,17 @@ autopilot_data_ref::build(const YAML::Node & node) noexcept
         return std::unexpected(0);
     }
     auto mode = autopilot_mode_data_ref::build(node["modes"]);
-    if(mode.has_value() == false) return std::unexpected(0);
+    if(mode.has_value() == false) {
+        logger() << "Invalid Autopilot Modes Configuration";
+        return std::unexpected(0);
+    }
 
     if(node["dials"]) {
         auto dial = autopilot_dial_data_ref::build(node["dials"]);
-        if(dial.has_value() == false) return std::unexpected(0);
+        if(dial.has_value() == false) {
+            logger() << "Invalid Autopilot Dials Configuration";
+            return std::unexpected(0);
+        }
 
         return autopilot_data_ref(std::move(mode.value()), std::move(dial.value()));
     }

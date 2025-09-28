@@ -15,8 +15,20 @@
 #include "logger.h"
 #include "state.h"
 
+void
+state::menu_handler(void * _this, void * item) noexcept
+{
+    state * self = reinterpret_cast<state *>(_this);
+    self->plane_ = std::nullopt;
+    logger() << "Reloading Aircraft Profiles";
+    self->reload();
+    logger() << "Setting Active Plane";
+    self->load_plane();
+}
+
 float
-state::flight_iteration(float call, float iter, int counter, void * _this) noexcept {
+state::flight_iteration(float call, float iter, int counter, void * _this) noexcept
+{
     state * self = reinterpret_cast<state *>(_this);
     if(self == nullptr or self->plane_.has_value() == false) {
         logger() << "No active plane detected. Stopping Flight Loop Refresh";
@@ -94,10 +106,21 @@ state::init() noexcept
     st->leds_.hid_ = st->hid_;
 
     auto commands = commands::init(*st);
-    if(commands.has_value() == false) return std::unexpected(commands.error());
+    if(commands.has_value() == false) {
+        logger() << "Failed to Register HoneyComb Bravo Commands";
+        return std::unexpected(commands.error());
+    }
     st->cmds_ = std::move(commands.value());
 
+    logger() << "Creating Menu Entries";
+    int item = XPLMAppendMenuItem(XPLMFindPluginsMenu(), "HoneyComb Bravo", nullptr, 1);
+    st->menu_ = XPLMCreateMenu("HoneyComb Bravo", XPLMFindPluginsMenu(), item, &state::menu_handler, nullptr);
+    if(XPLMAppendMenuItem(st->menu_, "Reload Aircraft Profiles", st.get(), 0) < 0) {
+        logger() << "Failed to Create HoneyComb Bravo Menu";
+        return std::unexpected(0);
+    }
 
+    logger() << "Creating Flight Loop Logic";
     XPLMCreateFlightLoop_t fl_params = {
         .structSize = sizeof(XPLMCreateFlightLoop_t),
         .phase = xplm_FlightLoop_Phase_BeforeFlightModel,
@@ -123,6 +146,7 @@ static const char * plane_icao_label_ = "sim/aircraft/view/acf_ICAO";
 
 state::state() noexcept :
     hid_(nullptr),
+    menu_(nullptr),
     cmds_(nullptr),
     plane_icao_data_ref_(
         XPLMFindDataRef(plane_icao_label_)

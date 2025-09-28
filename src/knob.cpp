@@ -78,7 +78,7 @@ get_update_value(bool fast) noexcept {
 }
 
 template<commands::dir Dir>
-static inline
+inline
 int
 commands::ap_knob_update(void * ref) noexcept
 {

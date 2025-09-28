@@ -17,10 +17,22 @@ protected:
     XPLMDataRef data_ref_;
     bool invert_;
     std::optional<size_t> index_;
+
+    inline
+    base_data_ref(XPLMDataRef && data_ref, bool invert,
+            std::optional<size_t> index) noexcept :
+        data_ref_(std::move(data_ref)),
+        invert_(invert),
+        index_(index)
+    {}
 public:
     using ptr_type =std::unique_ptr<base_data_ref>;
 
-    base_data_ref(const YAML::Node & node) noexcept;
+    template<typename T>
+    static
+    std::expected<T, int>
+    build(const YAML::Node & node) noexcept;
+
     base_data_ref(base_data_ref && other) noexcept = default;
 
     base_data_ref &
@@ -38,7 +50,10 @@ public:
     using ptr_type =std::unique_ptr<bool_data_ref>;
 
     inline
-    bool_data_ref(const YAML::Node & node) noexcept : base_data_ref(node) {}
+    bool_data_ref(XPLMDataRef && data_ref, bool invert,
+            std::optional<size_t> index) noexcept :
+        base_data_ref(std::move(data_ref), invert, index)
+    {}
 
     bool_data_ref(bool_data_ref && other) noexcept = default;
 
@@ -57,56 +72,7 @@ public:
 template<typename T>
 class data_ref;
 
-template<>
-class data_ref<float> : public bool_data_ref {
-protected:
-    std::vector<float> values_;
-public:
-    inline
-    data_ref(const YAML::Node & node) noexcept : bool_data_ref(node) {
-        if(node.IsMap()) {
-            for(const auto v : node["values"]) {
-                values_.emplace_back(v.as<float>());
-            }
-        }
-    }
-
-    inline
-    data_ref(data_ref && other) noexcept = default;
-
-    data_ref &
-    operator=(data_ref && other) noexcept = default;
-
-    inline
-    bool is_set() const noexcept final {
-        float value = this->get();
-        if(this->values_.empty()) {
-            return this->invert_ ? this->get() == 0.0f : this->get() != 0.0f;
-        }
-        // When values are specified, we compare against the targets
-        for(const auto & v : this->values_) {
-            if(v == value) return this->invert_ ? false : true;
-        }
-        return this->invert_ ? true : false;
-    }
-
-    inline
-    float get() const noexcept {
-        if(this->data_ref_ == nullptr) return 0.0f;
-        if(this->index_) {
-            float ret;
-            XPLMGetDatavf(this->data_ref_, &ret, this->index_.value(), 1);
-            return ret;
-        }
-        return XPLMGetDataf(this->data_ref_);
-    }
-
-    inline
-    void set(float value) const noexcept {
-        if(this->data_ref_ == nullptr) return;
-        XPLMSetDataf(this->data_ref_, value);
-    }
-};
+#include "profile-data-ref-impl.h"
 
 using float_data_ref = data_ref<float>;
 

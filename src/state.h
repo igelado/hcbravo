@@ -2,6 +2,7 @@
 #define STATE_H_
 
 #include <XPLM/XPLMDataAccess.h>
+#include <XPLM/XPLMMenus.h>
 #include <XPLM/XPLMProcessing.h>
 
 #include <expected>
@@ -17,6 +18,7 @@
 class state {
     hid_device * hid_;
     led_state leds_;
+    XPLMMenuID menu_;
     commands::ptr_type cmds_;
 
     using profile_map_type = std::unordered_map<std::string, std::shared_ptr<profile>>;
@@ -27,6 +29,10 @@ class state {
     XPLMFlightLoopID flight_loop_;
 
     state() noexcept;
+
+    static
+    void
+    menu_handler(void * menu, void * item) noexcept;
 
     static
     float
