@@ -9,6 +9,8 @@
 
 #include <hidapi.h>
 
+#include "logger.h"
+
 static const size_t LED_NR_BANKS = 4;
 static const size_t LED_NR_BITS = 8;
 using led_id = std::tuple<uint8_t, uint8_t>;
@@ -73,7 +75,7 @@ public:
         ::memcpy(u.state_.banks_, mask.banks_, sizeof(mask.banks_));
         int ret = hid_send_feature_report(this->hid_, this->u.buffer_, sizeof(*this));
         if(ret < 0) {
-            XPLMDebugString("Failed to update LED state");
+            logger() << "Failed to update LED state";
         }
     }
 

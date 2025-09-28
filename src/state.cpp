@@ -4,6 +4,7 @@
 #include <XPLM/XPLMUtilities.h>
 
 #include <expected>
+#include <filesystem>
 #include <memory>
 #include <string>
 #include <tuple>
@@ -11,6 +12,7 @@
 #include <hidapi.h>
 
 #include "led.h"
+#include "logger.h"
 #include "state.h"
 
 float
@@ -76,17 +78,18 @@ state::init() noexcept
 {
     state::ptr_type st = state::ptr_type(new state());
 
-    XPLMDebugString("Initializing HID");
+    logger() << "Initializing HID";
     int res = hid_init();
     if(res < 0) {
-        XPLMDebugString("Failed to initialize HID");
+        logger() << "Failed to initialize HID";
         return std::unexpected(0);
     }
     st->hid_ = hid_open(0x294b, 0x1901, nullptr);
     if(st->hid_ == nullptr) {
-        XPLMDebugString("Failed to Open HoneyComb Bravo Quadrant");
+        logger() << "Failed to Open HoneyComb Bravo Quadrant";
         return std::unexpected(0);
     }
+    logger() << "HoneyComb Bravo Throttle Detected";
 
     auto commands = commands::init(*st);
     if(commands.has_value() == false) return std::unexpected(commands.error());
@@ -101,7 +104,7 @@ state::init() noexcept
     };
     st->flight_loop_ = XPLMCreateFlightLoop(&fl_params);
     if(st->flight_loop_ == nullptr) {
-        XPLMDebugString("Failed to Create Flight Loop");
+        logger() << "Failed to Create Flight Loop";
         return std::unexpected(0);
     }
 
@@ -133,33 +136,38 @@ state::reload() noexcept
 {
     if(profile_map_.empty() == false) { profile_map_.clear(); }
 
-    XPLMDebugString("Reading Plugin Configuration Files");
+    logger() << "Reading Plugin Configuration Files";
     auto id = XPLMGetMyID();
     static char path[256];
     XPLMGetPluginInfo(id, nullptr, path, nullptr, nullptr);
     XPLMExtractFileAndPath(path);
-    const char * sep = XPLMGetDirectorySeparator();
-    std::string config_file_path = std::string(path).append(sep).append("conf");
+    auto config_file_path = std::filesystem::absolute(std::string(path) + "/../conf");
+    logger() << "Reading Configurations from " << config_file_path;
     int index = 0;
     int total_conf_files = 0;
     do {
         int file_count = 0;
         XPLMGetDirectoryContents(
-            config_file_path.c_str(),  index, files_buffer, FILES_BUFFER_SIZE,
+            config_file_path.string().c_str(),  index, files_buffer, FILES_BUFFER_SIZE,
             files_indexes, FILES_INDEX_SIZE, &total_conf_files, &file_count
         );
+        logger() << "Read " << (index + file_count) << " file(s) from " << total_conf_files << " file(s)";
         for(auto n = 0; n < file_count; ++n) {
-            std::string config_file = config_file_path + std::string(sep) + std::string(files_indexes[n]);
-            auto prof = profile::from_yaml(config_file);
+            auto config_file = config_file_path / std::string(files_indexes[n]);
+            logger() << "Found " << config_file << " in configuration file ( " << config_file.extension() << ")";
+            if(config_file.extension() != ".yaml") continue;
+            logger() << "Reading " << config_file;
+            auto prof = profile::from_yaml(config_file.string());
             if(prof.has_value()) {
                 for(const auto &model : prof.value()->models()) {
+                    logger() << "Adding profile for '" << model << "'";
                     profile_map_.emplace(model, std::move(prof.value()));
                 }
             }
         }
-        total_conf_files += file_count;
-    } while(index != total_conf_files - 1);
-
+        index += file_count;
+    } while(index != total_conf_files);
+    logger() << "Done loading plugin configuration";
 }
 
 bool
@@ -168,13 +176,16 @@ state::load_plane() noexcept
     static char icao_name[64];
     int ret = XPLMGetDatab(plane_icao_data_ref_, icao_name, 0, 64);
     if(ret < 64) icao_name[ret] = '\0';
+    logger() << "Aircraft '" << icao_name << "'";
 
     auto profile = profile_map_.find(icao_name);
     if(profile != profile_map_.end()) {
+        logger() << "Enabling profile '" << profile->first << "'";
         plane_.emplace(profile->second);
         XPLMScheduleFlightLoop(this->flight_loop_, -1.0, 1);
         return true;
     }
+    logger() << "No profile found for aircraft";
     return false;
 }
 

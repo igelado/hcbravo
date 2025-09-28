@@ -1,4 +1,7 @@
+#include "logger.h"
 #include "profile.h"
+
+#include <XPLM/XPLMUtilities.h>
 
 #include <memory>
 #include <optional>
@@ -108,6 +111,7 @@ autopilot_dial_data_ref::autopilot_dial_data_ref(std::optional<airspeed_data_ref
 std::expected<autopilot_dial_data_ref, int>
 autopilot_dial_data_ref::build(const YAML::Node & node) noexcept
 {
+    logger() << "Reading Autopilot Dials";
     if(node["airspeed"]) {
         auto ias = airspeed_data_ref::build(node["airspeed"]);
         if(ias.has_value() == false) return std::unexpected(0);
@@ -130,6 +134,7 @@ autopilot_mode_data_ref::autopilot_mode_data_ref(const YAML::Node & node) noexce
 std::expected<autopilot_mode_data_ref, int>
 autopilot_mode_data_ref::build(const YAML::Node & node) noexcept
 {
+    logger() << "Reading Autopilot Modes";
     // Only the AP annunciator is required
     if(!node["ap"]) return std::unexpected(1);
     return autopilot_mode_data_ref(node);
@@ -147,12 +152,15 @@ autopilot_data_ref::autopilot_data_ref(
 std::expected<autopilot_data_ref, int>
 autopilot_data_ref::build(const YAML::Node & node) noexcept
 {
-    if(!node["mode"]) return std::unexpected(0);
-    auto mode = autopilot_mode_data_ref::build(node["mode"]);
+    if(!node["modes"]) {
+        logger() << "No modes defined for Autopilot";
+        return std::unexpected(0);
+    }
+    auto mode = autopilot_mode_data_ref::build(node["modes"]);
     if(mode.has_value() == false) return std::unexpected(0);
 
-    if(node["dial"]) {
-        auto dial = autopilot_dial_data_ref::build(node);
+    if(node["dials"]) {
+        auto dial = autopilot_dial_data_ref::build(node["dials"]);
         if(dial.has_value() == false) return std::unexpected(0);
 
         return autopilot_data_ref(std::move(mode.value()), std::move(dial.value()));
@@ -213,29 +221,53 @@ profile::profile(std::string && name, std::vector<std::string> && models,
 
 std::expected<profile::ptr_type, int>
 profile::from_yaml(const std::string & path) noexcept {
+    logger() << "Loading YAML File " << path;
     YAML::Node node = YAML::LoadFile(path);
-    if(!node["name"]) return std::unexpected(0);
-    if(!node["models"] or node["models"].IsSequence() == false) return std::unexpected(0);
+    if(!node["name"]) {
+        logger() << "Profile does not include a name";
+        return std::unexpected(0);
+    }
+    if(!node["models"] or node["models"].IsSequence() == false) {
+        logger() << "Profile does not include supported models";
+        return std::unexpected(0);
+    }
     std::vector<std::string> models;
     for(const auto & model : node["models"]) {
-        if(node.Type() != YAML::NodeType::Scalar) return std::unexpected(0);
-        models.emplace_back(node.as<std::string>());
+        if(model.Type() != YAML::NodeType::Scalar) {
+            logger() << "Model value '" << node << "' is not valid";
+            continue;
+        }
+        models.emplace_back(model.as<std::string>());
     }
+    if(models.empty()) {
+        logger() << "No models defined for this profile";
+        return std::unexpected(0);
+    }
+
+    logger() << "Reading System Configuration";
     if(!node["system"]) return std::unexpected(0);
     auto system = system_data_ref::build(node["system"]);
     if(system.has_value() == false) return std::unexpected(0);
 
+    logger() << "Reading Autopilot Configuration";
     std::optional<autopilot_data_ref> autopilot;
     if(node["autopilot"]) {
         auto ap_ret = autopilot_data_ref::build(node["autopilot"]);
-        if(ap_ret.has_value() == false) return std::unexpected(0);
+        if(ap_ret.has_value() == false) {
+            logger() << "Invalid Autopilot Configuration";
+            return std::unexpected(0);
+        }
         autopilot = std::move(ap_ret.value());
     }
 
+    logger() << "Reading Annunciator Configuration";
     std::optional<annunciator_data_ref> annunciator;
     if(node["annunciator"]) {
         auto ann_ret = annunciator_data_ref::build(node["annunciator"]);
-        if(ann_ret.has_value() == false) return std::unexpected(0);
+        if(ann_ret.has_value() == false) {
+            logger() << "Invalid Annunciator Configuration";
+            return std::unexpected(0);
+        }
         annunciator = std::move(ann_ret.value());
     }
 

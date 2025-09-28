@@ -42,23 +42,23 @@ commands::ap_knob_select(XPLMCommandRef cmd, XPLMCommandPhase phase, void * ref)
     commands * self = reinterpret_cast<commands *>(ref);
 
     if(cmd == self->sel_alt_) {
-        XPLMDebugString("Altitude Selected");
+        logger() << "Altitude Selected";
         self->active_ = selector::alt;
     }
     else if(cmd == self->sel_vs_) {
-        XPLMDebugString("Vertical Speed Selected");
+        logger() << "Vertical Speed Selected";
         self->active_ = selector::vs;
     }
     else if(cmd == self->sel_hdg_) {
-        XPLMDebugString("Heading Selected");
+        logger() << "Heading Selected";
         self->active_ = selector::hdg;
     }
     else if(cmd == self->sel_crs_) {
-        XPLMDebugString("Course Selected");
+        logger() << "Course Selected";
         self->active_ = selector::crs;
     }
     else if(cmd == self->sel_ias_) {
-        XPLMDebugString("Indicated Air Speed Selected");
+        logger() << "Indicated Air Speed Selected";
         self->active_ = selector::ias;
     }
     else { return 1; }
@@ -168,19 +168,19 @@ commands::init(const state & state) noexcept
     for(const auto & desc  : descriptors) {
         ret.get()->*desc.cmd = XPLMCreateCommand(desc.path, desc.desc);
         if(ret.get()->*desc.cmd == nullptr) {
-            XPLMDebugString("Failed to register Selection Command");
+            logger() << "Failed to register Selection Command";
             return std::unexpected(0);
         }
         XPLMRegisterCommandHandler(ret.get()->*desc.cmd, ap_knob_select, 1, reinterpret_cast<void *>(ret.get()));
     }
     ret->inc_ = XPLMCreateCommand("HCBravo/Inc", "Autopilot Knob Up");
     if(ret->inc_ == nullptr) {
-        XPLMDebugString("Failed to register Inc Command");
+        logger() << "Failed to register Inc Command";
         return std::unexpected(0);
     }
     ret->dec_ = XPLMCreateCommand("HCBravo/Dec", "Autopilot Knob Down");
     if(ret->dec_ == nullptr) {
-        XPLMDebugString("Failed to register Dec Command");
+        logger() << "Failed to register Dec Command";
         return std::unexpected(0);
     }
 

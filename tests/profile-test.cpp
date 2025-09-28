@@ -119,7 +119,7 @@ tag:
 
 TEST(profile_test, autopilot_mode) {
     auto node = YAML::Load(R"(
-mode:
+modes:
  hdg:
   - key: 'sim/cockpit2/autopilot/heading_mode'
     type: int
@@ -144,7 +144,7 @@ mode:
   - key: 'sim/cockpit2/autopilot/servos_on'
     )");
 
-    auto data_ref_opt = autopilot_mode_data_ref::build(node["mode"]);
+    auto data_ref_opt = autopilot_mode_data_ref::build(node["modes"]);
     ASSERT_TRUE(data_ref_opt.has_value());
 
     auto data_ref = std::move(data_ref_opt.value());
@@ -208,11 +208,11 @@ mode:
 
 TEST(profile_test, autopilot_mode_minimal) {
     auto node = YAML::Load(R"(
-mode:
+modes:
  ap:
   - key: 'sim/cockpit2/autopilot/servos_on'
     )");
-    auto data_ref_opt = autopilot_mode_data_ref::build(node["mode"]);
+    auto data_ref_opt = autopilot_mode_data_ref::build(node["modes"]);
     ASSERT_TRUE(data_ref_opt.has_value());
 
     auto data_ref = std::move(data_ref_opt.value());
@@ -231,7 +231,7 @@ mode:
 
 TEST(profile_test, autopilot_mode_kap140) {
     auto node = YAML::Load(R"(
-mode:
+modes:
  hdg:
   - key: 'sim/cockpit2/autopilot/heading_mode'
     type: int
@@ -252,7 +252,7 @@ mode:
   - key: 'sim/cockpit2/autopilot/servos_on'
     )");
 
-    auto data_ref_opt = autopilot_mode_data_ref::build(node["mode"]);
+    auto data_ref_opt = autopilot_mode_data_ref::build(node["modes"]);
     ASSERT_TRUE(data_ref_opt.has_value());
 
     auto data_ref = std::move(data_ref_opt.value());
