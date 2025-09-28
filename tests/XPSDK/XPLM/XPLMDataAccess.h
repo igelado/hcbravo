@@ -43,9 +43,23 @@ int XPLMGetDatai(const XPLMDataRef & data_ref) noexcept {
 }
 
 static inline
+int XPLMGetDatavi(const XPLMDataRef & data_ref, int * out, int off, int size) noexcept {
+    if(out != nullptr) *out = data_ref->value.i;
+    return 1;
+}
+
+static inline
 float XPLMGetDataf(const XPLMDataRef & data_ref) noexcept {
     return data_ref->value.f;
 }
+
+static inline
+int XPLMGetDatavf(const XPLMDataRef & data_ref, float * out, int off, int size) noexcept {
+    if(out != nullptr) *out = data_ref->value.f;
+    return 1;
+}
+
+
 
 static inline
 void XPLMSetDataf(const XPLMDataRef & data_ref, float value) noexcept {

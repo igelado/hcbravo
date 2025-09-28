@@ -39,6 +39,9 @@ autopilot:
 system:
  volts:
   - key: 'sim/cockpit2/electrical/bus_volts'
+    type: float
+    index: 0
+
  gear:
   - key: 'sim/flightmodel2/gear/deploy_ratio'
 
@@ -53,6 +56,7 @@ annunciator:
   - key: 'sim/cockpit2/annunciators/fuel_pressure_low'
  anti_ice:
   - key: 'sim/cockpit2/annunciators/pitot_heat'
+    invert: true
  starter:
   - key: 'sim/cockpit2/engine/actuators/starter_hit'
  apu: 

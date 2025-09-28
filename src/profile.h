@@ -1,6 +1,8 @@
 #ifndef PROFILE_H_
 #define PROFILE_H_
 
+#include "logger.h"
+
 #include <XPLM/XPLMDataAccess.h>
 #include <yaml.h>
 
@@ -13,6 +15,8 @@
 class base_data_ref {
 protected:
     XPLMDataRef data_ref_;
+    bool invert_;
+    std::optional<size_t> index_;
 public:
     using ptr_type =std::unique_ptr<base_data_ref>;
 
@@ -38,6 +42,9 @@ public:
 
     bool_data_ref(bool_data_ref && other) noexcept = default;
 
+    bool_data_ref &
+    operator=(bool_data_ref && other) noexcept = default;
+
     inline
     virtual
     ~bool_data_ref() noexcept {}
@@ -51,10 +58,18 @@ template<typename T>
 class data_ref;
 
 template<>
-class data_ref<float> : base_data_ref {
+class data_ref<float> : public bool_data_ref {
+protected:
+    std::vector<float> values_;
 public:
     inline
-    data_ref(const YAML::Node & node) noexcept : base_data_ref(node) {}
+    data_ref(const YAML::Node & node) noexcept : bool_data_ref(node) {
+        if(node.IsMap()) {
+            for(const auto v : node["values"]) {
+                values_.emplace_back(v.as<float>());
+            }
+        }
+    }
 
     inline
     data_ref(data_ref && other) noexcept = default;
@@ -63,12 +78,32 @@ public:
     operator=(data_ref && other) noexcept = default;
 
     inline
+    bool is_set() const noexcept final {
+        float value = this->get();
+        if(this->values_.empty()) {
+            return this->invert_ ? this->get() == 0.0f : this->get() != 0.0f;
+        }
+        // When values are specified, we compare against the targets
+        for(const auto & v : this->values_) {
+            if(v == value) return this->invert_ ? false : true;
+        }
+        return this->invert_ ? true : false;
+    }
+
+    inline
     float get() const noexcept {
+        if(this->data_ref_ == nullptr) return 0.0f;
+        if(this->index_) {
+            float ret;
+            XPLMGetDatavf(this->data_ref_, &ret, this->index_.value(), 1);
+            return ret;
+        }
         return XPLMGetDataf(this->data_ref_);
     }
 
     inline
     void set(float value) const noexcept {
+        if(this->data_ref_ == nullptr) return;
         XPLMSetDataf(this->data_ref_, value);
     }
 };

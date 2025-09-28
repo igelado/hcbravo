@@ -7,15 +7,26 @@
 #include <optional>
 
 base_data_ref::base_data_ref(const YAML::Node & node) noexcept :
-    data_ref_(nullptr)
+    data_ref_(nullptr),
+    invert_(false),
+    index_(std::nullopt)
 {
     if(!node) return;
     if(node.IsMap()) {
         data_ref_ = XPLMFindDataRef(node["key"].as<std::string>().c_str());
+        if(node["index"]) this->index_ = node["index"].as<size_t>();
+        if(node["invert"]) this->invert_ = node["invert"].as<bool>();
     }
-    else {
+    else if(node.IsScalar()) {
         data_ref_ = XPLMFindDataRef(node.as<std::string>().c_str());
     }
+    else {
+        logger() << "Invalid node " << node;
+        return;
+    }
+
+    // TODO: Detect array values and add a zero-index if no index
+    // is specified
 }
 
 template<>
@@ -28,7 +39,14 @@ public:
 
     bool is_set() const noexcept final {
         if(this->data_ref_ == nullptr) return false;
-        return XPLMGetDatai(this->data_ref_) != 0;
+        int value = 0;
+        if(this->index_) {
+            XPLMGetDatavi(this->data_ref_, &value, this->index_.value(), 1);
+        }
+        else { 
+            value = XPLMGetDatai(this->data_ref_);
+        }
+        return this->invert_ ? value == 0 : value != 0;
     }
 };
 
@@ -39,8 +57,10 @@ private:
 public:
     inline
     data_ref(const YAML::Node & node) noexcept : bool_data_ref(node) {
-        for(const auto v : node["values"]) {
-            values_.emplace_back(v.as<int>());
+        if(node.IsMap()) {
+            for(const auto v : node["values"]) {
+                values_.emplace_back(v.as<int>());
+            }
         }
     }
 
@@ -48,12 +68,22 @@ public:
 
     bool is_set() const noexcept final {
         if(this->data_ref_ == nullptr) return false;
-        int value = XPLMGetDatai(this->data_ref_);
-        if(value == 0) return false;
-        for(const auto & v : this->values_) {
-            if(v == value) return true;
+        int value = 0;
+        if(this->index_) {
+            XPLMGetDatavi(this->data_ref_, &value, this->index_.value(), 1);
         }
-        return false;
+        else { 
+            value = XPLMGetDatai(this->data_ref_);
+        }
+        // If not specific values are specified, we compare against 0
+        if(this->values_.empty()) {
+            return this->invert_ ? value == 0 : value != 0;
+        }
+        // When values are specified, we compare against the targets
+        for(const auto & v : this->values_) {
+            if(v == value) return this->invert_ ? false : true;
+        }
+        return this->invert_ ? true : false;
     }
 };
 
@@ -70,6 +100,9 @@ make_bool_data_ref(const YAML::Node & node) noexcept
     }
     else if(node_type == "int") {
         return bool_data_ref::ptr_type(new data_ref<int>(node));
+    }
+    else if(node_type == "float") {
+        return bool_data_ref::ptr_type(new data_ref<float>(node));
     }
     return std::nullopt;
 }
@@ -204,6 +237,7 @@ annunciator_data_ref::annunciator_data_ref(const YAML::Node & node) noexcept :
 std::expected<annunciator_data_ref, int>
 annunciator_data_ref::build(const YAML::Node & node) noexcept 
 {
+    logger() << "Reading Annunciator";
     return annunciator_data_ref(node);
 }
 

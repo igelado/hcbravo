@@ -18,56 +18,58 @@
 float
 state::flight_iteration(float call, float iter, int counter, void * _this) noexcept {
     state * self = reinterpret_cast<state *>(_this);
-    if(self == nullptr or self->plane_.has_value() == false) return 0;
+    if(self == nullptr or self->plane_.has_value() == false) {
+        logger() << "No active plane detected. Stopping Flight Loop Refresh";
+        return 0;
+    }
     const auto plane = self->plane_.value();
 
     led_mask mask;
     const auto & system = plane->system();
-    if(system.volts()) {
-        if(plane->autopilot().has_value()) {
-            const auto & ap = plane->autopilot().value().mode();
-            mask.update(LED_AP_HDG, ap.hdg());
-            mask.update(LED_AP_NAV, ap.nav());
-            mask.update(LED_AP_APR, ap.apr());
-            mask.update(LED_AP_REV, ap.rev());
-            mask.update(LED_AP_ALT, ap.alt());
-            mask.update(LED_AP_VS, ap.vs());
-            mask.update(LED_AP_IAS, ap.ias());
-            mask.update(LED_AP, ap.ap());
-        }
+    if(system.volts() == false) return -1.0;
 
-        if(system.gear().has_value()) {
-            bool status = system.gear().value();
-            mask.update(LED_LDG_L_GREEN, status);
-            mask.update(LED_LDG_L_RED, !status);
-
-            mask.update(LED_LDG_N_GREEN, status);
-            mask.update(LED_LDG_N_RED, !status);
-        
-            mask.update(LED_LDG_R_GREEN, status);
-            mask.update(LED_LDG_R_RED, !status);
-        }
-
-        if(plane->annunciator().has_value()) {
-            const auto & ann = plane->annunciator().value();
-            mask.update(LED_ANC_MSTR_WARN, ann.master_warn());
-            mask.update(LED_ANC_ENG_FIRE, ann.eng_fire());
-            mask.update(LED_ANC_OIL, ann.oil_low());
-            mask.update(LED_ANC_FUEL, ann.fuel_low());
-            mask.update(LED_ANC_ANTI_ICE, ann.anti_ice());
-            mask.update(LED_ANC_STARTER, ann.starter());
-            mask.update(LED_ANC_APU, ann.apu());
-            mask.update(LED_ANC_MSTR_CTN, ann.master_caution());
-            mask.update(LED_ANC_VACUUM, ann.vacuum_low());
-            mask.update(LED_ANC_HYD, ann.hydro_low());
-            mask.update(LED_ANC_AUX_FUEL, ann.aux_fuel());
-            mask.update(LED_ANC_PRK_BRK, ann.parking_brake());
-            mask.update(LED_ANC_VOLTS, system.volts());
-            mask.update(LED_ANC_VOLTS, ann.volt_low());
-            mask.update(LED_ANC_DOOR, ann.door_open());
-        }
+    if(plane->autopilot().has_value()) {
+        const auto & ap = plane->autopilot().value().mode();
+        mask.update(LED_AP_HDG, ap.hdg());
+        mask.update(LED_AP_NAV, ap.nav());
+        mask.update(LED_AP_APR, ap.apr());
+        mask.update(LED_AP_REV, ap.rev());
+        mask.update(LED_AP_ALT, ap.alt());
+        mask.update(LED_AP_VS, ap.vs());
+        mask.update(LED_AP_IAS, ap.ias());
+        mask.update(LED_AP, ap.ap());
     }
 
+    if(system.gear().has_value()) {
+        bool status = system.gear().value();
+        mask.update(LED_LDG_L_GREEN, status);
+        mask.update(LED_LDG_L_RED, !status);
+
+        mask.update(LED_LDG_N_GREEN, status);
+        mask.update(LED_LDG_N_RED, !status);
+    
+        mask.update(LED_LDG_R_GREEN, status);
+        mask.update(LED_LDG_R_RED, !status);
+    }
+
+    if(plane->annunciator().has_value()) {
+        const auto & ann = plane->annunciator().value();
+        mask.update(LED_ANC_MSTR_WARN, ann.master_warn());
+        mask.update(LED_ANC_ENG_FIRE, ann.eng_fire());
+        mask.update(LED_ANC_OIL, ann.oil_low());
+        mask.update(LED_ANC_FUEL, ann.fuel_low());
+        mask.update(LED_ANC_ANTI_ICE, ann.anti_ice());
+        mask.update(LED_ANC_STARTER, ann.starter());
+        mask.update(LED_ANC_APU, ann.apu());
+        mask.update(LED_ANC_MSTR_CTN, ann.master_caution());
+        mask.update(LED_ANC_VACUUM, ann.vacuum_low());
+        mask.update(LED_ANC_HYD, ann.hydro_low());
+        mask.update(LED_ANC_AUX_FUEL, ann.aux_fuel());
+        mask.update(LED_ANC_PRK_BRK, ann.parking_brake());
+        mask.update(LED_ANC_VOLTS, system.volts());
+        mask.update(LED_ANC_VOLTS, ann.volt_low());
+        mask.update(LED_ANC_DOOR, ann.door_open());
+    }
     self->leds_.update(mask);
 
     return -1.0;
@@ -90,6 +92,7 @@ state::init() noexcept
         return std::unexpected(0);
     }
     logger() << "HoneyComb Bravo Throttle Detected";
+    st->leds_.hid_ = st->hid_;
 
     auto commands = commands::init(*st);
     if(commands.has_value() == false) return std::unexpected(commands.error());
@@ -98,7 +101,7 @@ state::init() noexcept
 
     XPLMCreateFlightLoop_t fl_params = {
         .structSize = sizeof(XPLMCreateFlightLoop_t),
-        .phase = xplm_FlightLoop_Phase_AfterFlightModel,
+        .phase = xplm_FlightLoop_Phase_BeforeFlightModel,
         .callbackFunc = flight_iteration,
         .refcon = st.get(),
     };

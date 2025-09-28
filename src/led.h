@@ -38,20 +38,24 @@ public:
 };
 
 class led_state {
-private:
-    struct state {
+protected:
+    #pragma pack(push, 1)
+    struct hid_data {
         uint8_t id_;
         uint8_t banks_[LED_NR_BANKS];
         uint8_t reserved_[64 - LED_NR_BANKS];
     };
+    #pragma pack(pop)
 
-    using buffer_type = uint8_t[sizeof(state)];
+    using buffer_type = uint8_t[sizeof(hid_data)];
 
     union {
-        state   state_;
+        hid_data   state_;
         buffer_type  buffer_;
     } u;
     hid_device_ * hid_;
+
+    friend class state;
 public:
     led_state() noexcept;
     led_state(led_state &&) noexcept;
@@ -67,13 +71,15 @@ public:
     inline
     void
     update(const led_mask & mask) {
+        if(this->hid_ == nullptr) return;
+
         size_t n;
         for(n = 0; n < LED_NR_BANKS; ++n) {
             if(u.state_.banks_[n] != mask.banks_[n]) break;
         }
         if(n == LED_NR_BANKS) return;
         ::memcpy(u.state_.banks_, mask.banks_, sizeof(mask.banks_));
-        int ret = hid_send_feature_report(this->hid_, this->u.buffer_, sizeof(*this));
+        int ret = hid_send_feature_report(this->hid_, this->u.buffer_, sizeof(hid_data));
         if(ret < 0) {
             logger() << "Failed to update LED state";
         }
