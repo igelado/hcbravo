@@ -23,7 +23,7 @@ struct descriptor {
 };
 
 descriptor commands::descriptors[] = {
-    { "HCBravo/Alt", "Autopilot Altitude Knob", &commands::sel_alt_ },
+    { "HCBravo/ALT", "Autopilot Altitude Knob", &commands::sel_alt_ },
     { "HCBravo/VS", "Autopilot Vertical Speed Knob", &commands::sel_vs_ },
     { "HCBravo/HDG", "Autopilot Heading Knob", &commands::sel_hdg_ },
     { "HCBravo/CRS", "Autopilot Course Knob", &commands::sel_crs_ },
@@ -85,6 +85,7 @@ get_update_value(bool fast) noexcept {
     return value * static_cast<int>(Dir);
 }
 
+
 template<commands::dir Dir>
 inline
 int
@@ -127,13 +128,19 @@ commands::ap_knob_update(void * ref) noexcept
         case selector::hdg:
             if(!dials.heading()) return 0;
             dials.heading().value().set(
-                dials.heading().value().get() + get_update_value<selector::hdg, dir::inc>(fast)
+                std::round(std::fmod(
+                    dials.heading().value().get() + get_update_value<selector::hdg, dir::inc>(fast),
+                    360.0f
+                ))
             );
             break;
         case selector::crs:
             if(!dials.course()) return 0;
             dials.course().value().set(
-                dials.course().value().get() + get_update_value<selector::crs, dir::inc>(fast)
+                std::round(std::fmod(
+                    dials.course().value().get() + get_update_value<selector::crs, dir::inc>(fast),
+                    360.0f
+                ))
             );
             break;
         case selector::ias:
