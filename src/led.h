@@ -12,7 +12,9 @@
 
 #include <optional>
 #include <tuple>
+
 #include <cstdint>
+#include <cstring>
 
 #include <hidapi.h>
 

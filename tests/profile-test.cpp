@@ -315,11 +315,11 @@ modes:
 TEST(profile_test, autopilot_dial) {
   auto node = YAML::Load(R"(
 dials:
-  airspeed:
+  ias:
     is_mach: 'sim/cockpit2/autopilot/airspeed_is_mach'
     value: 'sim/cockpit2/autopilot/airspeed_dial_kts_mach'
-  course: 'sim/cockpit2/radios/actuators/nav1_obs_deg_mag_pilot'
-  heading: 'sim/cockpit2/autopilot/heading_dial_deg_mag_pilot'
+  crs: 'sim/cockpit2/radios/actuators/nav1_obs_deg_mag_pilot'
+  hdg: 'sim/cockpit2/autopilot/heading_dial_deg_mag_pilot'
   vs: 'sim/cockpit2/autopilot/vvi_dial_fpm'
   alt: 'sim/cockpit/autopilot/current_altitude'
   )");
