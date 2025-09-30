@@ -26,11 +26,23 @@ void
 state::menu_handler(void * _this, void * item) noexcept
 {
     state * self = reinterpret_cast<state *>(_this);
-    self->plane_ = std::nullopt;
-    logger() << "Reloading Aircraft Profiles";
-    self->reload();
-    logger() << "Setting Active Plane";
-    self->load_plane();
+    size_t id = reinterpret_cast<size_t>(item);
+    switch(id) {
+        case 0:
+            self->plane_ = std::nullopt;
+            logger() << "Reloading Aircraft Profiles";
+            self->reload();
+            logger() << "Setting Active Plane";
+            self->load_plane();
+            break;
+        case 1:
+            logger() << "Reloading All Plugins";
+            XPLMReloadPlugins();
+            break;
+        default:
+            logger() << "Unknwon Menu ID #" << id;
+            break;
+    }
 }
 
 float
@@ -123,7 +135,11 @@ state::init() noexcept
     int item = XPLMAppendMenuItem(XPLMFindPluginsMenu(), "HoneyComb Bravo", nullptr, 1);
     st->menu_ = XPLMCreateMenu("HoneyComb Bravo", XPLMFindPluginsMenu(), item, &state::menu_handler, nullptr);
     if(XPLMAppendMenuItem(st->menu_, "Reload Aircraft Profiles", st.get(), 0) < 0) {
-        logger() << "Failed to Create HoneyComb Bravo Menu";
+        logger() << "Failed to Create HoneyComb Bravo Menu (Reload Aircraft Profiles)";
+        return std::unexpected(0);
+    }
+    if(XPLMAppendMenuItem(st->menu_, "Reload All Plugins", st.get(), 1) < 0) {
+        logger() << "Failed to Create HoneyComb Bravo Menu (Reload All Plugins)";
         return std::unexpected(0);
     }
 
