@@ -53,6 +53,7 @@ public:
     inline
     ~state() {
         if(this->flight_loop_ != nullptr) XPLMDestroyFlightLoop(this->flight_loop_);
+        unload_plane();
         if(this->hid_ != nullptr) hid_close(this->hid_);
     }
 

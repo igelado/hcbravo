@@ -133,12 +133,12 @@ state::init() noexcept
 
     logger() << "Creating Menu Entries";
     int item = XPLMAppendMenuItem(XPLMFindPluginsMenu(), "HoneyComb Bravo", nullptr, 1);
-    st->menu_ = XPLMCreateMenu("HoneyComb Bravo", XPLMFindPluginsMenu(), item, &state::menu_handler, nullptr);
-    if(XPLMAppendMenuItem(st->menu_, "Reload Aircraft Profiles", st.get(), 0) < 0) {
+    st->menu_ = XPLMCreateMenu("HoneyComb Bravo", XPLMFindPluginsMenu(), item, &state::menu_handler, st.get());
+    if(XPLMAppendMenuItem(st->menu_, "Reload Aircraft Profiles", reinterpret_cast<void *>(0), 0) < 0) {
         logger() << "Failed to Create HoneyComb Bravo Menu (Reload Aircraft Profiles)";
         return std::unexpected(0);
     }
-    if(XPLMAppendMenuItem(st->menu_, "Reload All Plugins", st.get(), 1) < 0) {
+    if(XPLMAppendMenuItem(st->menu_, "Reload All Plugins", reinterpret_cast<void *>(1), 0) < 0) {
         logger() << "Failed to Create HoneyComb Bravo Menu (Reload All Plugins)";
         return std::unexpected(0);
     }
