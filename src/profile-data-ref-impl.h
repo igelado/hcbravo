@@ -37,9 +37,29 @@ base_data_ref::build(const YAML::Node & node) noexcept
         data_ref = XPLMFindDataRef(node.as<std::string>().c_str());
     }
     else {
-        logger() << "Invalid node " << node;
+        logger() << "Invalid DataRef node '" << node << "'";
         return std::unexpected(0);
     }
+
+    XPLMDataRefInfo_t info;
+    info.structSize = sizeof(info);
+    XPLMGetDataRefInfo(data_ref, &info);
+    switch(info.type) {
+        case xplmType_IntArray:
+        case xplmType_FloatArray:
+            if(!index) {
+                logger() << "Detected Array DataRef, but no index was provided. Assuming index 0";
+                index = static_cast<size_t>(0);
+            }
+            break;
+        default:
+            if(index) {
+                logger() << "Detected Scalar DataRef, but an index was provided. Ignoring provided index";
+                index = std::nullopt;
+            }
+            break;
+    }
+
     return T(std::move(data_ref), invert, index);
 
 }

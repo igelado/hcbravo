@@ -14,6 +14,18 @@
 
 #include <iostream>
 
+enum XPLMDataTypeID {
+    xplmType_Unknown,
+    xplmType_Int,
+    xplmType_Float,
+    xplmType_Double,
+    xplmType_FloatArray,
+    xplmType_IntArray,
+    xplmType_Data,
+};
+
+
+
 struct xplm_data_ref {
     std::string name;
     union {
@@ -21,10 +33,13 @@ struct xplm_data_ref {
         float f;
     } value;
 
+    XPLMDataTypeID type;
+
     inline
     xplm_data_ref(std::string && name, int value) noexcept :
         name(std::move(name)),
-        value(value)
+        value(value),
+        type(xplmType_Int)
     {}
 
     inline
@@ -38,6 +53,17 @@ struct xplm_data_ref {
 
 
 using XPLMDataRef = std::unique_ptr<xplm_data_ref>;
+
+typedef struct XPLMDataRefInfo {
+    size_t structSize;
+    XPLMDataTypeID type;    
+} XPLMDataRefInfo_t;
+
+static inline
+void XPLMGetDataRefInfo(const XPLMDataRef & data_ref, XPLMDataRefInfo * info) noexcept {
+    if(info == nullptr or data_ref == nullptr) return;
+    info->type = data_ref->type;
+}
 
 static inline
 XPLMDataRef XPLMFindDataRef(const char * key) noexcept {

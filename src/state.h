@@ -31,11 +31,16 @@ class state {
     using profile_map_type = std::unordered_map<std::string, std::shared_ptr<profile>>;
     profile_map_type profile_map_;
     XPLMDataRef plane_icao_data_ref_;
+    XPLMDataRef plane_name_data_ref_;
     std::optional<profile::ptr_type> plane_;
 
     XPLMFlightLoopID flight_loop_;
 
     state() noexcept;
+
+    static
+    void
+    error_handler(const char * msg) noexcept;
 
     static
     void

@@ -90,9 +90,15 @@ std::optional<data_ref<T>>
 build_optional_data_ref(const YAML::Node & node, const std::string & key) noexcept
 {
     logger() << "Checking for '" << key << "'";
-    if(!node.IsMap() or !node[key]) return std::nullopt;
+    if(!node.IsMap() or !node[key]) {
+        logger() << "Key '" << key << "' not found in: " << node;
+        return std::nullopt;
+    }
     auto ret = data_ref<T>::build(node[key]);
-    if(ret.has_value() == false) return std::nullopt;
+    if(ret.has_value() == false) {
+        logger() << "DataRef in '" << node << "' not found";
+        return std::nullopt;
+    }
     return std::optional(std::move(ret.value()));
 }
 

@@ -23,6 +23,12 @@
 #include "state.h"
 
 void
+state::error_handler(const char * msg) noexcept
+{
+    logger() << "Detected Error: " << msg;
+}
+
+void
 state::menu_handler(void * _this, void * item) noexcept
 {
     state * self = reinterpret_cast<state *>(_this);
@@ -131,6 +137,9 @@ state::init() noexcept
     }
     st->cmds_ = std::move(commands.value());
 
+    logger() << "Registering Error Handler";
+    XPLMSetErrorCallback(&state::error_handler);
+
     logger() << "Creating Menu Entries";
     int item = XPLMAppendMenuItem(XPLMFindPluginsMenu(), "HoneyComb Bravo", nullptr, 1);
     st->menu_ = XPLMCreateMenu("HoneyComb Bravo", XPLMFindPluginsMenu(), item, &state::menu_handler, st.get());
@@ -166,6 +175,7 @@ static char files_buffer[FILES_BUFFER_SIZE];
 static char * files_indexes[FILES_INDEX_SIZE];
 
 static const char * plane_icao_label_ = "sim/aircraft/view/acf_ICAO";
+static const char * plane_name_label_ = "sim/aircraft/view/acf_ui_name";
 
 state::state() noexcept :
     hid_(nullptr),
@@ -173,6 +183,9 @@ state::state() noexcept :
     cmds_(nullptr),
     plane_icao_data_ref_(
         XPLMFindDataRef(plane_icao_label_)
+    ),
+    plane_name_data_ref_(
+        XPLMFindDataRef(plane_name_label_)
     ),
     plane_(std::nullopt)
 {
@@ -223,9 +236,12 @@ bool
 state::load_plane() noexcept
 {
     static char icao_name[64];
+    static char ui_name[256];
     int ret = XPLMGetDatab(plane_icao_data_ref_, icao_name, 0, 64);
     if(ret < 64) icao_name[ret] = '\0';
-    logger() << "Aircraft '" << icao_name << "'";
+    ret = XPLMGetDatab(plane_name_data_ref_, ui_name, 0, 256);
+    if(ret < 256) ui_name[ret] = '\0';
+    logger() << "Aircraft '" << ui_name << "' (" << icao_name << ")";
 
     auto profile = profile_map_.find(icao_name);
     if(profile != profile_map_.end()) {
