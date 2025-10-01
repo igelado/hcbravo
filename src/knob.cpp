@@ -141,7 +141,7 @@ commands::ap_knob_update(void * ref) noexcept
         case selector::vs:
             if(!dials.vs()) return 0;
             dials.vs().value().set(
-                dials.alt().value().get() + get_update_value<selector::vs, Dir>(fast)
+                dials.vs().value().get() + get_update_value<selector::vs, Dir>(fast)
             );
             break;
         case selector::hdg:
