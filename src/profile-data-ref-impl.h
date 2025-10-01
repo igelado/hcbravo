@@ -188,6 +188,7 @@ public:
     void set(float value) const noexcept {
         if(this->data_ref_ == nullptr) return;
         if(this->index_) {
+            logger() << "Setting " << value << " @ " << this->index_.value();
             XPLMSetDatavf(this->data_ref_, &value,
                 this->index_.value(), 1);
         }

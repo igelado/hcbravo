@@ -10,7 +10,7 @@ autopilot:
   crs: 'sim/cockpit2/radios/actuators/nav1_obs_deg_mag_pilot'
   hdg: 'sim/cockpit2/autopilot/heading_dial_deg_mag_pilot'
   vs: 'sim/cockpit2/autopilot/vvi_dial_fpm'
-  alt: 'sim/cockpit/autopilot/current_altitude'
+  alt: 'sim/cockpit2/autopilot/altitude_dial_ft'
 
  modes:
   hdg:

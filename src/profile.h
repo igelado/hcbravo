@@ -114,9 +114,9 @@ enum class airspeed_unit {
 class airspeed_data_ref {
 protected:
     XPLMDataRef is_mach_;
-    XPLMDataRef value_;
+    data_ref<float> value_;
 
-    airspeed_data_ref(XPLMDataRef && is_mach, XPLMDataRef && value) noexcept;
+    airspeed_data_ref(XPLMDataRef && is_mach, data_ref<float> && value) noexcept;
 public:
 
     airspeed_data_ref(airspeed_data_ref && other) noexcept = default;
@@ -136,12 +136,12 @@ public:
 
     inline
     float get() const noexcept {
-        return XPLMGetDataf(this->value_);
+        return this->value_.get();
     }
 
     inline
     void set(float value) const noexcept {
-        XPLMSetDataf(this->value_, value);
+        this->value_.set(value);
     }
 #if defined(HCBRAVO_PROFILE_TESTS)
     inline

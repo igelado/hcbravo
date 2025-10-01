@@ -50,23 +50,33 @@ commands::ap_knob_select(XPLMCommandRef cmd, XPLMCommandPhase phase, void * ref)
     commands * self = reinterpret_cast<commands *>(ref);
 
     if(cmd == self->sel_alt_) {
-        logger() << "Altitude Selected";
+        if(self->active_ != selector::alt) {
+            logger() << "Altitude Selected";
+        }
         self->active_ = selector::alt;
     }
     else if(cmd == self->sel_vs_) {
-        logger() << "Vertical Speed Selected";
+        if(self->active_ != selector::vs) {
+            logger() << "Vertical Speed Selected";
+        }
         self->active_ = selector::vs;
     }
     else if(cmd == self->sel_hdg_) {
-        logger() << "Heading Selected";
+        if(self->active_ != selector::hdg) {
+            logger() << "Heading Selected";
+        }
         self->active_ = selector::hdg;
     }
     else if(cmd == self->sel_crs_) {
-        logger() << "Course Selected";
+        if(self->active_ != selector::crs) {
+            logger() << "Course Selected";
+        }
         self->active_ = selector::crs;
     }
     else if(cmd == self->sel_ias_) {
-        logger() << "Indicated Air Speed Selected";
+        if(self->active_ != selector::ias) {
+            logger() << "Indicated Air Speed Selected";
+        }
         self->active_ = selector::ias;
     }
     else { return 1; }
@@ -94,27 +104,36 @@ commands::ap_knob_update(void * ref) noexcept
    commands * self = reinterpret_cast<commands *>(ref);
 
     // No plane is slected
-    if(!self->state_.active_plane()) return 0;
+    if(!self->state_.active_plane()) {
+        logger() << "AP Knob Changed but no plane is active";
+        return 0;
+    }
     auto plane = self->state_.active_plane().value(); 
 
     // The plane has no autopilot 
-    if(!plane->autopilot()) return 0;
+    if(!plane->autopilot()) {
+        logger() << "AP Knob Changed but plane has not AutoPilot";
+        return 0;
+    }
     // The plance has no autopilot dials
-    if(!plane->autopilot().value().dials()) return 0;
+    if(!plane->autopilot().value().dials()) {
+        logger() << "AP Knob Changed but AutoPilot has not Dials";
+        return 0;
+    }
 
     const auto & dials = plane->autopilot().value().dials().value();
 
     auto now = std::chrono::steady_clock::now();
     auto elapsed = now - self->last_cmd_;
     // We set 250ms as threshold for now
-    bool fast = std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count() < 250;
+    bool fast = std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count() < 100;
     switch(self->active_) {
         case selector::alt:
             if(!dials.alt()) return 0;
             dials.alt().value().set(
                 std::max(
                     0.0f,
-                    dials.alt().value().get() + get_update_value<selector::alt, dir::inc>(fast)
+                    dials.alt().value().get() + get_update_value<selector::alt, Dir>(fast)
                 )
             );
             break;
@@ -122,14 +141,14 @@ commands::ap_knob_update(void * ref) noexcept
         case selector::vs:
             if(!dials.vs()) return 0;
             dials.vs().value().set(
-                dials.alt().value().get() + get_update_value<selector::vs, dir::inc>(fast)
+                dials.alt().value().get() + get_update_value<selector::vs, Dir>(fast)
             );
             break;
         case selector::hdg:
             if(!dials.heading()) return 0;
             dials.heading().value().set(
                 std::round(std::fmod(
-                    dials.heading().value().get() + get_update_value<selector::hdg, dir::inc>(fast),
+                    dials.heading().value().get() + get_update_value<selector::hdg, Dir>(fast),
                     360.0f
                 ))
             );
@@ -138,7 +157,7 @@ commands::ap_knob_update(void * ref) noexcept
             if(!dials.course()) return 0;
             dials.course().value().set(
                 std::round(std::fmod(
-                    dials.course().value().get() + get_update_value<selector::crs, dir::inc>(fast),
+                    dials.course().value().get() + get_update_value<selector::crs, Dir>(fast),
                     360.0f
                 ))
             );
@@ -150,8 +169,8 @@ commands::ap_knob_update(void * ref) noexcept
                 0.0f,
                 dials.ias().value().get() + 
                     ((dials.ias().value().unit() == airspeed_unit::Knots) ?
-                        get_update_value<selector::ias, dir::inc>(fast) : 
-                        get_update_value<selector::ias, dir::inc>(fast) * 0.1f)
+                        get_update_value<selector::ias, Dir>(fast) : 
+                        get_update_value<selector::ias, Dir>(fast) * 0.1f)
                 )
             );
             break;
@@ -164,6 +183,7 @@ commands::ap_knob_update(void * ref) noexcept
 int
 commands::ap_knob_up(XPLMCommandRef cmd, XPLMCommandPhase phase, void * ref) noexcept
 {
+    if(phase != xplm_CommandEnd) return 0;
     return ap_knob_update<dir::inc>(ref);
 }
  
@@ -171,6 +191,7 @@ commands::ap_knob_up(XPLMCommandRef cmd, XPLMCommandPhase phase, void * ref) noe
 int
 commands::ap_knob_down(XPLMCommandRef cmd, XPLMCommandPhase phase, void * ref) noexcept
 {
+    if(phase != xplm_CommandEnd) return 0;
     return ap_knob_update<dir::dec>(ref);
 }
 

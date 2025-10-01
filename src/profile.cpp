@@ -48,7 +48,7 @@ value_data_ref::value_data_ref(const YAML::Node & node) noexcept {
 }
 
 airspeed_data_ref::airspeed_data_ref(
-    XPLMDataRef && is_mach, XPLMDataRef && value
+    XPLMDataRef && is_mach, data_ref<float> && value
 ) noexcept :
     is_mach_(std::move(is_mach)),
     value_(std::move(value))
@@ -56,13 +56,32 @@ airspeed_data_ref::airspeed_data_ref(
 
 std::expected<airspeed_data_ref, int>
 airspeed_data_ref::build(const YAML::Node & node) noexcept {
-    if(!node["is_mach"] or !node["value"]) return std::unexpected(0);
+    if(!node.IsMap()) {
+        logger() << "IAS node has invalid format";
+        return std::unexpected(0);
+    }
+    else if(!node["is_mach"]) {
+        logger() << "IAS missing Mach node";
+        return std::unexpected(0);
+    }
+    else if(!node["value"]) {
+        logger() << "IAS missing Value npde";
+        return std::unexpected(0);
+    }
     
     auto is_mach = XPLMFindDataRef(node["is_mach"].as<std::string>().c_str());
-    auto value = XPLMFindDataRef(node["value"].as<std::string>().c_str());
-    if(is_mach == nullptr or value == nullptr) return std::unexpected(0);
+    if(is_mach == nullptr) {
+        logger() << "Invalid IAS Mach node";
+        return std::unexpected(0);
+    }
 
-    return airspeed_data_ref(std::move(is_mach), std::move(value)); 
+    auto value = data_ref<float>::build(node["value"]);
+    if(!value.has_value()) {
+        logger() << "Invalid IAS Value node";
+        return std::unexpected(0);
+    }
+
+    return airspeed_data_ref(std::move(is_mach), std::move(value.value())); 
 }
 
 template<typename T>
@@ -70,7 +89,8 @@ static inline
 std::optional<data_ref<T>>
 build_optional_data_ref(const YAML::Node & node, const std::string & key) noexcept
 {
-    if(!node[key]) return std::nullopt;
+    logger() << "Checking for '" << key << "'";
+    if(!node.IsMap() or !node[key]) return std::nullopt;
     auto ret = data_ref<T>::build(node[key]);
     if(ret.has_value() == false) return std::nullopt;
     return std::optional(std::move(ret.value()));
@@ -93,9 +113,13 @@ autopilot_dial_data_ref::build(const YAML::Node & node) noexcept
         return std::unexpected(0);
     }
 
+    logger() << "Checking if IAS Dial is defined";
     if(node["ias"]) {
         auto ias = airspeed_data_ref::build(node["ias"]);
-        if(ias.has_value() == false) return std::unexpected(0);
+        if(ias.has_value() == false) {
+            logger() << "Invalid IAS Dial Configuration";
+            return std::unexpected(0);
+        }
         return autopilot_dial_data_ref(std::move(ias.value()), node);
     }
     return autopilot_dial_data_ref(std::nullopt, node);
