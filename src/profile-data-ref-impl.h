@@ -48,13 +48,13 @@ base_data_ref::build(const YAML::Node & node) noexcept
         case xplmType_IntArray:
         case xplmType_FloatArray:
             if(!index) {
-                logger() << "Detected Array DataRef, but no index was provided. Assuming index 0";
+                logger() << "Detected Array DataRef '" << info.name << "', but no index was provided. Assuming index 0";
                 index = static_cast<size_t>(0);
             }
             break;
         default:
             if(index) {
-                logger() << "Detected Scalar DataRef, but an index was provided. Ignoring provided index";
+                logger() << "Detected Scalar DataRef '" << info.name << "', but an index was provided. Ignoring provided index";
                 index = std::nullopt;
             }
             break;

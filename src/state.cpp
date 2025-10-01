@@ -196,7 +196,8 @@ state::state() noexcept :
 void
 state::reload() noexcept
 {
-    if(profile_map_.empty() == false) { profile_map_.clear(); }
+    if(profile_aircraft_map_.empty() == false) { profile_aircraft_map_.clear(); }
+    if(profile_model_map_.empty() == false) { profile_model_map_.clear(); }
 
     logger() << "Reading Plugin Configuration Files";
     auto id = XPLMGetMyID();
@@ -221,9 +222,13 @@ state::reload() noexcept
             logger() << "Reading " << config_file;
             auto prof = profile::from_yaml(config_file.string());
             if(prof.has_value()) {
+                for(const auto &aircraf : prof.value()->aircrafts()) {
+                    logger() << "Using '" << prof.value()->name() << "' for '" << aircraf << "'";
+                    profile_aircraft_map_.emplace(aircraf, prof.value());
+                }
                 for(const auto &model : prof.value()->models()) {
-                    logger() << "Adding profile for '" << model << "'";
-                    profile_map_.emplace(model, std::move(prof.value()));
+                    logger() << "Using '" << prof.value()->name() << "' for ICAO '" << model << "'";
+                    profile_model_map_.emplace(model, prof.value());
                 }
             }
         }
@@ -243,9 +248,18 @@ state::load_plane() noexcept
     if(ret < 256) ui_name[ret] = '\0';
     logger() << "Aircraft '" << ui_name << "' (" << icao_name << ")";
 
-    auto profile = profile_map_.find(icao_name);
-    if(profile != profile_map_.end()) {
-        logger() << "Enabling profile '" << profile->first << "'";
+    // First try to get a match for the specific Aircraft
+    auto profile = profile_aircraft_map_.find(ui_name);
+    if(profile != profile_aircraft_map_.end()) {
+        logger() << "Enabling profile '" << profile->first << "' for '" << ui_name << "'";
+        plane_.emplace(profile->second);
+        XPLMScheduleFlightLoop(this->flight_loop_, -1.0, 1);
+        return true;
+    }
+
+    profile = profile_model_map_.find(icao_name);
+    if(profile != profile_model_map_.end()) {
+        logger() << "Enabling profile '" << profile->first << "' for ICAO '" << icao_name << "'";
         plane_.emplace(profile->second);
         XPLMScheduleFlightLoop(this->flight_loop_, -1.0, 1);
         return true;

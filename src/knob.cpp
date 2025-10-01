@@ -50,33 +50,18 @@ commands::ap_knob_select(XPLMCommandRef cmd, XPLMCommandPhase phase, void * ref)
     commands * self = reinterpret_cast<commands *>(ref);
 
     if(cmd == self->sel_alt_) {
-        if(self->active_ != selector::alt) {
-            logger() << "Altitude Selected";
-        }
         self->active_ = selector::alt;
     }
     else if(cmd == self->sel_vs_) {
-        if(self->active_ != selector::vs) {
-            logger() << "Vertical Speed Selected";
-        }
         self->active_ = selector::vs;
     }
     else if(cmd == self->sel_hdg_) {
-        if(self->active_ != selector::hdg) {
-            logger() << "Heading Selected";
-        }
         self->active_ = selector::hdg;
     }
     else if(cmd == self->sel_crs_) {
-        if(self->active_ != selector::crs) {
-            logger() << "Course Selected";
-        }
         self->active_ = selector::crs;
     }
     else if(cmd == self->sel_ias_) {
-        if(self->active_ != selector::ias) {
-            logger() << "Indicated Air Speed Selected";
-        }
         self->active_ = selector::ias;
     }
     else { return 1; }

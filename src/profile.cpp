@@ -227,11 +227,13 @@ annunciator_data_ref::build(const YAML::Node & node) noexcept
 }
 
 
-profile::profile(std::string && name, std::vector<std::string> && models, 
+profile::profile(std::string && name,
+    std::vector<std::string> && aircrafts, std::vector<std::string> && models, 
     system_data_ref && system, std::optional<autopilot_data_ref> && autopilot,
     std::optional<annunciator_data_ref> && annunciator
 ) noexcept :
     name_(std::move(name)),
+    aircrafts_(std::move(aircrafts)),
     models_(std::move(models)),
     system_(std::move(system)),
     autopilot_(std::move(autopilot)),
@@ -246,6 +248,21 @@ profile::from_yaml(const std::string & path) noexcept {
         logger() << "Profile does not include a name";
         return std::unexpected(0);
     }
+    
+    std::vector<std::string> aircrafts;
+    if(!node["aircrafts"] or node["aircrafts"].IsSequence() == false) {
+        logger() << "Profile does not include supported aircrafts";
+    }
+    else {
+        for(const auto & aircraft : node["aircrafts"]) {
+            if(aircraft.Type() != YAML::NodeType::Scalar) {
+                logger() << "Invalid Aircraft '" << node << "'";
+                continue;
+            }
+            aircrafts.emplace_back(aircraft.as<std::string>());
+        }
+    }
+
     if(!node["models"] or node["models"].IsSequence() == false) {
         logger() << "Profile does not include supported models";
         return std::unexpected(0);
@@ -253,7 +270,7 @@ profile::from_yaml(const std::string & path) noexcept {
     std::vector<std::string> models;
     for(const auto & model : node["models"]) {
         if(model.Type() != YAML::NodeType::Scalar) {
-            logger() << "Model value '" << node << "' is not valid";
+            logger() << "Invalid Model '" << node << "'";
             continue;
         }
         models.emplace_back(model.as<std::string>());
@@ -292,6 +309,7 @@ profile::from_yaml(const std::string & path) noexcept {
 
     return profile_ptr(new profile(
         std::move(node["name"].as<std::string>()),
+        std::move(aircrafts),
         std::move(models),
         std::move(system.value()),
         std::move(autopilot),

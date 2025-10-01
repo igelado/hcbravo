@@ -540,12 +540,14 @@ public:
     using ptr_type = std::shared_ptr<profile>;
 protected:
     std::string name_;
+    std::vector<std::string> aircrafts_;
     std::vector<std::string> models_;
     system_data_ref system_;
     std::optional<autopilot_data_ref> autopilot_;
     std::optional<annunciator_data_ref> annunciator_;
 
-    profile(std::string && name, std::vector<std::string> && models,
+    profile(std::string && name, std::vector<std::string> && aircrafts,
+            std::vector<std::string> && models,
             system_data_ref && system, std::optional<autopilot_data_ref> && autopilot,
             std::optional<annunciator_data_ref> && annunciator) noexcept;
 public:
@@ -556,6 +558,10 @@ public:
     inline
     const std::string &
     name() const { return this->name_; }
+
+    inline
+    const std::vector<std::string> &
+    aircrafts() const { return this->aircrafts_; }
 
     inline
     const std::vector<std::string> &

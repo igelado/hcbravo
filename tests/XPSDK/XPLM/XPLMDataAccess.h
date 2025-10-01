@@ -57,11 +57,13 @@ using XPLMDataRef = std::unique_ptr<xplm_data_ref>;
 typedef struct XPLMDataRefInfo {
     size_t structSize;
     XPLMDataTypeID type;    
+    const char * name;
 } XPLMDataRefInfo_t;
 
 static inline
 void XPLMGetDataRefInfo(const XPLMDataRef & data_ref, XPLMDataRefInfo * info) noexcept {
-    if(info == nullptr or data_ref == nullptr) return;
+    if(info == nullptr || data_ref == nullptr) return;
+    info->name = data_ref->name.c_str();
     info->type = data_ref->type;
 }
 

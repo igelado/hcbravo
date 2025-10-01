@@ -29,7 +29,8 @@ class state {
     commands::ptr_type cmds_;
 
     using profile_map_type = std::unordered_map<std::string, std::shared_ptr<profile>>;
-    profile_map_type profile_map_;
+    profile_map_type profile_aircraft_map_;
+    profile_map_type profile_model_map_;
     XPLMDataRef plane_icao_data_ref_;
     XPLMDataRef plane_name_data_ref_;
     std::optional<profile::ptr_type> plane_;

@@ -1,4 +1,7 @@
 name: Cessna 172S
+aircrafts:
+ - 'Cessna Skyhawk (G1000)'
+ - 'Cessna Skyhawk (G1000) + REP'
 models:
  - C172
 
@@ -44,41 +47,37 @@ system:
 annunciator:
  master_warn:
   - key: 'sim/cockpit2/annunciators/master_warning'
-    index: 0
  eng_fire:
   - key: 'sim/cockpit2/annunciators/engine_fires'
+    index: 0
  oil_low:
   - key: 'sim/cockpit2/annunciators/oil_pressure_low'
+    index: 0
  fuel_low:
   - key: 'sim/cockpit2/annunciators/fuel_pressure_low'
+    index: 0
  anti_ice:
   - key: 'sim/cockpit2/annunciators/pitot_heat'
     invert: true
  starter:
   - key: 'sim/cockpit2/engine/actuators/starter_hit'
+    index: 0
  apu: 
   - key: 'sim/cockpit2/electrical/APU_running'
  master_caution:
   - key: 'sim/cockpit2/annunciators/master_caution'
-    index: 0
  vacuum_low:
   - key: 'sim/cockpit2/annunciators/low_vacuum'
-    index: 0
- hydro_low:
-  - key: 'sim/cockpit2/annunciators/hydraulic_pressure'
-    index: 0
  aux_fuel:
   - key: 'sim/cockpit2/fuel/transfer_pump_left'
-    index: 0
   - key: 'sim/cockpit2/fuel/transfer_pump_right'
-    index: 0
  parking_brake:
    - key: 'sim/cockpit2/controls/wheel_brake_ratio'
-     index: 0
      type: int
  volt_low:
   - key: 'sim/cockpit2/annunciators/low_voltage'
  door_open:
   - key: 'sim/flightmodel2/misc/canopy_open_ratio'
   - key: 'sim/flightmodel2/misc/door_open_ratio'
+    index: 0
   - key: 'sim/cockpit2/annunciators/cabin_door_open'
