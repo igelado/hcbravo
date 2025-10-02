@@ -53,7 +53,7 @@ jobs:
         echo "build-output-dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
 
     - name: Install dependencies
-      if: runner.os == "Linux"
+      if: runner.os == 'Linux'
       run: |
         sudo apt-get update
         sudo apt-get install -y libudev-dev
