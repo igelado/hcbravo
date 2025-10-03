@@ -118,7 +118,7 @@ jobs:
 
       - name: Pack Resources
         run: |
-          find "${{ github.workspace }}/ext/joystick configs" -type f -exec install -D {} "${{ steps.strings.outputs.build-output-dir }}/Resources/joystick configs/"{} \;
+          find "${{ github.workspace }}/ext/AeroSoft/joystick configs" -type f -exec install -D {} "${{ steps.strings.outputs.build-output-dir }}/Resources/joystick configs/"{} \;
           find ${{ github.workspace }}/conf -type f -exec install -D {} ${{ steps.strings.outputs.build-output-dir }}/Resources/plugins/conf/{} \;
 
       - name: Upload
