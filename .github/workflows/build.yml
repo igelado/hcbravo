@@ -95,26 +95,23 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: output-ubuntu-latest
-          path: ${{ steps.strings.outputs.build-output-dir }}
+          path: ${{ steps.strings.outputs.build-output-dir }}/ubuntu
 
       - name: Gather Windows Package
         uses: actions/download-artifact@v4
         with:
           name: output-windows-latest
-          path: ${{ steps.strings.outputs.build-output-dir }}
+          path: ${{ steps.strings.outputs.build-output-dir }}/windows
       
       - name: Gather MacOS Package
         uses: actions/download-artifact@v4
         with:
           name: output-macos-latest
-          path: ${{ steps.strings.outputs.build-output-dir }}
+          path: ${{ steps.strings.outputs.build-output-dir }}/macos
  
       - name: Pack Plugins 
         working-directory: ${{ steps.strings.outputs.build-output-dir }}
         run: |
-          unzip output-ubuntu-latest.zip -d ubuntu
-          unzip output-macos-latest.zip -d macos
-          unzip output-windows-latest.zip -d windows
           install -D ubuntu/hcbravo.xpl Resources/plugins/lin_x64/hcbravo.xpl
           install -D macos/hcbravo.xpl Resources/plugins/mac_x64/hcbravo.xpl
           install -D windows/Release/hcbravo.xpl Resources/plugins/win_x64/hcbravo.xpl
