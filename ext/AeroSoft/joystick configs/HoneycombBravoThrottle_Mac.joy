@@ -39,15 +39,15 @@ Button 8:
 Button 9: 
 Button 10: 
 Button 11: 
-Button 12: 
-Button 13: 
+Button 12: HCBravo/Inc
+Button 13: HCBravo/Dec
 Button 14: sim/flight_controls/flaps_down
 Button 15: sim/flight_controls/flaps_up
-Button 16: 
-Button 17: 
-Button 18: 
-Button 19: 
-Button 20: 
+Button 16: HCBravo/IAS
+Button 17: HCBravo/CRS
+Button 18: HCBravo/HDG
+Button 19: HCBravo/VS
+Button 20: HCBravo/ALT
 Button 21: sim/flight_controls/pitch_trim_down
 Button 22: sim/flight_controls/pitch_trim_up
 Button 23: 

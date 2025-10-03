@@ -1,0 +1,67 @@
+name: Package
+
+on:
+  push:
+    tags:
+      - '^v[0-9]+.[0-9]+.[0-9]+'
+  workflow_call:
+    
+jobs:
+  build:
+    uses: ./.github/workflows/build.yml@main
+
+  package:
+    runs-on: ubuntu-latest
+
+    needs: build
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set reusable strings
+        id: strings
+        shell: bash
+        run: |
+          echo "build-output-dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
+
+      - name: Gather Linux Package
+        uses: actions/download-artifact@v5
+        with:
+          name: output-ubuntu-latest
+          github-token: ${{ secrets.GH_PATH }}
+          run-id: ${{ github.run_id }}
+          path: ${{ steps.strings.outputs.build-output-dir }}/ubuntu
+
+      - name: Gather Windows Package
+        uses: actions/download-artifact@v4
+        with:
+          name: output-windows-latest
+          github-token: ${{ secrets.GH_PATH }}
+          run-id: ${{ github.run_id }}
+          path: ${{ steps.strings.outputs.build-output-dir }}/windows
+      
+      - name: Gather MacOS Package
+        uses: actions/download-artifact@v4
+        with:
+          name: output-macos-latest
+          github-token: ${{ secrets.GH_PATH }}
+          run-id: ${{ github.run_id }}
+          path: ${{ steps.strings.outputs.build-output-dir }}/macos
+ 
+      - name: Pack Plugins 
+        working-directory: ${{ steps.strings.outputs.build-output-dir }}
+        run: |
+          install -D ubuntu/hcbravo.xpl Resources/plugins/lin_x64/hcbravo.xpl
+          install -D macos/hcbravo.xpl Resources/plugins/mac_x64/hcbravo.xpl
+          install -D windows/Release/hcbravo.xpl Resources/plugins/win_x64/hcbravo.xpl
+
+      - name: Pack Resources
+        run: |
+          cp -R "${{ github.workspace }}/ext/AeroSoft/joystick configs" "${{ steps.strings.outputs.build-output-dir }}/Resources/joystick configs/"
+          cp -R ${{ github.workspace }}/conf ${{ steps.strings.outputs.build-output-dir }}/Resources/plugins/conf
+
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: hcbravo
+          path: ${{ steps.strings.outputs.build-output-dir }}/Resources
