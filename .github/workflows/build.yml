@@ -118,8 +118,8 @@ jobs:
 
       - name: Pack Resources
         run: |
-          find "${{ github.workspace }}/ext/AeroSoft/joystick configs" -type f -exec install -D {} "${{ steps.strings.outputs.build-output-dir }}/Resources/joystick configs/"{} \;
-          find ${{ github.workspace }}/conf -type f -exec install -D {} ${{ steps.strings.outputs.build-output-dir }}/Resources/plugins/conf/{} \;
+          cp -R "${{ github.workspace }}/ext/AeroSoft/joystick configs" "${{ steps.strings.outputs.build-output-dir }}/Resources/joystick configs/"
+          cp -R ${{ github.workspace }}/conf ${{ steps.strings.outputs.build-output-dir }}/Resources/plugins/conf
 
       - name: Upload
         uses: actions/upload-artifact@v4
