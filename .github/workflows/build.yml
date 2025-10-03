@@ -117,7 +117,7 @@ jobs:
           unzip output-windows-latest.zip -d windows
           install -D ubuntu/hcbravo.xpl Resources/plugins/lin_x64/hcbravo.xpl
           install -D macos/hcbravo.xpl Resources/plugins/mac_x64/hcbravo.xpl
-          install -D windows/hcbravo.xpl Resources/plugins/win_x64/hcbravo.xpl
+          install -D windows/Release/hcbravo.xpl Resources/plugins/win_x64/hcbravo.xpl
 
       - name: Pack Resources
         run: |
