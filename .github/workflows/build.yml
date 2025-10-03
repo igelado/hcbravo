@@ -71,15 +71,11 @@ jobs:
       working-directory: ${{ steps.strings.outputs.build-output-dir }}
       run: ctest --build-config ${{ matrix.build_type }}
 
-    - name: Pack 
-      working-directory: ${{ steps.strings.outputs.build-output-dir }}
-      run: cpack -D CPACK_PACKAGE_FILE_NAME="hcbravo-${{ matrix.os }}"
-
     - name: Upload
       uses: actions/upload-artifact@v4
       with:
         name: output-${{ matrix.os }}
-        path: ${{ steps.strings.outputs.build-output-dir }}/hcbravo-${{ matrix.os }}.zip
+        path: ${{ steps.strings.outputs.build-output-dir }}
 
   package:
     runs-on: ubuntu-latest
@@ -87,6 +83,8 @@ jobs:
     needs: build
 
     steps:
+      - uses: actions/checkout@v4
+
       - name: Set reusable strings
         id: strings
         shell: bash
@@ -111,8 +109,24 @@ jobs:
           name: output-macos-latest
           path: ${{ steps.strings.outputs.build-output-dir }}
  
-      - name: Merge Packages
+      - name: Pack Plugins 
         working-directory: ${{ steps.strings.outputs.build-output-dir }}
         run: |
-          unzip -a *.zip
-          zip hcbravo.zip Resources
+          unzip output-ubuntu-latest.zip
+          unzip output-macos-latest.zip
+          unzip output-windows-latest.zip
+          install -D hcbravo-ubuntu-latest/hcbravo.xpl Resources/plugins/lin_x64/hcbravo.xpl
+          install -D hcbravo-macos-latest/hcbravo.xpl Resources/plugins/mac_x64/hcbravo.xpl
+          install -D hcbravo-windows-latest/hcbravo.xpl Resources/plugins/win_x64/hcbravo.xpl
+
+      - name: Pack Resources
+        run: |
+          find "ext/joystick configs" -type f -exec install -D {} "${{ steps.strings.outputs.build-output-dir }}/Resources/joystick configs/"{} \;
+          find conf -type f -exec install -D {} ${{ steps.strings.outputs.build-output-dir }}/Resources/plugins/conf/{} \;
+
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: hcbravo
+          path: ${{ steps.strings.outputs.build-output-dir }}/Resources
+
