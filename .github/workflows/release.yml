@@ -65,7 +65,7 @@ jobs:
       - name: Create ZIP
         working-directory: ${{ steps.strings.outputs.build-output-dir }}
         run: |
-          zip -R hcbravo-v${{ github.event.inputs.version }}.zip Resources
+          zip -r hcbravo-v${{ github.event.inputs.version }}.zip Resources
 
       - name: Create Release Tag
         run: |
