@@ -112,12 +112,12 @@ jobs:
       - name: Pack Plugins 
         working-directory: ${{ steps.strings.outputs.build-output-dir }}
         run: |
-          unzip output-ubuntu-latest.zip
-          unzip output-macos-latest.zip
-          unzip output-windows-latest.zip
-          install -D hcbravo-ubuntu-latest/hcbravo.xpl Resources/plugins/lin_x64/hcbravo.xpl
-          install -D hcbravo-macos-latest/hcbravo.xpl Resources/plugins/mac_x64/hcbravo.xpl
-          install -D hcbravo-windows-latest/hcbravo.xpl Resources/plugins/win_x64/hcbravo.xpl
+          unzip output-ubuntu-latest.zip -d ubuntu
+          unzip output-macos-latest.zip -d macos
+          unzip output-windows-latest.zip -d windows
+          install -D ubuntu/hcbravo.xpl Resources/plugins/lin_x64/hcbravo.xpl
+          install -D macos/hcbravo.xpl Resources/plugins/mac_x64/hcbravo.xpl
+          install -D windows/hcbravo.xpl Resources/plugins/win_x64/hcbravo.xpl
 
       - name: Pack Resources
         run: |
