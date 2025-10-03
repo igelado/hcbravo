@@ -1,10 +1,12 @@
 name: Package
 
 on:
-  push:
-    tags:
-      - '^v[0-9]+.[0-9]+.[0-9]+'
-  workflow_call:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to create (e.g., 0.0.1)'
+        required: true
+        type: string
     
 jobs:
   build:
@@ -28,7 +30,7 @@ jobs:
         uses: actions/download-artifact@v5
         with:
           name: output-ubuntu-latest
-          github-token: ${{ secrets.GH_PATH }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           run-id: ${{ github.run_id }}
           path: ${{ steps.strings.outputs.build-output-dir }}/ubuntu
 
@@ -36,7 +38,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: output-windows-latest
-          github-token: ${{ secrets.GH_PATH }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           run-id: ${{ github.run_id }}
           path: ${{ steps.strings.outputs.build-output-dir }}/windows
       
@@ -44,7 +46,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: output-macos-latest
-          github-token: ${{ secrets.GH_PATH }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           run-id: ${{ github.run_id }}
           path: ${{ steps.strings.outputs.build-output-dir }}/macos
  
@@ -60,8 +62,22 @@ jobs:
           cp -R "${{ github.workspace }}/ext/AeroSoft/joystick configs" "${{ steps.strings.outputs.build-output-dir }}/Resources/joystick configs/"
           cp -R ${{ github.workspace }}/conf ${{ steps.strings.outputs.build-output-dir }}/Resources/plugins/conf
 
-      - name: Upload
-        uses: actions/upload-artifact@v4
+      - name: Create ZIP
+        working-directory: ${{ steps.strings.outputs.build-output-dir }}
+        run: |
+          zip -R hcbravo-v${{ github.event.inputs.version }}.zip Resources
+
+      - name: Create Release Tag
+        run: |
+          git tag v${{ github.event.inputs.version }}
+          git push origin v${{ github.event.inputs.version }}
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          name: hcbravo
-          path: ${{ steps.strings.outputs.build-output-dir }}/Resources
+          tag_name: v${{ github.event.inputs.version }}
+          name: 'HCBravo Release v${{ github.event.inputs.version }}'
+          files: hcbravo-v${{ github.event.inputs.version }}.zip
+      
