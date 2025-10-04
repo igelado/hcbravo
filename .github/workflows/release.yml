@@ -61,11 +61,11 @@ jobs:
       - name: Pack Plugins 
         working-directory: ${{ steps.strings.outputs.build-output-dir }}
         run: |
-          install -D ubuntu/hcbravo.xpl Resources/plugins/lin_x64/hcbravo.xpl
-          install -D macos/hcbravo.xpl Resources/plugins/mac_x64/hcbravo.xpl
-          install -D windows/Release/hcbravo.xpl Resources/plugins/win_x64/hcbravo.xpl
+          install -D ubuntu/hcbravo.xpl Resources/plugins/hcbravo/lin_x64/hcbravo.xpl
+          install -D macos/hcbravo.xpl Resources/plugins/hcbravo/mac_x64/hcbravo.xpl
+          install -D windows/Release/hcbravo.xpl Resources/plugins/hcbravo/win_x64/hcbravo.xpl
           cp -R "${{ github.workspace }}/ext/AeroSoft/joystick configs" "Resources/joystick configs/"
-          cp -R ${{ github.workspace }}/conf Resources/plugins/conf
+          cp -R ${{ github.workspace }}/conf Resources/plugins/hcbravo/conf
           zip -r hcbravo-v${{ github.event.inputs.version }}.zip Resources
 
       - name: Create Release Tag
