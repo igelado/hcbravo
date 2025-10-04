@@ -46,7 +46,7 @@ state::menu_handler(void * _this, void * item) noexcept
             XPLMReloadPlugins();
             break;
         default:
-            logger() << "Unknwon Menu ID #" << id;
+            logger() << "Unknown Menu ID #" << id;
             break;
     }
 }
@@ -222,13 +222,25 @@ state::reload() noexcept
             logger() << "Reading " << config_file;
             auto prof = profile::from_yaml(config_file.string());
             if(prof.has_value()) {
-                for(const auto &aircraf : prof.value()->aircrafts()) {
-                    logger() << "Using '" << prof.value()->name() << "' for '" << aircraf << "'";
-                    profile_aircraft_map_.emplace(aircraf, prof.value());
+                for(const auto &aircraft : prof.value()->aircrafts()) {
+                    auto ret = profile_aircraft_map_.emplace(aircraft, prof.value());
+                    if(ret.second == false) {
+                        logger() << "Not using '" << prof.value()->name() << "' for '" << aircraft 
+                                 << "' because another profile already exists";
+                    }
+                    else {
+                        logger() << "Using '" << prof.value()->name() << "' for '" << aircraft << "'";
+                    }
                 }
                 for(const auto &model : prof.value()->models()) {
-                    logger() << "Using '" << prof.value()->name() << "' for ICAO '" << model << "'";
-                    profile_model_map_.emplace(model, prof.value());
+                    auto ret = profile_model_map_.emplace(model, prof.value());
+                    if(ret.second == false) {
+                        logger() << "Not using '" << prof.value()->name() << "' for ICAO '" << model 
+                                 << "' because another profile already exists";
+                    }
+                    else {
+                        logger() << "Using '" << prof.value()->name() << "' for ICAO '" << model << "'";
+                    }
                 }
             }
         }
@@ -257,6 +269,8 @@ state::load_plane() noexcept
         return true;
     }
 
+    logger() << "Cannot find a profile for '" << ui_name 
+             << "'. Falling back to profile for ICAO '" << icao_name << "'";
     profile = profile_model_map_.find(icao_name);
     if(profile != profile_model_map_.end()) {
         logger() << "Enabling profile '" << profile->first << "' for ICAO '" << icao_name << "'";
@@ -264,7 +278,8 @@ state::load_plane() noexcept
         XPLMScheduleFlightLoop(this->flight_loop_, -1.0, 1);
         return true;
     }
-    logger() << "No profile found for aircraft";
+
+    logger() << "Profile not found for aircraft '" << ui_name << "' (" << icao_name << ")";
     return false;
 }
 
