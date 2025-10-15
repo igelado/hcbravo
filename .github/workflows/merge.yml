@@ -4,9 +4,9 @@ on:
   pull_request:
     branches: [ main ]
     paths:
-      - CMakeFiles.txt
-      - src/**
-      - tests/**
+      - 'CMakeLists.txt'
+      - 'src/**'
+      - 'tests/**'
 
 jobs:
   build:
