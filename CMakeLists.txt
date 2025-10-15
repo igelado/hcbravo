@@ -6,7 +6,7 @@
 # Copyright (C) 2005 Isaac Gelado
 
 
-cmake_minimum_required(VERSION 3.30)
+cmake_minimum_required(VERSION 3.28)
 if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin")
     message(NOTICE "Building Universal Plug-in...")
     set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "" FORCE)

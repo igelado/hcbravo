@@ -26,13 +26,18 @@ Configuration files are YAML files a **MUST** have a `.yaml` extension.
 
 ### Configuration File Structure
 
-The YAML file has three compulsory labels (`name`, `models`, and `system`) and two optional labels (`autopilot` and `annunciator`).
+The YAML file has three compulsory labels (`name`, `models`, `aircrafts`, and `system`) and two optional labels (`autopilot` and `annunciator`).
 
 The `name` label is a scalar that contains a string with the name of the profile, e.g., `Cessna 172SP`.
 The plugin uses this string to identify the profile, but its value **does not** affect how profiles are selected for a given aircraft.
 
+The `aircrafts` label is an enumeration of concrete aircrafts the profile applies to.
+When XPlain loads an aircraft, the plugin tries to match the aircraft's name with an element on this list.
+If a match is found, it will use the profile for the aircraft.
+
 The `models` label is an enumeration where each element is a valid ICAO model for which the profile is valid.
-The plugin uses the list of models to determine which aircraft profiles are available for a given aircraft.
+The contents of this label is a backup mechanism to assign profiles to aircrafts.
+If the plugin does not find a match for an aircraft's name, it uses the list of models to determine which aircraft profiles are available for a given aircraft.
 
 #### XPlane DataRef Labels
 
@@ -106,7 +111,7 @@ The `ias` label is not directly a DataRef, but a map with two labels pointing to
 The `modes` entry is also map that identifies the DataRef that indicates whether a given autopilot mode is armed.
 All the DataRefs in `modes` are treated as boolean values.
 The only required label in `modes` is `ap`, which identifies whether the Autopilot is armed or not.
-The remaining labels are optional and indentifies other potential Autopilot modes that might be armed:
+The remaining labels are optional and identifies other potential Autopilot modes that might be armed:
   - `hdg` Heading Mode
   - `nav` Nav Mode (both VOR and GPS)
   - `rev` Reverse course mode
@@ -115,7 +120,7 @@ The remaining labels are optional and indentifies other potential Autopilot mode
 
 #### Annunciators Configuration
 
-The annunciators entry is a map that contanis one entry per LED indicator in the Bravo throttle.
+The annunciators entry is a map that contains one entry per LED indicator in the Bravo throttle.
 As in the case of the autopilot modes, all DataRefs are interpreted as boolean values, and all labels in the `annunciator` map are optional:
  - `master_warn` Master Warning
  - `eng_fire` Engine Fire
@@ -126,7 +131,7 @@ As in the case of the autopilot modes, all DataRefs are interpreted as boolean v
  - `apu` Auxiliary Power Unit active
  - `master_caution` Master Caution
  - `vacuum_low` Low Vacuum
- - `hydro_low` Low Hydrolic Pressure
+ - `hydro_low` Low Hydraulic Pressure
  - `aux_fuel` Auxiliary Fuel in use
  - `parking_brake` Parking Brake engaged
  - `volt_low` Low Voltage
@@ -143,7 +148,7 @@ As in the case of the autopilot modes, all DataRefs are interpreted as boolean v
  cpack
  ```
 
- After running those comands, there should a `hcbravo.zip` file that contains the plugin and the configuration files.
+ After running those commands, there should a `hcbravo.zip` file that contains the plugin and the configuration files.
  You can unzip that archive into the XPlane plugins directory.
 
 

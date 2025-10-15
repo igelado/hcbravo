@@ -4,16 +4,16 @@ on:
   pull_request:
     branches: [ main ]
     paths:
-      - CMakeFiles.txt
-      - src/**
-      - tests/**
+      - 'CMakeLists.txt'
+      - 'src/**'
+      - 'tests/**'
 
 jobs:
   build:
     strategy:
       fail-fast: false
       matrix:
-       os: [ubuntu-latest, windows-latest, macos-latest]
+       os: [ubuntu-latest, ubuntu-24.04, windows-latest, macos-latest, macos-15-intel]
 
     uses: ./.github/workflows/build.yml
     with:
