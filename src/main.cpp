@@ -36,7 +36,7 @@ XPluginStart(char * name, char * sig, char * desc) {
     XPLMEnableFeature("XPLM_USE_NATIVE_PATHS", 1);
     auto state = state::init();
     if(state.has_value() == false) {
-       logger() << "Failed to initialize Plugin";
+       logger() << "Failed to initialize Plugin: " << state.error();
        return 0;
     }
     plugin_state.emplace(std::move(state.value()));
@@ -48,6 +48,7 @@ XPluginStart(char * name, char * sig, char * desc) {
 PLUGIN_API
 void
 XPluginStop(void) {
+    logger() << "Unloading Plugin";
     plugin_state = std::nullopt;
 }
 

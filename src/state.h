@@ -12,12 +12,12 @@
 #include <XPLM/XPLMMenus.h>
 #include <XPLM/XPLMProcessing.h>
 
-#include <expected>
 #include <optional>
 #include <string>
 
 #include <hidapi.h>
 
+#include "error.h"
 #include "knob.h"
 #include "led.h"
 #include "profile.h"
@@ -64,7 +64,7 @@ public:
     }
 
     static
-    std::expected<state::ptr_type, int>
+    result_type<state::ptr_type>
     init() noexcept;
 
     void

@@ -111,7 +111,7 @@ state::flight_iteration(float call, float iter, int counter, void * _this) noexc
     return -1.0;
 }
 
-std::expected<state::ptr_type, int>
+result_type<state::ptr_type>
 state::init() noexcept
 {
     state::ptr_type st = state::ptr_type(new state());
@@ -120,18 +120,19 @@ state::init() noexcept
     int res = hid_init();
     if(res < 0) {
         logger() << "Failed to initialize HID";
-        return std::unexpected(0);
+        return std::unexpected(error::hid_error);
     }
     st->hid_ = hid_open(0x294b, 0x1901, nullptr);
     if(st->hid_ == nullptr) {
-        logger() << "Failed to Open HoneyComb Bravo Quadrant";
-        return std::unexpected(0);
+        logger() << "Open HoneyComb Bravo Quadrant not Detected";
+        return std::unexpected(error::not_detected);
     }
     logger() << "HoneyComb Bravo Throttle Detected";
     st->leds_.hid_ = st->hid_;
 
     auto commands = commands::init(*st);
     if(commands.has_value() == false) {
+        hid_close(st->hid_);
         logger() << "Failed to Register HoneyComb Bravo Commands";
         return std::unexpected(commands.error());
     }
@@ -144,12 +145,14 @@ state::init() noexcept
     int item = XPLMAppendMenuItem(XPLMFindPluginsMenu(), "HoneyComb Bravo", nullptr, 1);
     st->menu_ = XPLMCreateMenu("HoneyComb Bravo", XPLMFindPluginsMenu(), item, &state::menu_handler, st.get());
     if(XPLMAppendMenuItem(st->menu_, "Reload Aircraft Profiles", reinterpret_cast<void *>(0), 0) < 0) {
+        XPLMDestroyMenu(st->menu_);
         logger() << "Failed to Create HoneyComb Bravo Menu (Reload Aircraft Profiles)";
-        return std::unexpected(0);
+        return std::unexpected(error::api_menu);
     }
     if(XPLMAppendMenuItem(st->menu_, "Reload All Plugins", reinterpret_cast<void *>(1), 0) < 0) {
+        XPLMDestroyMenu(st->menu_);
         logger() << "Failed to Create HoneyComb Bravo Menu (Reload All Plugins)";
-        return std::unexpected(0);
+        return std::unexpected(error::api_menu);
     }
 
     logger() << "Creating Flight Loop Logic";
@@ -161,8 +164,9 @@ state::init() noexcept
     };
     st->flight_loop_ = XPLMCreateFlightLoop(&fl_params);
     if(st->flight_loop_ == nullptr) {
+        XPLMDestroyMenu(st->menu_);
         logger() << "Failed to Create Flight Loop";
-        return std::unexpected(0);
+        return std::unexpected(error::api_loop);
     }
 
     return st;
