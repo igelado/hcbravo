@@ -182,7 +182,7 @@ commands::ap_knob_down(XPLMCommandRef cmd, XPLMCommandPhase phase, void * ref) n
 
 
 
-std::expected<commands::ptr_type, int>
+result_type<commands::ptr_type>
 commands::init(const state & state) noexcept
 {
     ptr_type ret(new commands(state));
@@ -190,19 +190,19 @@ commands::init(const state & state) noexcept
         ret.get()->*desc.cmd = XPLMCreateCommand(desc.path, desc.desc);
         if(ret.get()->*desc.cmd == nullptr) {
             logger() << "Failed to register Selection Command";
-            return std::unexpected(0);
+            return std::unexpected(error::api_command);
         }
         XPLMRegisterCommandHandler(ret.get()->*desc.cmd, ap_knob_select, 1, reinterpret_cast<void *>(ret.get()));
     }
     ret->inc_ = XPLMCreateCommand("HCBravo/Inc", "Autopilot Knob Up");
     if(ret->inc_ == nullptr) {
         logger() << "Failed to register Inc Command";
-        return std::unexpected(0);
+        return std::unexpected(error::api_command);
     }
     ret->dec_ = XPLMCreateCommand("HCBravo/Dec", "Autopilot Knob Down");
     if(ret->dec_ == nullptr) {
         logger() << "Failed to register Dec Command";
-        return std::unexpected(0);
+        return std::unexpected(error::api_command);
     }
 
     XPLMRegisterCommandHandler(ret->inc_, ap_knob_up, 1, reinterpret_cast<void *>(ret.get()));

@@ -15,6 +15,8 @@
 #include <expected>
 #include <memory>
 
+#include "error.h"
+
 enum class selector : size_t {
     alt = 0,
     vs = 1,
@@ -79,7 +81,7 @@ public:
     ~commands() noexcept;
 
     static
-    std::expected<ptr_type, int>
+    result_type<ptr_type>
     init(const state & state) noexcept;
 
     inline
