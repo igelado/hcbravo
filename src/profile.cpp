@@ -243,7 +243,14 @@ profile::profile(std::string && name,
 std::expected<profile::ptr_type, int>
 profile::from_yaml(const std::string & path) noexcept {
     logger() << "Loading YAML File " << path;
-    YAML::Node node = YAML::LoadFile(path);
+    YAML::Node node;
+    try {
+        node = YAML::LoadFile(path);
+    }
+    catch(const YAML::Exception & ex) {
+        logger() << "Failed to load YAML file '" << path << "': " << ex.what();
+        return std::unexpected(0);
+    }
     if(!node["name"]) {
         logger() << "Profile does not include a name";
         return std::unexpected(0);

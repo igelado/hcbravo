@@ -74,6 +74,7 @@ private:
         sel_ias_(nullptr),
         inc_(nullptr),
         dec_(nullptr),
+        active_(selector::alt),
         last_cmd_(std::chrono::steady_clock::now())
     {}
 

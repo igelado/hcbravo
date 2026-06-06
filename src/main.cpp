@@ -13,6 +13,7 @@
 #include <hidapi.h>
 #include <yaml.h>
 
+#include <cstdint>
 #include <memory>
 #include <optional>
 #include <tuple>
@@ -66,12 +67,15 @@ PLUGIN_API
 void
 XPluginReceiveMessage(XPLMPluginID id, int msg, void * param) 
 {
+    auto plane_index = static_cast<int>(reinterpret_cast<intptr_t>(param));
     switch(msg) {
         case XPLM_MSG_PLANE_LOADED:
+            if(plane_index != 0) break;
             logger() << "Loading new aircraft";
             if(plugin_state.has_value()) plugin_state.value()->load_plane();
             break;
         case XPLM_MSG_PLANE_UNLOADED:
+            if(plane_index != 0) break;
             logger() << "Unloading current aircraft";
             if(plugin_state.has_value()) plugin_state.value()->unload_plane();
             break;

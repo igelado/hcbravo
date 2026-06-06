@@ -213,7 +213,7 @@ commands::init(const state & state) noexcept
 
 commands::~commands() noexcept {
     if(this->dec_ != nullptr) XPLMUnregisterCommandHandler(this->dec_, ap_knob_down, 1, this);
-    if(this->inc_ != nullptr) XPLMUnregisterCommandHandler(this->dec_, ap_knob_up, 1, this);
+    if(this->inc_ != nullptr) XPLMUnregisterCommandHandler(this->inc_, ap_knob_up, 1, this);
 
     for(const auto & desc: descriptors) {
         if(this->*desc.cmd != nullptr) XPLMUnregisterCommandHandler(this->*desc.cmd, ap_knob_select, 1, this);
