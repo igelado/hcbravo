@@ -41,6 +41,11 @@ base_data_ref::build(const YAML::Node & node) noexcept
         return std::unexpected(0);
     }
 
+    if(data_ref == nullptr) {
+        logger() << "DataRef not found for node '" << node << "'";
+        return std::unexpected(0);
+    }
+
     XPLMDataRefInfo_t info;
     info.structSize = sizeof(info);
     XPLMGetDataRefInfo(data_ref, &info);
@@ -117,8 +122,10 @@ public:
         auto ret = base_data_ref::build<data_ref>(node);
         if(ret.has_value()) {
             if(node.IsMap()) {
-                for(const auto v : node["values"]) {
-                    ret.value().values_.emplace_back(v.as<int>());
+                if(node["values"]) {
+                    for(const auto & v : node["values"]) {
+                        ret.value().values_.emplace_back(v.as<int>());
+                    }
                 }
             }
         }
@@ -168,8 +175,10 @@ public:
         auto ret = base_data_ref::build<data_ref>(node);
         if(ret.has_value()) {
             if(node.IsMap()) {
-                for(const auto v : node["values"]) {
-                    ret.value().values_.emplace_back(v.as<float>());
+                if(node["values"]) {
+                    for(const auto & v : node["values"]) {
+                        ret.value().values_.emplace_back(v.as<float>());
+                    }
                 }
             }
         }

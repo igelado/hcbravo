@@ -12,6 +12,7 @@
 #include <XPLM/XPLMUtilities.h>
 
 #include <algorithm>
+#include <cmath>
 #include <expected>
 
 #undef max
@@ -42,6 +43,15 @@ static const factor factors[] = {
     { 1.0f, 5.0f },     // CRS
     { 1.0f, 2.0f }      // IAS
 };
+
+static inline
+float
+normalize_heading(float value) noexcept
+{
+    value = std::fmod(value, 360.0f);
+    if(value < 0.0f) value += 360.0f;
+    return std::round(value);
+}
 
 
 int
@@ -132,19 +142,17 @@ commands::ap_knob_update(void * ref) noexcept
         case selector::hdg:
             if(!dials.heading()) return 0;
             dials.heading().value().set(
-                std::round(std::fmod(
-                    dials.heading().value().get() + get_update_value<selector::hdg, Dir>(fast),
-                    360.0f
-                ))
+                normalize_heading(
+                    dials.heading().value().get() + get_update_value<selector::hdg, Dir>(fast)
+                )
             );
             break;
         case selector::crs:
             if(!dials.course()) return 0;
             dials.course().value().set(
-                std::round(std::fmod(
-                    dials.course().value().get() + get_update_value<selector::crs, Dir>(fast),
-                    360.0f
-                ))
+                normalize_heading(
+                    dials.course().value().get() + get_update_value<selector::crs, Dir>(fast)
+                )
             );
             break;
         case selector::ias:
@@ -213,7 +221,7 @@ commands::init(const state & state) noexcept
 
 commands::~commands() noexcept {
     if(this->dec_ != nullptr) XPLMUnregisterCommandHandler(this->dec_, ap_knob_down, 1, this);
-    if(this->inc_ != nullptr) XPLMUnregisterCommandHandler(this->dec_, ap_knob_up, 1, this);
+    if(this->inc_ != nullptr) XPLMUnregisterCommandHandler(this->inc_, ap_knob_up, 1, this);
 
     for(const auto & desc: descriptors) {
         if(this->*desc.cmd != nullptr) XPLMUnregisterCommandHandler(this->*desc.cmd, ap_knob_select, 1, this);
