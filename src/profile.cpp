@@ -18,7 +18,13 @@ static
 std::optional<bool_data_ref::ptr_type>
 make_bool_data_ref(const YAML::Node & node) noexcept
 {
-    if(!node or !node["key"]) return std::nullopt;
+    if(!node) return std::nullopt;
+    if(node.IsMap() == false) {
+        auto data = data_ref<bool>::build(node);
+        if(data.has_value() == false) return std::nullopt;
+        return bool_data_ref::ptr_type(new data_ref<bool>(std::move(data.value())));
+    }
+    if(!node["key"]) return std::nullopt;
     std::string node_type = node["type"] ? node["type"].as<std::string>() : "bool";
 
     if(node_type == "bool") {
@@ -40,9 +46,16 @@ make_bool_data_ref(const YAML::Node & node) noexcept
 }
 
 value_data_ref::value_data_ref(const YAML::Node & node) noexcept {
-    if(!node or node.IsSequence() == false) return;
-    for(const auto & value : node) {
-        auto data = make_bool_data_ref(value);
+    if(!node) return;
+
+    if(node.IsSequence()) {
+        for(const auto & value : node) {
+            auto data = make_bool_data_ref(value);
+            if(data.has_value()) data_.emplace_back(std::move(data.value()));
+        }
+    }
+    else {
+        auto data = make_bool_data_ref(node);
         if(data.has_value()) data_.emplace_back(std::move(data.value()));
     }
 }
@@ -102,10 +115,21 @@ build_optional_data_ref(const YAML::Node & node, const std::string & key) noexce
     return std::optional(std::move(ret.value()));
 }
 
+template<typename T>
+static inline
+std::optional<data_ref<T>>
+build_optional_data_ref(const YAML::Node & node, const std::string & key,
+        const std::string & alias) noexcept
+{
+    auto ret = build_optional_data_ref<T>(node, key);
+    if(ret.has_value()) return ret;
+    return build_optional_data_ref<T>(node, alias);
+}
+
 autopilot_dial_data_ref::autopilot_dial_data_ref(std::optional<airspeed_data_ref> && ias, const YAML::Node & node) noexcept :
     ias_(std::move(ias)),
-    course_(build_optional_data_ref<float>(node, "crs")),
-    heading_(build_optional_data_ref<float>(node, "hdg")),
+    course_(build_optional_data_ref<float>(node, "crs", "course")),
+    heading_(build_optional_data_ref<float>(node, "hdg", "heading")),
     vs_(build_optional_data_ref<float>(node, "vs")),
     alt_(build_optional_data_ref<float>(node, "alt"))
 {}

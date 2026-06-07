@@ -23,6 +23,29 @@ tag:
     ASSERT_EQ(data_ref.data().front()->data_ref()->name, "sim/test/bool");
 }
 
+TEST(profile_test, bool_data_ref_scalar) {
+    auto node = YAML::Load(R"(
+tag: 'sim/test/bool'
+    )");
+    auto data_ref = value_data_ref(node["tag"]);
+    ASSERT_FALSE(data_ref.data().empty());
+
+    ASSERT_EQ(data_ref.data().front()->data_ref()->name, "sim/test/bool");
+}
+
+TEST(profile_test, bool_data_ref_sequence_scalar) {
+    auto node = YAML::Load(R"(
+tag:
+  - 'sim/test/first'
+  - 'sim/test/second'
+    )");
+    auto data_ref = value_data_ref(node["tag"]);
+    ASSERT_EQ(data_ref.data().size(), 2);
+
+    ASSERT_EQ(data_ref.data()[0]->data_ref()->name, "sim/test/first");
+    ASSERT_EQ(data_ref.data()[1]->data_ref()->name, "sim/test/second");
+}
+
 TEST(profile_test, bool_data_ref_unset) {
     auto node = YAML::Load(R"(
 tag:
@@ -371,7 +394,14 @@ dials:
 
   auto data_ref = std::move(data_ref_opt.value());
   ASSERT_FALSE(data_ref.ias());
- 
+  ASSERT_TRUE(data_ref.course());
+  const base_data_ref & course = data_ref.course().value();
+  ASSERT_EQ(course.data_ref()->name,
+      "sim/cockpit2/radios/actuators/nav1_obs_deg_mag_pilot");
+  ASSERT_TRUE(data_ref.heading());
+  const base_data_ref & heading = data_ref.heading().value();
+  ASSERT_EQ(heading.data_ref()->name,
+      "sim/cockpit2/autopilot/heading_dial_deg_mag_pilot");
 }
 
 TEST(profile_test, system) {

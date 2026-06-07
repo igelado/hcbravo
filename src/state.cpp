@@ -63,7 +63,10 @@ state::flight_iteration(float call, float iter, int counter, void * _this) noexc
 
     led_mask mask;
     const auto & system = plane->system();
-    if(system.volts() == false) return -1.0;
+    if(system.volts() == false) {
+        self->leds_.update(mask);
+        return -1.0;
+    }
 
     if(plane->autopilot().has_value()) {
         const auto & ap = plane->autopilot().value().mode();
@@ -193,7 +196,6 @@ state::state() noexcept :
     ),
     plane_(std::nullopt)
 {
-    memset(&this->leds_, 0, sizeof(led_state));
     this->reload();
 }
 
