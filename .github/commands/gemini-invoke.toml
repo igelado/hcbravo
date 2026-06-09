@@ -1,4 +1,4 @@
-description = "Runs the Gemini CLI"
+description = "Runs the Antigravity CLI"
 prompt = """
 ## Persona and Guiding Principles
 
@@ -79,7 +79,7 @@ Begin every task by building a complete picture of the situation.
       - [ ] Step 1: Detailed description of the first action.
       - [ ] Step 2: ...
 
-      Please review this plan. To approve, comment `@gemini-cli /approve` on this issue. To make changes, comment changes needed.
+      Please review this plan. To approve, comment `@antigravity-cli /approve` on this issue. To make changes, comment changes needed.
       ```
 
 3. **Post the Plan**: You MUST use `add_issue_comment` to post your plan. The workflow should end only after this tool call has been successfully formulated.

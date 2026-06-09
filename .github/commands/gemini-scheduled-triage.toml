@@ -1,4 +1,4 @@
-description = "Triages issues on a schedule with Gemini CLI"
+description = "Triages issues on a schedule with Antigravity CLI"
 prompt = """
 ## Role
 

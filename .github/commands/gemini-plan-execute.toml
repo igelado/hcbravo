@@ -1,4 +1,4 @@
-description = "Runs the Gemini CLI"
+description = "Runs the Antigravity CLI"
 prompt = """
 ## Persona and Guiding Principles
 

@@ -1,0 +1,65 @@
+name: 'Antigravity Code Review'
+
+on:
+  pull_request:
+    types:
+      - 'opened'
+      - 'synchronize'
+
+defaults:
+  run:
+    shell: 'bash'
+
+permissions:
+  contents: 'read'
+  pull-requests: 'write'
+
+jobs:
+  review:
+    runs-on: 'ubuntu-latest'
+    timeout-minutes: 20
+    steps:
+      - name: 'Checkout Code'
+        uses: 'actions/checkout@v4'
+        with:
+          fetch-depth: 0
+
+      - name: 'Set up Go'
+        uses: 'actions/setup-go@v5'
+        with:
+          go-version: 'stable'
+
+      - name: 'Install Antigravity CLI'
+        env:
+          ANTIGRAVITY_CLI_GO_PACKAGE: '${{ vars.ANTIGRAVITY_CLI_GO_PACKAGE }}'
+        run: |-
+          if [[ -z "${ANTIGRAVITY_CLI_GO_PACKAGE}" ]]; then
+            echo "::error::Set repository variable ANTIGRAVITY_CLI_GO_PACKAGE to the official agy Go package path."
+            exit 1
+          fi
+
+          go install "${ANTIGRAVITY_CLI_GO_PACKAGE}"
+          echo "$(go env GOPATH)/bin" >> "${GITHUB_PATH}"
+
+      - name: 'Authenticate Google AI / Gemini'
+        env:
+          GEMINI_API_KEY: '${{ secrets.GEMINI_API_KEY }}'
+        run: |-
+          if [[ -z "${GEMINI_API_KEY}" ]]; then
+            echo "::error::GEMINI_API_KEY secret is required."
+            exit 1
+          fi
+
+          echo "AGY_API_KEY=${GEMINI_API_KEY}" >> "${GITHUB_ENV}"
+
+      - name: 'Execute PR Review'
+        id: 'agy_review'
+        run: |-
+          git fetch origin "${{ github.base_ref }}"
+
+          agy -p "Review the changes between origin/${{ github.base_ref }} and HEAD. Generate a strict checklist of logical flaws, security bugs, or edge cases." > review_output.md
+
+      - name: 'Post Review Comment to PR'
+        uses: 'thollander/actions-comment-pull-request@v2'
+        with:
+          filePath: 'review_output.md'
