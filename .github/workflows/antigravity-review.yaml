@@ -26,8 +26,7 @@ jobs:
 
       - name: 'Install Antigravity CLI'
         run: |-
-          sudo curl -fsSL https://antigravity.google -o /usr/local/bin/agy
-          sudo chmod +x /usr/local/bin/agy
+          curl -fsSL https://antigravity.google/cli/install.sh | bash
 
       - name: 'Authenticate Google AI / Gemini'
         env:
