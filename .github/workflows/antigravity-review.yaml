@@ -26,18 +26,19 @@ jobs:
 
       - name: 'Install Antigravity CLI'
         run: |-
-          curl -fsSL https://antigravity.google/cli/install.sh | bash
+          curl -fsSL https://antigravity.google/cli/install.sh | bash -s -- --dir "${HOME}/.local/bin"
+          echo "${HOME}/.local/bin" >> "${GITHUB_PATH}"
 
-      - name: 'Authenticate Google AI / Gemini'
+      - name: 'Restore Antigravity authentication'
         env:
-          GEMINI_API_KEY: '${{ secrets.GEMINI_API_KEY }}'
+          ANTIGRAVITY_CONFIG_TGZ_B64: '${{ secrets.ANTIGRAVITY_CONFIG_TGZ_B64 }}'
         run: |-
-          if [[ -z "${GEMINI_API_KEY}" ]]; then
-            echo "::error::GEMINI_API_KEY secret is required."
+          if [[ -z "${ANTIGRAVITY_CONFIG_TGZ_B64}" ]]; then
+            echo "::error::ANTIGRAVITY_CONFIG_TGZ_B64 secret is required. agy currently falls back to an interactive OAuth flow without a pre-authenticated Antigravity config bundle."
             exit 1
           fi
 
-          echo "AGY_API_KEY=${GEMINI_API_KEY}" >> "${GITHUB_ENV}"
+          printf '%s' "${ANTIGRAVITY_CONFIG_TGZ_B64}" | base64 -d | tar -xz -C "${HOME}"
 
       - name: 'Execute PR Review'
         id: 'agy_review'
