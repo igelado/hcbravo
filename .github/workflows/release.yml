@@ -1,0 +1,84 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to create (e.g., 0.0.1)'
+        required: true
+        type: string
+
+jobs:
+  build:
+    strategy:
+      fail-fast: true
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    uses: ./.github/workflows/build.yml
+    with:
+      os: ${{ matrix.os }}
+      upload: true
+
+  package:
+    runs-on: ubuntu-latest
+
+    needs: build
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set reusable strings
+        id: strings
+        shell: bash
+        run: |
+          echo "build-output-dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
+
+      - name: Gather Linux Package
+        uses: actions/download-artifact@v5
+        with:
+          name: output-ubuntu-latest
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ github.run_id }}
+          path: ${{ steps.strings.outputs.build-output-dir }}/ubuntu
+
+      - name: Gather Windows Package
+        uses: actions/download-artifact@v4
+        with:
+          name: output-windows-latest
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ github.run_id }}
+          path: ${{ steps.strings.outputs.build-output-dir }}/windows
+      
+      - name: Gather MacOS Package
+        uses: actions/download-artifact@v4
+        with:
+          name: output-macos-latest
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ github.run_id }}
+          path: ${{ steps.strings.outputs.build-output-dir }}/macos
+ 
+      - name: Pack Plugins 
+        working-directory: ${{ steps.strings.outputs.build-output-dir }}
+        run: |
+          install -D ubuntu/hcbravo.xpl Resources/plugins/hcbravo/lin_x64/hcbravo.xpl
+          install -D macos/hcbravo.xpl Resources/plugins/hcbravo/mac_x64/hcbravo.xpl
+          install -D windows/Release/hcbravo.xpl Resources/plugins/hcbravo/win_x64/hcbravo.xpl
+          cp -R "${{ github.workspace }}/ext/AeroSoft/joystick configs" "Resources/joystick configs/"
+          cp -R ${{ github.workspace }}/conf Resources/plugins/hcbravo/conf
+          zip -r hcbravo-v${{ github.event.inputs.version }}.zip Resources
+
+      - name: Create Release Tag
+        run: |
+          git tag v${{ github.event.inputs.version }}
+          git push origin v${{ github.event.inputs.version }}
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ github.event.inputs.version }}
+          name: 'HCBravo Release v${{ github.event.inputs.version }}'
+          files: ${{ steps.strings.outputs.build-output-dir }}/hcbravo-v${{ github.event.inputs.version }}.zip
+      

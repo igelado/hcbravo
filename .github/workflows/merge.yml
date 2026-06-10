@@ -1,0 +1,20 @@
+name: Pull Request Check
+
+on:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'CMakeLists.txt'
+      - 'src/**'
+      - 'tests/**'
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+       os: [ubuntu-latest, ubuntu-24.04, windows-latest, macos-latest, macos-15-intel]
+
+    uses: ./.github/workflows/build.yml
+    with:
+      os: ${{ matrix.os }}

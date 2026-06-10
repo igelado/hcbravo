@@ -1,0 +1,57 @@
+name: Build and Test
+
+on:
+  workflow_call:
+    inputs:
+      os:
+        description: "OS where to build"
+        required: true
+        type: string
+      build-type:
+        description: "Build type (Release/Debug)"
+        default: "Release"
+        type: string
+      upload:
+        description: "Upload Outputs"
+        default: false
+        type: boolean
+   
+jobs:
+  build:
+    runs-on: ${{ inputs.os }}
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup
+      id: strings
+      shell: bash
+      run: |
+        echo "build-output-dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
+
+    - name: Install dependencies
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libudev-dev libusb-1.0-0-dev
+
+    - name: Configure CMake
+      run: >
+        cmake -B ${{ steps.strings.outputs.build-output-dir }}
+        -DCMAKE_BUILD_TYPE=${{ inputs.build-type }}
+        -S ${{ github.workspace }}
+
+    - name: Build
+      run: cmake --build ${{ steps.strings.outputs.build-output-dir }} --config ${{ inputs.build-type }}
+
+    - name: Test
+      working-directory: ${{ steps.strings.outputs.build-output-dir }}
+      run: ctest --build-config ${{ inputs.build-type }}
+
+    - name: Upload
+      if: ${{ inputs.upload == true }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: output-${{ inputs.os }}
+        path: ${{ steps.strings.outputs.build-output-dir }}
