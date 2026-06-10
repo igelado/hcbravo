@@ -63,6 +63,7 @@ set_target_properties(hcbravo PROPERTIES PREFIX "")
 set_target_properties(hcbravo PROPERTIES SUFFIX ".xpl")
 
 enable_testing()
+# Keep tests registered from the project root for CI path filters.
 add_subdirectory(tests)
 
 
