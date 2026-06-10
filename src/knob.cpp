@@ -49,8 +49,10 @@ float
 normalize_heading(float value) noexcept
 {
     value = std::fmod(value, 360.0f);
+    value = std::round(value);
     if(value < 0.0f) value += 360.0f;
-    return std::round(value);
+    if(value >= 360.0f) value -= 360.0f;
+    return value;
 }
 
 
