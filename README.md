@@ -148,8 +148,8 @@ As in the case of the autopilot modes, all DataRefs are interpreted as boolean v
  cpack
  ```
 
- After running those commands, there should a `hcbravo.zip` file that contains the plugin and the configuration files.
- You can unzip that archive into the XPlane plugins directory.
+ After running those commands, there should a `hcbravo.zip` file that contains the plugin, configuration files, and joystick profiles.
+ You can unzip that archive into the top-level X-Plane 12 installation directory.
 
 
  ## Using the Plugin in XPlane

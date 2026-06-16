@@ -1,0 +1,80 @@
+name: Cirrus SR22
+aircrafts:
+ - 'Cirrus SR-22'
+models:
+ - SR22
+
+autopilot:
+ dials:
+  ias:
+    is_mach: 'sim/cockpit2/autopilot/airspeed_is_mach'
+    value: 'sim/cockpit2/autopilot/airspeed_dial_kts_mach'
+  crs: 'sim/cockpit2/radios/actuators/nav1_obs_deg_mag_pilot'
+  hdg: 'sim/cockpit2/autopilot/heading_dial_deg_mag_pilot'
+  vs: 'sim/cockpit2/autopilot/vvi_dial_fpm'
+  alt: 'sim/cockpit2/autopilot/altitude_dial_ft'
+
+ modes:
+  hdg:
+   - key: 'sim/cockpit2/autopilot/heading_mode'
+     type: int
+     values:
+       - 1
+       - 14
+  nav:
+   - key: 'sim/cockpit2/autopilot/nav_status'
+   - key: 'sim/cockpit2/autopilot/gpss_status'
+  apr:
+   - key: 'sim/cockpit2/autopilot/approach_status'
+  rev:
+   - key: 'sim/cockpit2/autopilot/backcourse_status'
+  alt:
+   - key: 'sim/cockpit2/autopilot/altitude_hold_status'
+  vs:
+   - key: 'sim/cockpit2/autopilot/vvi_status'
+  ias:
+   - key: 'sim/cockpit2/autopilot/speed_status'
+  ap:
+   - key: 'sim/cockpit2/autopilot/servos_on'
+
+system:
+ volts:
+  - key: 'sim/cockpit2/electrical/bus_volts'
+    type: float
+    index: 0
+
+annunciator:
+ master_warn:
+  - key: 'sim/cockpit2/annunciators/master_warning'
+ eng_fire:
+  - key: 'sim/cockpit2/annunciators/engine_fires'
+    index: 0
+ oil_low:
+  - key: 'sim/cockpit2/annunciators/oil_pressure_low'
+    index: 0
+ fuel_low:
+  - key: 'sim/cockpit2/annunciators/fuel_pressure_low'
+    index: 0
+ anti_ice:
+  - key: 'sim/cockpit2/annunciators/pitot_heat'
+    invert: true
+ starter:
+  - key: 'sim/cockpit2/engine/actuators/starter_hit'
+    index: 0
+ apu:
+  - key: 'sim/cockpit2/electrical/APU_running'
+ master_caution:
+  - key: 'sim/cockpit2/annunciators/master_caution'
+ aux_fuel:
+  - key: 'sim/cockpit2/fuel/fuel_pump_on'
+    index: 0
+ parking_brake:
+   - key: 'sim/cockpit2/controls/wheel_brake_ratio'
+     type: int
+ volt_low:
+  - key: 'sim/cockpit2/annunciators/low_voltage'
+ door_open:
+  - key: 'sim/flightmodel2/misc/canopy_open_ratio'
+  - key: 'sim/flightmodel2/misc/door_open_ratio'
+    index: 0
+  - key: 'sim/cockpit2/annunciators/cabin_door_open'

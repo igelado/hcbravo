@@ -11,6 +11,8 @@
 #define HCBRAVO_PROFILE_TESTS
 #include <profile.h>
 
+#include <filesystem>
+
 
 TEST(profile_test, bool_data_ref) {
     auto node = YAML::Load(R"(
@@ -21,6 +23,24 @@ tag:
     ASSERT_FALSE(data_ref.data().empty());
 
     ASSERT_EQ(data_ref.data().front()->data_ref()->name, "sim/test/bool");
+}
+
+TEST(profile_test, bundled_profiles_load) {
+    const auto conf_dir = std::filesystem::path(HCBRAVO_SOURCE_DIR) / "conf";
+    size_t profile_count = 0;
+
+    for(const auto & entry : std::filesystem::directory_iterator(conf_dir)) {
+        if(entry.path().extension() != ".yaml") continue;
+
+        auto prof = profile::from_yaml(entry.path().string());
+        ASSERT_TRUE(prof.has_value()) << entry.path();
+        EXPECT_FALSE(prof.value()->name().empty()) << entry.path();
+        EXPECT_FALSE(prof.value()->aircrafts().empty()) << entry.path();
+        EXPECT_FALSE(prof.value()->models().empty()) << entry.path();
+        ++profile_count;
+    }
+
+    EXPECT_GT(profile_count, 0);
 }
 
 TEST(profile_test, bool_data_ref_scalar) {

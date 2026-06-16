@@ -71,10 +71,16 @@ set(CPACK_GENERATOR "ZIP")
 set(CPACK_PACKAGE_NAME "HCBravo")
 set(CPACK_PACKAGE_VERSION "0.0.1-alpha")
 set(CPACK_PACKAGE_FILE_NAME "hcbravo")
+set(CPACK_INCLUDE_TOPLEVEL_DIRECTORY OFF)
 set(hcbravo_DIR "Resources")
 set(hcbravo_plugin_DIR "${hcbravo_DIR}/plugins/hcbravo")
-install(TARGETS hcbravo RUNTIME DESTINATION ${hcbravo_plugin_DIR}/${hcbravo_os_DIR} COMPONENT BINARIES)
-install(TARGETS hcbravo LIBRARY DESTINATION ${hcbravo_plugin_DIR}/${hcbravo_os_DIR} COMPONENT BINARIES)
+set(hcbravo_preferences_DIR "Output/preferences")
+install(TARGETS hcbravo
+    RUNTIME DESTINATION ${hcbravo_plugin_DIR}/${hcbravo_os_DIR}
+    LIBRARY DESTINATION ${hcbravo_plugin_DIR}/${hcbravo_os_DIR}
+    COMPONENT BINARIES
+)
 install(DIRECTORY ${PROJECT_SOURCE_DIR}/conf DESTINATION ${hcbravo_plugin_DIR})
 install(DIRECTORY "${PROJECT_SOURCE_DIR}/ext/AeroSoft/joystick configs" DESTINATION ${hcbravo_DIR})
+install(DIRECTORY ${PROJECT_SOURCE_DIR}/profiles/ DESTINATION ${hcbravo_preferences_DIR} FILES_MATCHING PATTERN "*.prf")
 include(CPack)
