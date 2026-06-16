@@ -66,7 +66,9 @@ jobs:
           install -D windows/Release/hcbravo.xpl Resources/plugins/hcbravo/win_x64/hcbravo.xpl
           cp -R "${{ github.workspace }}/ext/AeroSoft/joystick configs" "Resources/joystick configs/"
           cp -R ${{ github.workspace }}/conf Resources/plugins/hcbravo/conf
-          zip -r hcbravo-v${{ github.event.inputs.version }}.zip Resources
+          mkdir -p Output/preferences
+          cp "${{ github.workspace }}"/profiles/*.prf Output/preferences/
+          zip -r hcbravo-v${{ github.event.inputs.version }}.zip Resources Output
 
       - name: Create Release Tag
         run: |
