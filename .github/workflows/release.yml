@@ -19,6 +19,7 @@ jobs:
     with:
       os: ${{ matrix.os }}
       upload: true
+      artifact-retention-days: 3
 
   package:
     runs-on: ubuntu-latest
