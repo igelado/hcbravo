@@ -19,6 +19,7 @@ add_executable(profile-test
 )
 
 target_compile_definitions(profile-test PRIVATE ${xpsds_DEFINE})
+target_compile_definitions(profile-test PRIVATE HCBRAVO_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
 target_include_directories(profile-test PRIVATE ${hcbravo_SRC} ${hcbravo_TEST}/XPSDK ${yaml-cpp_SOURCE_DIR}/include/yaml-cpp)
 target_link_libraries(profile-test GTest::gtest_main yaml-cpp::yaml-cpp)
 gtest_discover_tests(profile-test)
