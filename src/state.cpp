@@ -212,7 +212,7 @@ read_data_ref_string(XPLMDataRef data_ref, char * buffer, size_t buffer_size, co
         return false;
     }
 
-    size_t written = std::min(static_cast<size_t>(ret), buffer_size - 1);
+    size_t written = (std::min)(static_cast<size_t>(ret), buffer_size - 1);
     buffer[written] = '\0';
     return true;
 }
