@@ -11,6 +11,7 @@
 #include <XPLM/XPLMUtilities.h>
 
 #include <algorithm>
+#include <exception>
 #include <expected>
 #include <filesystem>
 #include <memory>
@@ -36,9 +37,19 @@ state::menu_handler(void * _this, void * item) noexcept
     size_t id = reinterpret_cast<size_t>(item);
     switch(id) {
         case 0:
-            self->plane_ = std::nullopt;
             logger() << "Reloading Aircraft Profiles";
-            self->reload();
+            try {
+                self->reload();
+            }
+            catch(const std::exception & ex) {
+                logger() << "Failed to reload Aircraft Profiles: " << ex.what();
+                break;
+            }
+            catch(...) {
+                logger() << "Failed to reload Aircraft Profiles";
+                break;
+            }
+            self->plane_ = std::nullopt;
             logger() << "Setting Active Plane";
             self->load_plane();
             break;
@@ -118,7 +129,18 @@ state::flight_iteration(float call, float iter, int counter, void * _this) noexc
 result_type<state::ptr_type>
 state::init() noexcept
 {
-    state::ptr_type st = state::ptr_type(new state());
+    state::ptr_type st;
+    try {
+        st = state::ptr_type(new state());
+    }
+    catch(const std::exception & ex) {
+        logger() << "Failed to initialize Plugin State: " << ex.what();
+        return std::unexpected(error::configuration);
+    }
+    catch(...) {
+        logger() << "Failed to initialize Plugin State";
+        return std::unexpected(error::configuration);
+    }
 
     logger() << "Initializing HID";
     int res = hid_init();
@@ -217,7 +239,7 @@ read_data_ref_string(XPLMDataRef data_ref, char * buffer, size_t buffer_size, co
     return true;
 }
 
-state::state() noexcept :
+state::state() :
     hid_(nullptr),
     hid_initialized_(false),
     menu_(nullptr),
@@ -269,10 +291,10 @@ state::~state() noexcept
 }
 
 void
-state::reload() noexcept
+state::reload()
 {
-    if(profile_aircraft_map_.empty() == false) { profile_aircraft_map_.clear(); }
-    if(profile_model_map_.empty() == false) { profile_model_map_.clear(); }
+    profile_map_type aircraft_profiles;
+    profile_map_type model_profiles;
 
     logger() << "Reading Plugin Configuration Files";
     auto id = XPLMGetMyID();
@@ -308,7 +330,7 @@ state::reload() noexcept
             auto prof = profile::from_yaml(config_file.string());
             if(prof.has_value()) {
                 for(const auto &aircraft : prof.value()->aircrafts()) {
-                    auto ret = profile_aircraft_map_.emplace(aircraft, prof.value());
+                    auto ret = aircraft_profiles.emplace(aircraft, prof.value());
                     if(ret.second == false) {
                         logger() << "Not using '" << prof.value()->name() << "' for '" << aircraft 
                                  << "' because another profile already exists";
@@ -318,7 +340,7 @@ state::reload() noexcept
                     }
                 }
                 for(const auto &model : prof.value()->models()) {
-                    auto ret = profile_model_map_.emplace(model, prof.value());
+                    auto ret = model_profiles.emplace(model, prof.value());
                     if(ret.second == false) {
                         logger() << "Not using '" << prof.value()->name() << "' for ICAO '" << model 
                                  << "' because another profile already exists";
@@ -337,6 +359,8 @@ state::reload() noexcept
         }
         index += file_count;
     } while(index < total_conf_files);
+    profile_aircraft_map_.swap(aircraft_profiles);
+    profile_model_map_.swap(model_profiles);
     logger() << "Done loading plugin configuration";
 }
 

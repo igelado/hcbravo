@@ -39,7 +39,7 @@ class state {
 
     XPLMFlightLoopID flight_loop_;
 
-    state() noexcept;
+    state();
 
     static
     void
@@ -65,7 +65,7 @@ public:
     init() noexcept;
 
     void
-    reload() noexcept;
+    reload();
 
     bool
     load_plane() noexcept;
