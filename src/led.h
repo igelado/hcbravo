@@ -87,11 +87,16 @@ public:
             if(u.state_.banks_[n] != mask.banks_[n]) break;
         }
         if(n == LED_NR_BANKS) return;
-        ::memcpy(u.state_.banks_, mask.banks_, sizeof(mask.banks_));
-        int ret = hid_send_feature_report(this->hid_, this->u.buffer_, sizeof(hid_data));
+        hid_data next_state;
+        ::memcpy(&next_state, &u.state_, sizeof(next_state));
+        ::memcpy(next_state.banks_, mask.banks_, sizeof(mask.banks_));
+        int ret = hid_send_feature_report(this->hid_,
+            reinterpret_cast<const unsigned char *>(&next_state), sizeof(next_state));
         if(ret < 0) {
             logger() << "Failed to update LED state";
+            return;
         }
+        ::memcpy(&u.state_, &next_state, sizeof(u.state_));
     }
 
 };

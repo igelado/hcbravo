@@ -9,12 +9,15 @@
 
 #include <cstring>
 
-led_state::led_state() noexcept 
+led_state::led_state() noexcept :
+    hid_(nullptr)
 {
     ::memset(reinterpret_cast<void *>(&u), 0, sizeof(u));
 }
 
-led_state::led_state(led_state && other) noexcept 
+led_state::led_state(led_state && other) noexcept :
+    hid_(other.hid_)
 {
     ::memcpy(&u, &other.u, sizeof(u));
+    other.hid_ = nullptr;
 }

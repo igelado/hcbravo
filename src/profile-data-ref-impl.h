@@ -22,16 +22,23 @@ class data_ref;
 
 template<typename T>
 std::expected<T, int>
-base_data_ref::build(const YAML::Node & node) noexcept
+base_data_ref::build(const YAML::Node & node)
 {
     XPLMDataRef data_ref = nullptr;
     bool invert = false;
-    std::optional<size_t> index = std::nullopt;
+    std::optional<int> index = std::nullopt;
 
     if(node.IsMap()) {
         data_ref = XPLMFindDataRef(node["key"].as<std::string>().c_str());
         if(node["invert"]) invert = node["invert"].as<bool>();
-        if(node["index"]) index = node["index"].as<size_t>();
+        if(node["index"]) {
+            int parsed_index = node["index"].as<int>();
+            if(parsed_index < 0) {
+                logger() << "Invalid negative index in DataRef node '" << node << "'";
+                return std::unexpected(0);
+            }
+            index = parsed_index;
+        }
     }
     else if(node.IsScalar()) {
         data_ref = XPLMFindDataRef(node.as<std::string>().c_str());
@@ -49,20 +56,16 @@ base_data_ref::build(const YAML::Node & node) noexcept
     XPLMDataRefInfo_t info;
     info.structSize = sizeof(info);
     XPLMGetDataRefInfo(data_ref, &info);
-    switch(info.type) {
-        case xplmType_IntArray:
-        case xplmType_FloatArray:
-            if(!index) {
-                logger() << "Detected Array DataRef '" << info.name << "', but no index was provided. Assuming index 0";
-                index = static_cast<size_t>(0);
-            }
-            break;
-        default:
-            if(index) {
-                logger() << "Detected Scalar DataRef '" << info.name << "', but an index was provided. Ignoring provided index";
-                index = std::nullopt;
-            }
-            break;
+    const bool is_array = (info.type & (xplmType_IntArray | xplmType_FloatArray)) != 0;
+    if(is_array) {
+        if(!index) {
+            logger() << "Detected Array DataRef '" << info.name << "', but no index was provided. Assuming index 0";
+            index = 0;
+        }
+    }
+    else if(index) {
+        logger() << "Detected Scalar DataRef '" << info.name << "', but an index was provided. Ignoring provided index";
+        index = std::nullopt;
     }
 
     return T(std::move(data_ref), invert, index);
@@ -74,7 +77,7 @@ class data_ref<bool> : public bool_data_ref {
 protected:
     inline
     data_ref(XPLMDataRef && data_ref, bool invert,
-            std::optional<size_t> index) noexcept :
+            std::optional<int> index) noexcept :
         bool_data_ref(std::move(data_ref), invert, index)
     {}
 
@@ -84,7 +87,7 @@ public:
 
     static inline
     std::expected<data_ref, int>
-    build(const YAML::Node & node) noexcept {
+    build(const YAML::Node & node) {
         return base_data_ref::build<data_ref>(node);
     }
 
@@ -108,7 +111,7 @@ protected:
 
     inline
     data_ref(XPLMDataRef && data_ref, bool invert,
-            std::optional<size_t> index) noexcept :
+            std::optional<int> index) noexcept :
         bool_data_ref(std::move(data_ref), invert, index)
     {}
 
@@ -118,7 +121,7 @@ public:
 
     static inline
     std::expected<data_ref, int>
-    build(const YAML::Node & node) noexcept {
+    build(const YAML::Node & node) {
         auto ret = base_data_ref::build<data_ref>(node);
         if(ret.has_value()) {
             if(node.IsMap()) {
@@ -160,7 +163,7 @@ protected:
 
     inline
     data_ref(XPLMDataRef && data_ref, bool invert,
-            std::optional<size_t> index) noexcept :
+            std::optional<int> index) noexcept :
         bool_data_ref(std::move(data_ref), invert, index)
     {}
 
@@ -171,7 +174,7 @@ public:
 
     static inline
     std::expected<data_ref, int>
-    build(const YAML::Node & node) noexcept {
+    build(const YAML::Node & node) {
         auto ret = base_data_ref::build<data_ref>(node);
         if(ret.has_value()) {
             if(node.IsMap()) {
@@ -192,7 +195,7 @@ public:
     bool is_set() const noexcept final {
         float value = this->get();
         if(this->values_.empty()) {
-            return this->invert_ ? this->get() == 0.0f : this->get() != 0.0f;
+            return this->invert_ ? value == 0.0f : value != 0.0f;
         }
         // When values are specified, we compare against the targets
         for(const auto & v : this->values_) {
@@ -205,9 +208,11 @@ public:
     float get() const noexcept {
         if(this->data_ref_ == nullptr) return 0.0f;
         if(this->index_) {
-            float ret;
-            XPLMGetDatavf(this->data_ref_, &ret,
-                this->index_.value(), 1);
+            float ret = 0.0f;
+            if(XPLMGetDatavf(this->data_ref_, &ret, this->index_.value(), 1) != 1) {
+                logger() << "Failed to read indexed float DataRef @ " << this->index_.value();
+                return 0.0f;
+            }
             return ret;
         }
         return XPLMGetDataf(this->data_ref_);

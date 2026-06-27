@@ -10,6 +10,8 @@
 #include <XPLM/XPLMProcessing.h>
 #include <XPLM/XPLMUtilities.h>
 
+#include <algorithm>
+#include <exception>
 #include <expected>
 #include <filesystem>
 #include <memory>
@@ -35,9 +37,19 @@ state::menu_handler(void * _this, void * item) noexcept
     size_t id = reinterpret_cast<size_t>(item);
     switch(id) {
         case 0:
-            self->plane_ = std::nullopt;
             logger() << "Reloading Aircraft Profiles";
-            self->reload();
+            try {
+                self->reload();
+            }
+            catch(const std::exception & ex) {
+                logger() << "Failed to reload Aircraft Profiles: " << ex.what();
+                break;
+            }
+            catch(...) {
+                logger() << "Failed to reload Aircraft Profiles";
+                break;
+            }
+            self->plane_ = std::nullopt;
             logger() << "Setting Active Plane";
             self->load_plane();
             break;
@@ -117,7 +129,18 @@ state::flight_iteration(float call, float iter, int counter, void * _this) noexc
 result_type<state::ptr_type>
 state::init() noexcept
 {
-    state::ptr_type st = state::ptr_type(new state());
+    state::ptr_type st;
+    try {
+        st = state::ptr_type(new state());
+    }
+    catch(const std::exception & ex) {
+        logger() << "Failed to initialize Plugin State: " << ex.what();
+        return std::unexpected(error::configuration);
+    }
+    catch(...) {
+        logger() << "Failed to initialize Plugin State";
+        return std::unexpected(error::configuration);
+    }
 
     logger() << "Initializing HID";
     int res = hid_init();
@@ -125,6 +148,7 @@ state::init() noexcept
         logger() << "Failed to initialize HID";
         return std::unexpected(error::hid_error);
     }
+    st->hid_initialized_ = true;
     st->hid_ = hid_open(0x294b, 0x1901, nullptr);
     if(st->hid_ == nullptr) {
         logger() << "Open HoneyComb Bravo Quadrant not Detected";
@@ -135,25 +159,34 @@ state::init() noexcept
 
     auto commands = commands::init(*st);
     if(commands.has_value() == false) {
-        hid_close(st->hid_);
         logger() << "Failed to Register HoneyComb Bravo Commands";
         return std::unexpected(commands.error());
     }
     st->cmds_ = std::move(commands.value());
 
+#if !defined(NDEBUG)
     logger() << "Registering Error Handler";
     XPLMSetErrorCallback(&state::error_handler);
+#endif
 
     logger() << "Creating Menu Entries";
-    int item = XPLMAppendMenuItem(XPLMFindPluginsMenu(), "HoneyComb Bravo", nullptr, 1);
-    st->menu_ = XPLMCreateMenu("HoneyComb Bravo", XPLMFindPluginsMenu(), item, &state::menu_handler, st.get());
+    auto plugins_menu = XPLMFindPluginsMenu();
+    int item = XPLMAppendMenuItem(plugins_menu, "HoneyComb Bravo", nullptr, 1);
+    if(item < 0) {
+        logger() << "Failed to Create HoneyComb Bravo Menu Entry";
+        return std::unexpected(error::api_menu);
+    }
+    st->menu_item_ = item;
+    st->menu_ = XPLMCreateMenu("HoneyComb Bravo", plugins_menu, item, &state::menu_handler, st.get());
+    if(st->menu_ == nullptr) {
+        logger() << "Failed to Create HoneyComb Bravo Menu";
+        return std::unexpected(error::api_menu);
+    }
     if(XPLMAppendMenuItem(st->menu_, "Reload Aircraft Profiles", reinterpret_cast<void *>(0), 0) < 0) {
-        XPLMDestroyMenu(st->menu_);
         logger() << "Failed to Create HoneyComb Bravo Menu (Reload Aircraft Profiles)";
         return std::unexpected(error::api_menu);
     }
     if(XPLMAppendMenuItem(st->menu_, "Reload All Plugins", reinterpret_cast<void *>(1), 0) < 0) {
-        XPLMDestroyMenu(st->menu_);
         logger() << "Failed to Create HoneyComb Bravo Menu (Reload All Plugins)";
         return std::unexpected(error::api_menu);
     }
@@ -167,7 +200,6 @@ state::init() noexcept
     };
     st->flight_loop_ = XPLMCreateFlightLoop(&fl_params);
     if(st->flight_loop_ == nullptr) {
-        XPLMDestroyMenu(st->menu_);
         logger() << "Failed to Create Flight Loop";
         return std::unexpected(error::api_loop);
     }
@@ -184,9 +216,34 @@ static char * files_indexes[FILES_INDEX_SIZE];
 static const char * plane_icao_label_ = "sim/aircraft/view/acf_ICAO";
 static const char * plane_name_label_ = "sim/aircraft/view/acf_ui_name";
 
-state::state() noexcept :
+static
+bool
+read_data_ref_string(XPLMDataRef data_ref, char * buffer, size_t buffer_size, const char * label) noexcept
+{
+    if(buffer_size == 0) return false;
+    buffer[0] = '\0';
+
+    if(data_ref == nullptr) {
+        logger() << "Cannot read missing DataRef '" << label << "'";
+        return false;
+    }
+
+    int ret = XPLMGetDatab(data_ref, buffer, 0, static_cast<int>(buffer_size - 1));
+    if(ret < 0) {
+        logger() << "Failed to read DataRef '" << label << "'";
+        return false;
+    }
+
+    size_t written = (std::min)(static_cast<size_t>(ret), buffer_size - 1);
+    buffer[written] = '\0';
+    return true;
+}
+
+state::state() :
     hid_(nullptr),
+    hid_initialized_(false),
     menu_(nullptr),
+    menu_item_(-1),
     cmds_(nullptr),
     plane_icao_data_ref_(
         XPLMFindDataRef(plane_icao_label_)
@@ -194,21 +251,61 @@ state::state() noexcept :
     plane_name_data_ref_(
         XPLMFindDataRef(plane_name_label_)
     ),
-    plane_(std::nullopt)
+    plane_(std::nullopt),
+    flight_loop_(nullptr)
 {
     this->reload();
 }
 
-void
-state::reload() noexcept
+state::~state() noexcept
 {
-    if(profile_aircraft_map_.empty() == false) { profile_aircraft_map_.clear(); }
-    if(profile_model_map_.empty() == false) { profile_model_map_.clear(); }
+    if(this->flight_loop_ != nullptr) {
+        XPLMDestroyFlightLoop(this->flight_loop_);
+        this->flight_loop_ = nullptr;
+    }
+
+    unload_plane();
+
+    if(this->menu_ != nullptr) {
+        XPLMDestroyMenu(this->menu_);
+        this->menu_ = nullptr;
+    }
+    if(this->menu_item_ >= 0) {
+        XPLMRemoveMenuItem(XPLMFindPluginsMenu(), this->menu_item_);
+        this->menu_item_ = -1;
+    }
+
+#if !defined(NDEBUG)
+    XPLMSetErrorCallback(nullptr);
+#endif
+
+    if(this->hid_ != nullptr) {
+        hid_close(this->hid_);
+        this->hid_ = nullptr;
+        this->leds_.hid_ = nullptr;
+    }
+    if(this->hid_initialized_) {
+        hid_exit();
+        this->hid_initialized_ = false;
+    }
+}
+
+void
+state::reload()
+{
+    profile_map_type aircraft_profiles;
+    profile_map_type model_profiles;
 
     logger() << "Reading Plugin Configuration Files";
     auto id = XPLMGetMyID();
     static char path[256];
+    path[0] = '\0';
     XPLMGetPluginInfo(id, nullptr, path, nullptr, nullptr);
+    path[sizeof(path) - 1] = '\0';
+    if(path[0] == '\0') {
+        logger() << "Cannot determine plugin path";
+        return;
+    }
     XPLMExtractFileAndPath(path);
     auto config_file_path = std::filesystem::absolute(std::string(path) + "/../conf");
     logger() << "Reading Configurations from " << config_file_path;
@@ -216,12 +313,16 @@ state::reload() noexcept
     int total_conf_files = 0;
     do {
         int file_count = 0;
-        XPLMGetDirectoryContents(
+        int directory_status = XPLMGetDirectoryContents(
             config_file_path.string().c_str(),  index, files_buffer, FILES_BUFFER_SIZE,
             files_indexes, FILES_INDEX_SIZE, &total_conf_files, &file_count
         );
+        if(directory_status == 0) {
+            logger() << "Configuration directory listing was truncated";
+        }
         logger() << "Read " << (index + file_count) << " file(s) from " << total_conf_files << " file(s)";
         for(auto n = 0; n < file_count; ++n) {
+            if(files_indexes[n] == nullptr) continue;
             auto config_file = config_file_path / std::string(files_indexes[n]);
             logger() << "Found " << config_file << " in configuration file ( " << config_file.extension() << ")";
             if(config_file.extension() != ".yaml") continue;
@@ -229,7 +330,7 @@ state::reload() noexcept
             auto prof = profile::from_yaml(config_file.string());
             if(prof.has_value()) {
                 for(const auto &aircraft : prof.value()->aircrafts()) {
-                    auto ret = profile_aircraft_map_.emplace(aircraft, prof.value());
+                    auto ret = aircraft_profiles.emplace(aircraft, prof.value());
                     if(ret.second == false) {
                         logger() << "Not using '" << prof.value()->name() << "' for '" << aircraft 
                                  << "' because another profile already exists";
@@ -239,7 +340,7 @@ state::reload() noexcept
                     }
                 }
                 for(const auto &model : prof.value()->models()) {
-                    auto ret = profile_model_map_.emplace(model, prof.value());
+                    auto ret = model_profiles.emplace(model, prof.value());
                     if(ret.second == false) {
                         logger() << "Not using '" << prof.value()->name() << "' for ICAO '" << model 
                                  << "' because another profile already exists";
@@ -250,8 +351,16 @@ state::reload() noexcept
                 }
             }
         }
+        if(file_count <= 0) {
+            if(index < total_conf_files) {
+                logger() << "Stopping configuration reload because directory iteration did not advance";
+            }
+            break;
+        }
         index += file_count;
-    } while(index != total_conf_files);
+    } while(index < total_conf_files);
+    profile_aircraft_map_.swap(aircraft_profiles);
+    profile_model_map_.swap(model_profiles);
     logger() << "Done loading plugin configuration";
 }
 
@@ -260,10 +369,8 @@ state::load_plane() noexcept
 {
     static char icao_name[64];
     static char ui_name[256];
-    int ret = XPLMGetDatab(plane_icao_data_ref_, icao_name, 0, 64);
-    if(ret < 64) icao_name[ret] = '\0';
-    ret = XPLMGetDatab(plane_name_data_ref_, ui_name, 0, 256);
-    if(ret < 256) ui_name[ret] = '\0';
+    read_data_ref_string(plane_icao_data_ref_, icao_name, sizeof(icao_name), plane_icao_label_);
+    read_data_ref_string(plane_name_data_ref_, ui_name, sizeof(ui_name), plane_name_label_);
     logger() << "Aircraft '" << ui_name << "' (" << icao_name << ")";
 
     // First try to get a match for the specific Aircraft

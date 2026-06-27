@@ -24,8 +24,10 @@
 
 class state {
     hid_device * hid_;
+    bool hid_initialized_;
     led_state leds_;
     XPLMMenuID menu_;
+    int menu_item_;
     commands::ptr_type cmds_;
 
     using profile_map_type = std::unordered_map<std::string, std::shared_ptr<profile>>;
@@ -37,7 +39,7 @@ class state {
 
     XPLMFlightLoopID flight_loop_;
 
-    state() noexcept;
+    state();
 
     static
     void
@@ -56,19 +58,14 @@ public:
 
     inline state(state &&) noexcept = default;
 
-    inline
-    ~state() {
-        if(this->flight_loop_ != nullptr) XPLMDestroyFlightLoop(this->flight_loop_);
-        unload_plane();
-        if(this->hid_ != nullptr) hid_close(this->hid_);
-    }
+    ~state() noexcept;
 
     static
     result_type<state::ptr_type>
     init() noexcept;
 
     void
-    reload() noexcept;
+    reload();
 
     bool
     load_plane() noexcept;

@@ -19,6 +19,7 @@ enum class error {
     api_command,
     api_menu,
     api_loop,
+    configuration,
 
 };
 
@@ -43,6 +44,9 @@ operator<<(std::ostream & os, const error & e) noexcept {
             break;
         case error::api_loop:
             os << "Failed to add Callback to XPlane";
+            break;
+        case error::configuration:
+            os << "Failed to load Plugin Configuration";
             break;
     }
     return os;
