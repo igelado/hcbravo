@@ -11,6 +11,7 @@
 #define HCBRAVO_PROFILE_TESTS
 #include <profile.h>
 
+#include <fstream>
 #include <filesystem>
 
 
@@ -41,6 +42,52 @@ TEST(profile_test, bundled_profiles_load) {
     }
 
     EXPECT_GT(profile_count, 0);
+}
+
+TEST(profile_test, malformed_profile_returns_error) {
+    const auto path = std::filesystem::temp_directory_path() / "hcbravo-malformed-profile.yaml";
+    {
+        std::ofstream profile_file(path);
+        ASSERT_TRUE(profile_file.good());
+        profile_file << R"(
+name: Invalid
+aircrafts:
+ - Invalid
+models:
+ - BAD
+system:
+ volts:
+  - key: 'sim/test/bool'
+    type:
+     - not-a-scalar
+)";
+    }
+
+    const auto prof = profile::from_yaml(path.string());
+    std::filesystem::remove(path);
+    EXPECT_FALSE(prof.has_value());
+}
+
+TEST(profile_test, required_empty_data_ref_returns_error) {
+    const auto path = std::filesystem::temp_directory_path() / "hcbravo-empty-data-ref-profile.yaml";
+    {
+        std::ofstream profile_file(path);
+        ASSERT_TRUE(profile_file.good());
+        profile_file << R"(
+name: Invalid
+aircrafts:
+ - Invalid
+models:
+ - BAD
+system:
+ volts:
+  - no_key: 'sim/test/bool'
+)";
+    }
+
+    const auto prof = profile::from_yaml(path.string());
+    std::filesystem::remove(path);
+    EXPECT_FALSE(prof.has_value());
 }
 
 TEST(profile_test, bool_data_ref_scalar) {

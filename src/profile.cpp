@@ -10,13 +10,14 @@
 
 #include <XPLM/XPLMUtilities.h>
 
+#include <exception>
 #include <memory>
 #include <optional>
 
 
 static
 std::optional<bool_data_ref::ptr_type>
-make_bool_data_ref(const YAML::Node & node) noexcept
+make_bool_data_ref(const YAML::Node & node)
 {
     if(!node) return std::nullopt;
     if(node.IsMap() == false) {
@@ -45,7 +46,7 @@ make_bool_data_ref(const YAML::Node & node) noexcept
     return std::nullopt;
 }
 
-value_data_ref::value_data_ref(const YAML::Node & node) noexcept {
+value_data_ref::value_data_ref(const YAML::Node & node) {
     if(!node) return;
 
     if(node.IsSequence()) {
@@ -68,7 +69,7 @@ airspeed_data_ref::airspeed_data_ref(
 {}
 
 std::expected<airspeed_data_ref, int>
-airspeed_data_ref::build(const YAML::Node & node) noexcept {
+airspeed_data_ref::build(const YAML::Node & node) {
     if(!node.IsMap()) {
         logger() << "IAS node has invalid format";
         return std::unexpected(0);
@@ -100,7 +101,7 @@ airspeed_data_ref::build(const YAML::Node & node) noexcept {
 template<typename T>
 static inline
 std::optional<data_ref<T>>
-build_optional_data_ref(const YAML::Node & node, const std::string & key) noexcept
+build_optional_data_ref(const YAML::Node & node, const std::string & key)
 {
     logger() << "Checking for '" << key << "'";
     if(!node.IsMap() or !node[key]) {
@@ -119,14 +120,14 @@ template<typename T>
 static inline
 std::optional<data_ref<T>>
 build_optional_data_ref(const YAML::Node & node, const std::string & key,
-        const std::string & alias) noexcept
+        const std::string & alias)
 {
     auto ret = build_optional_data_ref<T>(node, key);
     if(ret.has_value()) return ret;
     return build_optional_data_ref<T>(node, alias);
 }
 
-autopilot_dial_data_ref::autopilot_dial_data_ref(std::optional<airspeed_data_ref> && ias, const YAML::Node & node) noexcept :
+autopilot_dial_data_ref::autopilot_dial_data_ref(std::optional<airspeed_data_ref> && ias, const YAML::Node & node) :
     ias_(std::move(ias)),
     course_(build_optional_data_ref<float>(node, "crs", "course")),
     heading_(build_optional_data_ref<float>(node, "hdg", "heading")),
@@ -135,7 +136,7 @@ autopilot_dial_data_ref::autopilot_dial_data_ref(std::optional<airspeed_data_ref
 {}
 
 std::expected<autopilot_dial_data_ref, int>
-autopilot_dial_data_ref::build(const YAML::Node & node) noexcept
+autopilot_dial_data_ref::build(const YAML::Node & node)
 {
     logger() << "Reading Autopilot Dials";
     if(node.IsMap() == false) {
@@ -155,7 +156,7 @@ autopilot_dial_data_ref::build(const YAML::Node & node) noexcept
     return autopilot_dial_data_ref(std::nullopt, node);
 }
 
-autopilot_mode_data_ref::autopilot_mode_data_ref(const YAML::Node & node) noexcept :
+autopilot_mode_data_ref::autopilot_mode_data_ref(const YAML::Node & node) :
     hdg_(node["hdg"] ? std::optional(value_data_ref(node["hdg"])) : std::nullopt),
     nav_(node["nav"] ? std::optional(value_data_ref(node["nav"])) : std::nullopt),
     apr_(node["apr"] ? std::optional(value_data_ref(node["apr"])) : std::nullopt),
@@ -167,13 +168,18 @@ autopilot_mode_data_ref::autopilot_mode_data_ref(const YAML::Node & node) noexce
 {}
 
 std::expected<autopilot_mode_data_ref, int>
-autopilot_mode_data_ref::build(const YAML::Node & node) noexcept
+autopilot_mode_data_ref::build(const YAML::Node & node)
 {
     logger() << "Reading Autopilot Modes";
     // Only the AP annunciator is required
     if(!node["ap"]) return std::unexpected(1);
     
-    return autopilot_mode_data_ref(node);
+    auto ret = autopilot_mode_data_ref(node);
+    if(ret.ap_.empty()) {
+        logger() << "Invalid Autopilot AP DataRef Configuration";
+        return std::unexpected(0);
+    }
+    return ret;
 }
 
 
@@ -186,7 +192,7 @@ autopilot_data_ref::autopilot_data_ref(
 {}
 
 std::expected<autopilot_data_ref, int>
-autopilot_data_ref::build(const YAML::Node & node) noexcept
+autopilot_data_ref::build(const YAML::Node & node)
 {
     if(!node["modes"]) {
         logger() << "No modes defined for Autopilot";
@@ -211,22 +217,27 @@ autopilot_data_ref::build(const YAML::Node & node) noexcept
     return autopilot_data_ref(std::move(mode.value()), std::nullopt);
 }
 
-system_data_ref::system_data_ref(const YAML::Node & node) noexcept :
+system_data_ref::system_data_ref(const YAML::Node & node) :
     volts_(node["volts"]),
     gear_(node["gear"] ? std::optional(value_data_ref(node["gear"])) : std::nullopt)
 {}
 
 std::expected<system_data_ref, int>
-system_data_ref::build(const YAML::Node & node) noexcept
+system_data_ref::build(const YAML::Node & node)
 {
     // Only the AP annunciator is required
     if(!node["volts"]) return std::unexpected(1);
-    return system_data_ref(node);
+    auto ret = system_data_ref(node);
+    if(ret.volts_.empty()) {
+        logger() << "Invalid System Volts DataRef Configuration";
+        return std::unexpected(0);
+    }
+    return ret;
 }
 
 
 
-annunciator_data_ref::annunciator_data_ref(const YAML::Node & node) noexcept :
+annunciator_data_ref::annunciator_data_ref(const YAML::Node & node) :
     master_warn_(node["master_warn"] ? std::optional(value_data_ref(node["master_warn"])) : std::nullopt),
     eng_fire_(node["eng_fire"] ? std::optional(value_data_ref(node["eng_fire"])) : std::nullopt),
     oil_low_(node["oil_low"] ? std::optional(value_data_ref(node["oil_low"])) : std::nullopt),
@@ -244,7 +255,7 @@ annunciator_data_ref::annunciator_data_ref(const YAML::Node & node) noexcept :
 {}
 
 std::expected<annunciator_data_ref, int>
-annunciator_data_ref::build(const YAML::Node & node) noexcept 
+annunciator_data_ref::build(const YAML::Node & node)
 {
     logger() << "Reading Annunciator";
     return annunciator_data_ref(node);
@@ -266,84 +277,87 @@ profile::profile(std::string && name,
 
 std::expected<profile::ptr_type, int>
 profile::from_yaml(const std::string & path) noexcept {
-    logger() << "Loading YAML File " << path;
-    YAML::Node node;
     try {
-        node = YAML::LoadFile(path);
-    }
-    catch(const YAML::Exception & ex) {
-        logger() << "Failed to load YAML file '" << path << "': " << ex.what();
-        return std::unexpected(0);
-    }
-    if(!node["name"]) {
-        logger() << "Profile does not include a name";
-        return std::unexpected(0);
-    }
-    
-    std::vector<std::string> aircrafts;
-    if(!node["aircrafts"] or node["aircrafts"].IsSequence() == false) {
-        logger() << "Profile does not include supported aircrafts";
-    }
-    else {
-        for(const auto & aircraft : node["aircrafts"]) {
-            if(aircraft.Type() != YAML::NodeType::Scalar) {
-                logger() << "Invalid Aircraft '" << node << "'";
+        logger() << "Loading YAML File " << path;
+        YAML::Node node = YAML::LoadFile(path);
+
+        if(!node["name"]) {
+            logger() << "Profile does not include a name";
+            return std::unexpected(0);
+        }
+        
+        std::vector<std::string> aircrafts;
+        if(!node["aircrafts"] or node["aircrafts"].IsSequence() == false) {
+            logger() << "Profile does not include supported aircrafts";
+        }
+        else {
+            for(const auto & aircraft : node["aircrafts"]) {
+                if(aircraft.Type() != YAML::NodeType::Scalar) {
+                    logger() << "Invalid Aircraft '" << node << "'";
+                    continue;
+                }
+                aircrafts.emplace_back(aircraft.as<std::string>());
+            }
+        }
+
+        if(!node["models"] or node["models"].IsSequence() == false) {
+            logger() << "Profile does not include supported models";
+            return std::unexpected(0);
+        }
+        std::vector<std::string> models;
+        for(const auto & model : node["models"]) {
+            if(model.Type() != YAML::NodeType::Scalar) {
+                logger() << "Invalid Model '" << node << "'";
                 continue;
             }
-            aircrafts.emplace_back(aircraft.as<std::string>());
+            models.emplace_back(model.as<std::string>());
         }
-    }
-
-    if(!node["models"] or node["models"].IsSequence() == false) {
-        logger() << "Profile does not include supported models";
-        return std::unexpected(0);
-    }
-    std::vector<std::string> models;
-    for(const auto & model : node["models"]) {
-        if(model.Type() != YAML::NodeType::Scalar) {
-            logger() << "Invalid Model '" << node << "'";
-            continue;
-        }
-        models.emplace_back(model.as<std::string>());
-    }
-    if(models.empty()) {
-        logger() << "No models defined for this profile";
-        return std::unexpected(0);
-    }
-
-    logger() << "Reading System Configuration";
-    if(!node["system"]) return std::unexpected(0);
-    auto system = system_data_ref::build(node["system"]);
-    if(system.has_value() == false) return std::unexpected(0);
-
-    logger() << "Reading Autopilot Configuration";
-    std::optional<autopilot_data_ref> autopilot;
-    if(node["autopilot"]) {
-        auto ap_ret = autopilot_data_ref::build(node["autopilot"]);
-        if(ap_ret.has_value() == false) {
-            logger() << "Invalid Autopilot Configuration";
+        if(models.empty()) {
+            logger() << "No models defined for this profile";
             return std::unexpected(0);
         }
-        autopilot = std::move(ap_ret.value());
-    }
 
-    logger() << "Reading Annunciator Configuration";
-    std::optional<annunciator_data_ref> annunciator;
-    if(node["annunciator"]) {
-        auto ann_ret = annunciator_data_ref::build(node["annunciator"]);
-        if(ann_ret.has_value() == false) {
-            logger() << "Invalid Annunciator Configuration";
-            return std::unexpected(0);
+        logger() << "Reading System Configuration";
+        if(!node["system"]) return std::unexpected(0);
+        auto system = system_data_ref::build(node["system"]);
+        if(system.has_value() == false) return std::unexpected(0);
+
+        logger() << "Reading Autopilot Configuration";
+        std::optional<autopilot_data_ref> autopilot;
+        if(node["autopilot"]) {
+            auto ap_ret = autopilot_data_ref::build(node["autopilot"]);
+            if(ap_ret.has_value() == false) {
+                logger() << "Invalid Autopilot Configuration";
+                return std::unexpected(0);
+            }
+            autopilot = std::move(ap_ret.value());
         }
-        annunciator = std::move(ann_ret.value());
-    }
 
-    return profile_ptr(new profile(
-        std::move(node["name"].as<std::string>()),
-        std::move(aircrafts),
-        std::move(models),
-        std::move(system.value()),
-        std::move(autopilot),
-        std::move(annunciator)
-    ));
+        logger() << "Reading Annunciator Configuration";
+        std::optional<annunciator_data_ref> annunciator;
+        if(node["annunciator"]) {
+            auto ann_ret = annunciator_data_ref::build(node["annunciator"]);
+            if(ann_ret.has_value() == false) {
+                logger() << "Invalid Annunciator Configuration";
+                return std::unexpected(0);
+            }
+            annunciator = std::move(ann_ret.value());
+        }
+
+        return profile_ptr(new profile(
+            node["name"].as<std::string>(),
+            std::move(aircrafts),
+            std::move(models),
+            std::move(system.value()),
+            std::move(autopilot),
+            std::move(annunciator)
+        ));
+    }
+    catch(const YAML::Exception & ex) {
+        logger() << "Failed to parse YAML file '" << path << "': " << ex.what();
+    }
+    catch(const std::exception & ex) {
+        logger() << "Failed to load YAML file '" << path << "': " << ex.what();
+    }
+    return std::unexpected(0);
 }

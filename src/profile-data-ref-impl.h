@@ -22,7 +22,7 @@ class data_ref;
 
 template<typename T>
 std::expected<T, int>
-base_data_ref::build(const YAML::Node & node) noexcept
+base_data_ref::build(const YAML::Node & node)
 {
     XPLMDataRef data_ref = nullptr;
     bool invert = false;
@@ -84,7 +84,7 @@ public:
 
     static inline
     std::expected<data_ref, int>
-    build(const YAML::Node & node) noexcept {
+    build(const YAML::Node & node) {
         return base_data_ref::build<data_ref>(node);
     }
 
@@ -118,7 +118,7 @@ public:
 
     static inline
     std::expected<data_ref, int>
-    build(const YAML::Node & node) noexcept {
+    build(const YAML::Node & node) {
         auto ret = base_data_ref::build<data_ref>(node);
         if(ret.has_value()) {
             if(node.IsMap()) {
@@ -171,7 +171,7 @@ public:
 
     static inline
     std::expected<data_ref, int>
-    build(const YAML::Node & node) noexcept {
+    build(const YAML::Node & node) {
         auto ret = base_data_ref::build<data_ref>(node);
         if(ret.has_value()) {
             if(node.IsMap()) {

@@ -38,7 +38,7 @@ public:
     template<typename T>
     static
     std::expected<T, int>
-    build(const YAML::Node & node) noexcept;
+    build(const YAML::Node & node);
 
     base_data_ref(base_data_ref && other) noexcept = default;
 
@@ -87,7 +87,7 @@ class value_data_ref {
 protected:
     std::vector<bool_data_ref::ptr_type> data_;
 public:
-    value_data_ref(const YAML::Node & node) noexcept;
+    value_data_ref(const YAML::Node & node);
 
     inline 
     bool
@@ -97,6 +97,10 @@ public:
         }
         return false;
     }
+
+    inline
+    bool
+    empty() const noexcept { return this->data_.empty(); }
 
 #if defined(HCBRAVO_PROFILE_TESTS)
     inline
@@ -126,7 +130,7 @@ public:
 
     static
     std::expected<airspeed_data_ref, int>
-    build(const YAML::Node &) noexcept;
+    build(const YAML::Node &);
 
     inline
     airspeed_unit
@@ -157,7 +161,7 @@ class autopilot_dial_data_ref {
     std::optional<float_data_ref> vs_;
     std::optional<float_data_ref> alt_;
 
-    autopilot_dial_data_ref(std::optional<airspeed_data_ref> && ias, const YAML::Node & node) noexcept;
+    autopilot_dial_data_ref(std::optional<airspeed_data_ref> && ias, const YAML::Node & node);
 public:
 
     autopilot_dial_data_ref(autopilot_dial_data_ref && other) noexcept = default;
@@ -167,7 +171,7 @@ public:
 
     static
     std::expected<autopilot_dial_data_ref, int>
-    build(const YAML::Node & node) noexcept;
+    build(const YAML::Node & node);
 
     inline
     const std::optional<airspeed_data_ref> &
@@ -216,13 +220,13 @@ class autopilot_mode_data_ref {
     std::optional<value_data_ref> ias_;
     value_data_ref ap_;
 
-    autopilot_mode_data_ref(const YAML::Node & node) noexcept;
+    autopilot_mode_data_ref(const YAML::Node & node);
 
 public:
 
     static
     std::expected<autopilot_mode_data_ref, int>
-    build(const YAML::Node & node) noexcept;
+    build(const YAML::Node & node);
 
     inline
     std::optional<bool>
@@ -323,7 +327,7 @@ public:
 
     static
     std::expected<autopilot_data_ref, int>
-    build(const YAML::Node & node) noexcept;
+    build(const YAML::Node & node);
 
     inline
     const autopilot_mode_data_ref &
@@ -338,13 +342,13 @@ class system_data_ref {
     value_data_ref volts_;
     std::optional<value_data_ref> gear_;
 
-    system_data_ref(const YAML::Node & node) noexcept;
+    system_data_ref(const YAML::Node & node);
 
 public:
 
     static
     std::expected<system_data_ref, int>
-    build(const YAML::Node & node) noexcept;
+    build(const YAML::Node & node);
 
     inline 
     bool 
@@ -383,12 +387,12 @@ class annunciator_data_ref {
     std::optional<value_data_ref> volt_low_;
     std::optional<value_data_ref> door_open_;
 
-    annunciator_data_ref(const YAML::Node & node) noexcept;
+    annunciator_data_ref(const YAML::Node & node);
 public:
 
     static
     std::expected<annunciator_data_ref, int>
-    build(const YAML::Node & node) noexcept;
+    build(const YAML::Node & node);
 
     inline 
     const std::optional<bool>
