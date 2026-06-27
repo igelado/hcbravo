@@ -125,6 +125,7 @@ state::init() noexcept
         logger() << "Failed to initialize HID";
         return std::unexpected(error::hid_error);
     }
+    st->hid_initialized_ = true;
     st->hid_ = hid_open(0x294b, 0x1901, nullptr);
     if(st->hid_ == nullptr) {
         logger() << "Open HoneyComb Bravo Quadrant not Detected";
@@ -135,25 +136,34 @@ state::init() noexcept
 
     auto commands = commands::init(*st);
     if(commands.has_value() == false) {
-        hid_close(st->hid_);
         logger() << "Failed to Register HoneyComb Bravo Commands";
         return std::unexpected(commands.error());
     }
     st->cmds_ = std::move(commands.value());
 
+#if !defined(NDEBUG)
     logger() << "Registering Error Handler";
     XPLMSetErrorCallback(&state::error_handler);
+#endif
 
     logger() << "Creating Menu Entries";
-    int item = XPLMAppendMenuItem(XPLMFindPluginsMenu(), "HoneyComb Bravo", nullptr, 1);
-    st->menu_ = XPLMCreateMenu("HoneyComb Bravo", XPLMFindPluginsMenu(), item, &state::menu_handler, st.get());
+    auto plugins_menu = XPLMFindPluginsMenu();
+    int item = XPLMAppendMenuItem(plugins_menu, "HoneyComb Bravo", nullptr, 1);
+    if(item < 0) {
+        logger() << "Failed to Create HoneyComb Bravo Menu Entry";
+        return std::unexpected(error::api_menu);
+    }
+    st->menu_item_ = item;
+    st->menu_ = XPLMCreateMenu("HoneyComb Bravo", plugins_menu, item, &state::menu_handler, st.get());
+    if(st->menu_ == nullptr) {
+        logger() << "Failed to Create HoneyComb Bravo Menu";
+        return std::unexpected(error::api_menu);
+    }
     if(XPLMAppendMenuItem(st->menu_, "Reload Aircraft Profiles", reinterpret_cast<void *>(0), 0) < 0) {
-        XPLMDestroyMenu(st->menu_);
         logger() << "Failed to Create HoneyComb Bravo Menu (Reload Aircraft Profiles)";
         return std::unexpected(error::api_menu);
     }
     if(XPLMAppendMenuItem(st->menu_, "Reload All Plugins", reinterpret_cast<void *>(1), 0) < 0) {
-        XPLMDestroyMenu(st->menu_);
         logger() << "Failed to Create HoneyComb Bravo Menu (Reload All Plugins)";
         return std::unexpected(error::api_menu);
     }
@@ -167,7 +177,6 @@ state::init() noexcept
     };
     st->flight_loop_ = XPLMCreateFlightLoop(&fl_params);
     if(st->flight_loop_ == nullptr) {
-        XPLMDestroyMenu(st->menu_);
         logger() << "Failed to Create Flight Loop";
         return std::unexpected(error::api_loop);
     }
@@ -186,7 +195,9 @@ static const char * plane_name_label_ = "sim/aircraft/view/acf_ui_name";
 
 state::state() noexcept :
     hid_(nullptr),
+    hid_initialized_(false),
     menu_(nullptr),
+    menu_item_(-1),
     cmds_(nullptr),
     plane_icao_data_ref_(
         XPLMFindDataRef(plane_icao_label_)
@@ -194,9 +205,43 @@ state::state() noexcept :
     plane_name_data_ref_(
         XPLMFindDataRef(plane_name_label_)
     ),
-    plane_(std::nullopt)
+    plane_(std::nullopt),
+    flight_loop_(nullptr)
 {
     this->reload();
+}
+
+state::~state() noexcept
+{
+    if(this->flight_loop_ != nullptr) {
+        XPLMDestroyFlightLoop(this->flight_loop_);
+        this->flight_loop_ = nullptr;
+    }
+
+    unload_plane();
+
+    if(this->menu_ != nullptr) {
+        XPLMDestroyMenu(this->menu_);
+        this->menu_ = nullptr;
+    }
+    if(this->menu_item_ >= 0) {
+        XPLMRemoveMenuItem(XPLMFindPluginsMenu(), this->menu_item_);
+        this->menu_item_ = -1;
+    }
+
+#if !defined(NDEBUG)
+    XPLMSetErrorCallback(nullptr);
+#endif
+
+    if(this->hid_ != nullptr) {
+        hid_close(this->hid_);
+        this->hid_ = nullptr;
+        this->leds_.hid_ = nullptr;
+    }
+    if(this->hid_initialized_) {
+        hid_exit();
+        this->hid_initialized_ = false;
+    }
 }
 
 void
