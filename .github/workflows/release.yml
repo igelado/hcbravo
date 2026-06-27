@@ -8,6 +8,10 @@ on:
         required: true
         type: string
 
+permissions:
+  actions: read
+  contents: write
+
 jobs:
   build:
     strategy:
@@ -35,6 +39,18 @@ jobs:
         run: |
           echo "build-output-dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
 
+      - name: Validate Release Version
+        id: version
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ github.event.inputs.version }}
+        run: |
+          if [[ ! "$RELEASE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z][0-9A-Za-z.-]*)?$ ]]; then
+            echo "Invalid release version: $RELEASE_VERSION" >&2
+            exit 1
+          fi
+          echo "version=$RELEASE_VERSION" >> "$GITHUB_OUTPUT"
+
       - name: Gather Linux Package
         uses: actions/download-artifact@v5
         with:
@@ -61,27 +77,31 @@ jobs:
  
       - name: Pack Plugins 
         working-directory: ${{ steps.strings.outputs.build-output-dir }}
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
         run: |
           install -D ubuntu/hcbravo.xpl Resources/plugins/hcbravo/lin_x64/hcbravo.xpl
           install -D macos/hcbravo.xpl Resources/plugins/hcbravo/mac_x64/hcbravo.xpl
           install -D windows/Release/hcbravo.xpl Resources/plugins/hcbravo/win_x64/hcbravo.xpl
           cp -R "${{ github.workspace }}/ext/AeroSoft/joystick configs" "Resources/joystick configs/"
-          cp -R ${{ github.workspace }}/conf Resources/plugins/hcbravo/conf
+          cp -R "${{ github.workspace }}/conf" Resources/plugins/hcbravo/conf
           mkdir -p Output/preferences
           cp "${{ github.workspace }}"/profiles/*.prf Output/preferences/
-          zip -r hcbravo-v${{ github.event.inputs.version }}.zip Resources Output
+          zip -r "hcbravo-v${RELEASE_VERSION}.zip" Resources Output
 
       - name: Create Release Tag
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
         run: |
-          git tag v${{ github.event.inputs.version }}
-          git push origin v${{ github.event.inputs.version }}
+          git tag "v${RELEASE_VERSION}"
+          git push origin "v${RELEASE_VERSION}"
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: v${{ github.event.inputs.version }}
-          name: 'HCBravo Release v${{ github.event.inputs.version }}'
-          files: ${{ steps.strings.outputs.build-output-dir }}/hcbravo-v${{ github.event.inputs.version }}.zip
+          tag_name: v${{ steps.version.outputs.version }}
+          name: 'HCBravo Release v${{ steps.version.outputs.version }}'
+          files: ${{ steps.strings.outputs.build-output-dir }}/hcbravo-v${{ steps.version.outputs.version }}.zip
       
