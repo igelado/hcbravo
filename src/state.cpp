@@ -10,6 +10,7 @@
 #include <XPLM/XPLMProcessing.h>
 #include <XPLM/XPLMUtilities.h>
 
+#include <algorithm>
 #include <expected>
 #include <filesystem>
 #include <memory>
@@ -193,6 +194,29 @@ static char * files_indexes[FILES_INDEX_SIZE];
 static const char * plane_icao_label_ = "sim/aircraft/view/acf_ICAO";
 static const char * plane_name_label_ = "sim/aircraft/view/acf_ui_name";
 
+static
+bool
+read_data_ref_string(XPLMDataRef data_ref, char * buffer, size_t buffer_size, const char * label) noexcept
+{
+    if(buffer_size == 0) return false;
+    buffer[0] = '\0';
+
+    if(data_ref == nullptr) {
+        logger() << "Cannot read missing DataRef '" << label << "'";
+        return false;
+    }
+
+    int ret = XPLMGetDatab(data_ref, buffer, 0, static_cast<int>(buffer_size - 1));
+    if(ret < 0) {
+        logger() << "Failed to read DataRef '" << label << "'";
+        return false;
+    }
+
+    size_t written = std::min(static_cast<size_t>(ret), buffer_size - 1);
+    buffer[written] = '\0';
+    return true;
+}
+
 state::state() noexcept :
     hid_(nullptr),
     hid_initialized_(false),
@@ -253,7 +277,13 @@ state::reload() noexcept
     logger() << "Reading Plugin Configuration Files";
     auto id = XPLMGetMyID();
     static char path[256];
+    path[0] = '\0';
     XPLMGetPluginInfo(id, nullptr, path, nullptr, nullptr);
+    path[sizeof(path) - 1] = '\0';
+    if(path[0] == '\0') {
+        logger() << "Cannot determine plugin path";
+        return;
+    }
     XPLMExtractFileAndPath(path);
     auto config_file_path = std::filesystem::absolute(std::string(path) + "/../conf");
     logger() << "Reading Configurations from " << config_file_path;
@@ -261,12 +291,16 @@ state::reload() noexcept
     int total_conf_files = 0;
     do {
         int file_count = 0;
-        XPLMGetDirectoryContents(
+        int directory_status = XPLMGetDirectoryContents(
             config_file_path.string().c_str(),  index, files_buffer, FILES_BUFFER_SIZE,
             files_indexes, FILES_INDEX_SIZE, &total_conf_files, &file_count
         );
+        if(directory_status == 0) {
+            logger() << "Configuration directory listing was truncated";
+        }
         logger() << "Read " << (index + file_count) << " file(s) from " << total_conf_files << " file(s)";
         for(auto n = 0; n < file_count; ++n) {
+            if(files_indexes[n] == nullptr) continue;
             auto config_file = config_file_path / std::string(files_indexes[n]);
             logger() << "Found " << config_file << " in configuration file ( " << config_file.extension() << ")";
             if(config_file.extension() != ".yaml") continue;
@@ -295,8 +329,14 @@ state::reload() noexcept
                 }
             }
         }
+        if(file_count <= 0) {
+            if(index < total_conf_files) {
+                logger() << "Stopping configuration reload because directory iteration did not advance";
+            }
+            break;
+        }
         index += file_count;
-    } while(index != total_conf_files);
+    } while(index < total_conf_files);
     logger() << "Done loading plugin configuration";
 }
 
@@ -305,10 +345,8 @@ state::load_plane() noexcept
 {
     static char icao_name[64];
     static char ui_name[256];
-    int ret = XPLMGetDatab(plane_icao_data_ref_, icao_name, 0, 64);
-    if(ret < 64) icao_name[ret] = '\0';
-    ret = XPLMGetDatab(plane_name_data_ref_, ui_name, 0, 256);
-    if(ret < 256) ui_name[ret] = '\0';
+    read_data_ref_string(plane_icao_data_ref_, icao_name, sizeof(icao_name), plane_icao_label_);
+    read_data_ref_string(plane_name_data_ref_, ui_name, sizeof(ui_name), plane_name_label_);
     logger() << "Aircraft '" << ui_name << "' (" << icao_name << ")";
 
     // First try to get a match for the specific Aircraft
