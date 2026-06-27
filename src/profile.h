@@ -23,11 +23,11 @@ class base_data_ref {
 protected:
     XPLMDataRef data_ref_;
     bool invert_;
-    std::optional<size_t> index_;
+    std::optional<int> index_;
 
     inline
     base_data_ref(XPLMDataRef && data_ref, bool invert,
-            std::optional<size_t> index) noexcept :
+            std::optional<int> index) noexcept :
         data_ref_(std::move(data_ref)),
         invert_(invert),
         index_(index)
@@ -58,7 +58,7 @@ public:
 
     inline
     bool_data_ref(XPLMDataRef && data_ref, bool invert,
-            std::optional<size_t> index) noexcept :
+            std::optional<int> index) noexcept :
         base_data_ref(std::move(data_ref), invert, index)
     {}
 

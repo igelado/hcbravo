@@ -90,6 +90,29 @@ system:
     EXPECT_FALSE(prof.has_value());
 }
 
+TEST(profile_test, negative_data_ref_index_returns_error) {
+    const auto path = std::filesystem::temp_directory_path() / "hcbravo-negative-index-profile.yaml";
+    {
+        std::ofstream profile_file(path);
+        ASSERT_TRUE(profile_file.good());
+        profile_file << R"(
+name: Invalid
+aircrafts:
+ - Invalid
+models:
+ - BAD
+system:
+ volts:
+  - key: 'sim/test/bool'
+    index: -1
+)";
+    }
+
+    const auto prof = profile::from_yaml(path.string());
+    std::filesystem::remove(path);
+    EXPECT_FALSE(prof.has_value());
+}
+
 TEST(profile_test, bool_data_ref_scalar) {
     auto node = YAML::Load(R"(
 tag: 'sim/test/bool'
