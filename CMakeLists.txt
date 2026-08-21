@@ -21,7 +21,10 @@ CPMAddPackage(
     URI "gh:libusb/hidapi#hidapi-0.15.0"
     OPTIONS "BUILD_SHARED_LIBS FALSE"
 )
-CPMAddPackage("gh:jbeder/yaml-cpp#master")
+CPMAddPackage(
+    URI "gh:jbeder/yaml-cpp#yaml-cpp-0.9.0"
+    OPTIONS "YAML_MSVC_SHARED_RT ON"
+)
 
 set(hcbravo_SRC ${PROJECT_SOURCE_DIR}/src)
 set(hcbravo_EXT ${PROJECT_SOURCE_DIR}/ext)
