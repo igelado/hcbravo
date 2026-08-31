@@ -93,15 +93,18 @@ state::flight_iteration(float call, float iter, int counter, void * _this) noexc
     }
 
     if(system.gear().has_value()) {
-        bool status = system.gear().value();
-        mask.update(LED_LDG_L_GREEN, status);
-        mask.update(LED_LDG_L_RED, !status);
+        bool left = system.gear().value().left();
+        bool nose = system.gear().value().nose();
+        bool right = system.gear().value().right();
 
-        mask.update(LED_LDG_N_GREEN, status);
-        mask.update(LED_LDG_N_RED, !status);
+        mask.update(LED_LDG_L_GREEN, left);
+        mask.update(LED_LDG_L_RED, !left);
+
+        mask.update(LED_LDG_N_GREEN, nose);
+        mask.update(LED_LDG_N_RED, !nose);
     
-        mask.update(LED_LDG_R_GREEN, status);
-        mask.update(LED_LDG_R_RED, !status);
+        mask.update(LED_LDG_R_GREEN, right);
+        mask.update(LED_LDG_R_RED, !right);
     }
 
     if(plane->annunciator().has_value()) {

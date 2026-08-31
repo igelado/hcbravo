@@ -500,7 +500,13 @@ system:
  volts:
   - key: 'sim/cockpit2/electrical/bus_volts'
  gear:
-  - key: 'sim/flightmodel2/gear/deploy_ratio'
+  left:
+   - key: 'sim/flightmodel2/gear/deploy_ratio'
+  nose:
+   - key: 'sim/flightmodel2/gear/deploy_ratio'
+  right:
+   - key: 'sim/flightmodel2/gear/deploy_ratio'
+
 
     )");
 
@@ -510,12 +516,13 @@ system:
     auto data_ref = std::move(data_ref_opt.value());
     ASSERT_FALSE(data_ref.volts());
     ASSERT_TRUE(data_ref.gear().has_value());
-    ASSERT_FALSE(data_ref.gear().value());
 
     data_ref.volts_data_ref().data().front()->data_ref()->value.f = 1.0f;
     ASSERT_TRUE(data_ref.volts());
 
-    data_ref.gear_data_ref().value().data().front()->data_ref()->value.i = 1;
+    data_ref.gear().value().left_data_ref().data().front()->data_ref()->value.i = 1;
+    data_ref.gear().value().nose_data_ref().data().front()->data_ref()->value.i = 1;
+    data_ref.gear().value().right_data_ref().data().front()->data_ref()->value.i = 1;
     ASSERT_TRUE(data_ref.gear());
 }
 
