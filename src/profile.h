@@ -31,7 +31,8 @@ protected:
         data_ref_(std::move(data_ref)),
         invert_(invert),
         index_(index)
-    {}
+    {
+    }
 public:
     using ptr_type =std::unique_ptr<base_data_ref>;
 
@@ -54,7 +55,7 @@ public:
 
 class bool_data_ref : public base_data_ref {
 public:
-    using ptr_type =std::unique_ptr<bool_data_ref>;
+    using ptr_type = std::unique_ptr<bool_data_ref>;
 
     inline
     bool_data_ref(XPLMDataRef && data_ref, bool invert,
@@ -338,11 +339,52 @@ public:
     dials() const noexcept { return this->dials_; }
 };
 
+class gear_data_ref {
+    value_data_ref left_;
+    value_data_ref nose_;
+    value_data_ref right_;
+
+    gear_data_ref(value_data_ref &&, value_data_ref &&, value_data_ref &&) noexcept;
+
+public:
+    gear_data_ref(gear_data_ref &&) noexcept = default;
+
+    static
+    std::expected<gear_data_ref, int>
+    build(const YAML::Node & node);
+
+    inline
+    bool
+    left() const noexcept { return this->left_.is_set(); }
+
+    inline
+    bool
+    nose() const noexcept { return this->nose_.is_set(); }
+
+    inline
+    bool
+    right() const noexcept { return this->right_.is_set(); }
+
+#if defined(HCBRAVO_PROFILE_TESTS)
+    inline
+    const value_data_ref &
+    left_data_ref() const { return this->left_; }
+
+    inline
+    const value_data_ref &
+    nose_data_ref() const { return this->nose_; }
+
+    inline
+    const value_data_ref &
+    right_data_ref() const { return this->right_; }
+#endif
+};
+
 class system_data_ref {
     value_data_ref volts_;
-    std::optional<value_data_ref> gear_;
+    std::optional<gear_data_ref> gear_;
 
-    system_data_ref(const YAML::Node & node);
+    system_data_ref(value_data_ref &&, std::optional<gear_data_ref> &&) noexcept;
 
 public:
 
@@ -355,19 +397,15 @@ public:
     volts() const noexcept { return this->volts_.is_set(); }
 
     inline 
-    std::optional<bool> 
+    const std::optional<gear_data_ref> &
     gear() const noexcept {
-        return this->gear_.transform(&value_data_ref::is_set);
+        return this->gear_;
     }
 
 #if defined(HCBRAVO_PROFILE_TESTS)
     inline
     const value_data_ref &
     volts_data_ref() const noexcept { return this->volts_; }
-
-    inline
-    const std::optional<value_data_ref> &
-    gear_data_ref() const noexcept { return this->gear_; }
 #endif
 };
 

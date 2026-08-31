@@ -31,6 +31,7 @@ set(hcbravo_EXT ${PROJECT_SOURCE_DIR}/ext)
 
 add_library(hcbravo SHARED)
 target_sources(hcbravo PRIVATE
+    ${hcbravo_SRC}/conf.cpp
     ${hcbravo_SRC}/knob.cpp
     ${hcbravo_SRC}/led.cpp
     ${hcbravo_SRC}/main.cpp

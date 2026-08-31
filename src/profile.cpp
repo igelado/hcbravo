@@ -217,9 +217,40 @@ autopilot_data_ref::build(const YAML::Node & node)
     return autopilot_data_ref(std::move(mode.value()), std::nullopt);
 }
 
-system_data_ref::system_data_ref(const YAML::Node & node) :
-    volts_(node["volts"]),
-    gear_(node["gear"] ? std::optional(value_data_ref(node["gear"])) : std::nullopt)
+gear_data_ref::gear_data_ref(value_data_ref && left, value_data_ref && nose, value_data_ref && right) noexcept :
+    left_(std::move(left)),
+    nose_(std::move(nose)),
+    right_(std::move(right))
+{}
+
+std::expected<gear_data_ref, int>
+gear_data_ref::build(const YAML::Node & node)
+{
+    if(node["left"] and node["nose"] and node["right"]) {
+        logger() << "Found valid gear configration";
+        auto ret = gear_data_ref(
+            value_data_ref(node["left"]), value_data_ref(node["nose"]), value_data_ref(node["right"])
+        );
+        if(ret.left_.empty()) {
+            logger() << "Invalid left gear data";
+            return std::unexpected(1);
+        }
+        if(ret.nose_.empty()) {
+            logger() << "Invalid nose gear data";
+            return std::unexpected(1);
+        }
+        if(ret.right_.empty()) {
+            logger() << "Invalid right gear data";
+            return std::unexpected(1);
+        }
+        return ret;
+    }
+    return std::unexpected(1);
+}
+
+system_data_ref::system_data_ref(value_data_ref && volts, std::optional<gear_data_ref> && gear) noexcept :
+    volts_(std::move(volts)),
+    gear_(std::move(gear))
 {}
 
 std::expected<system_data_ref, int>
@@ -227,7 +258,22 @@ system_data_ref::build(const YAML::Node & node)
 {
     // Only the AP annunciator is required
     if(!node["volts"]) return std::unexpected(1);
-    auto ret = system_data_ref(node);
+    std::optional<gear_data_ref> gear;
+    if(node["gear"]) {
+        auto ret = gear_data_ref::build(node["gear"]);
+        if(ret.has_value()) {
+            auto value = std::move(ret.value());
+        }
+        else {
+            logger() << "Invalid Gear Configuration";
+            return std::unexpected(0);
+        }
+        gear.emplace(std::move(ret.value()));
+    } 
+    if(gear.has_value()) {
+        logger() << "Aircraft has retractable landing gear";
+    }
+    auto ret = system_data_ref(value_data_ref(node["volts"]), std::move(gear));
     if(ret.volts_.empty()) {
         logger() << "Invalid System Volts DataRef Configuration";
         return std::unexpected(0);
