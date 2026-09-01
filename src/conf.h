@@ -202,6 +202,255 @@ public:
     ap() const { return this->ap_; }
 };
 
+class autopilot {
+protected:
+    autopilot_mode mode_;
+    std::optional<autopilot_dial> dials_;
+
+    inline
+    autopilot(autopilot_mode && mode, std::optional<autopilot_dial> && dials) noexcept :
+        mode_(std::move(mode)),
+        dials_(std::move(dials))
+    {}
+public:
+
+    static
+    std::expected<autopilot, int>
+    build(const YAML::Node & node);
+
+    inline
+    const autopilot_mode &
+    mode() const noexcept { return this->mode_; }
+
+    inline
+    const std::optional<autopilot_dial> &
+    dials() const noexcept { return this->dials_; }
+};
+
+class gear {
+protected:
+    value left_;
+    value nose_;
+    value right_;
+
+    inline
+    gear(value && left, value && nose, value && right) :
+        left_(std::move(left)),
+        nose_(std::move(nose)),
+        right_(std::move(right))
+    {}
+public:
+
+    static
+    std::expected<gear, int>
+    build(const YAML::Node & node);
+
+    inline
+    const value &
+    left() const { return this->left_; }
+
+    inline
+    const value &
+    nose() const { return this->nose_; }
+
+    inline
+    const value &
+    right() const { return this->right_; }
+};
+
+class system {
+protected:
+    value volts_;
+    std::optional<gear> gear_;
+
+    inline
+    system(value && volts, std::optional<gear> && gear) :
+        volts_(std::move(volts)),
+        gear_(std::move(gear))
+    {}
+public:
+
+    static
+    std::expected<system, int>
+    build(const YAML::Node & node);
+
+    inline
+    const value &
+    volts() const { return this->volts_; }
+
+    inline
+    const std::optional<gear> &
+    gear() const { return this->gear_; }
+};
+
+class annunciator {
+protected:
+    std::optional<value> master_warn_;
+    std::optional<value> eng_fire_;
+    std::optional<value> oil_low_;
+    std::optional<value> fuel_low_;
+    std::optional<value> anti_ice_;
+    std::optional<value> starter_;
+    std::optional<value> apu_;
+    std::optional<value> master_caution_;
+    std::optional<value> vacuum_low_;
+    std::optional<value> hydro_low_;
+    std::optional<value> aux_fuel_;
+    std::optional<value> parking_brake_;
+    std::optional<value> volt_low_;
+    std::optional<value> door_open_;
+
+    inline
+    annunciator(
+        std::optional<value> && master_warn,
+        std::optional<value> && eng_fire,
+        std::optional<value> && oil_low,
+        std::optional<value> && fuel_low,
+        std::optional<value> && anti_ice,
+        std::optional<value> && starter,
+        std::optional<value> && apu,
+        std::optional<value> && master_caution,
+        std::optional<value> && vacuum_low,
+        std::optional<value> && hydro_low,
+        std::optional<value> && aux_fuel,
+        std::optional<value> && parking_brake,
+        std::optional<value> && volt_low,
+        std::optional<value> && door_open
+    ) noexcept :
+        master_warn_(std::move(master_warn)),
+        eng_fire_(std::move(eng_fire)),
+        oil_low_(std::move(oil_low)),
+        fuel_low_(std::move(fuel_low)),
+        anti_ice_(std::move(anti_ice)),
+        starter_(std::move(starter)),
+        apu_(std::move(apu)),
+        master_caution_(std::move(master_caution)),
+        vacuum_low_(std::move(vacuum_low)),
+        hydro_low_(std::move(hydro_low)),
+        aux_fuel_(std::move(aux_fuel)),
+        parking_brake_(std::move(parking_brake)),
+        volt_low_(std::move(volt_low)),
+        door_open_(std::move(door_open))
+    {}
+public:
+
+    static
+    std::expected<annunciator, int>
+    build(const YAML::Node & node);
+
+    inline
+    const std::optional<value> &
+    master_warn() const { return this->master_warn_; }
+
+    inline
+    const std::optional<value> &
+    eng_fire() const { return this->eng_fire_; }
+
+    inline
+    const std::optional<value> &
+    oil_low() const { return this->oil_low_; }
+
+    inline
+    const std::optional<value> &
+    fuel_low() const { return this->fuel_low_; }
+
+    inline
+    const std::optional<value> &
+    anti_ice() const { return this->anti_ice_; }
+
+    inline
+    const std::optional<value> &
+    starter() const { return this->starter_; }
+
+    inline
+    const std::optional<value> &
+    apu() const { return this->apu_; }
+
+    inline
+    const std::optional<value> &
+    master_caution() const { return this->master_caution_; }
+
+    inline
+    const std::optional<value> &
+    vacuum_low() const { return this->vacuum_low_; }
+
+    inline
+    const std::optional<value> &
+    hydro_low() const { return this->hydro_low_; }
+
+    inline
+    const std::optional<value> &
+    aux_fuel() const { return this->aux_fuel_; }
+
+    inline
+    const std::optional<value> &
+    parking_brake() const { return this->parking_brake_; }
+
+    inline
+    const std::optional<value> &
+    volt_low() const { return this->volt_low_; }
+
+    inline
+    const std::optional<value> &
+    door_open() const { return this->door_open_; }
+};
+
+class configuration {
+protected:
+    std::string name_;
+    std::vector<std::string> aircrafts_;
+    std::vector<std::string> models_;
+    system system_;
+    std::optional<autopilot> autopilot_;
+    std::optional<annunciator> annunciator_;
+
+    inline
+    configuration(
+        std::string && name,
+        std::vector<std::string> && aircrafts,
+        std::vector<std::string> && models,
+        system && system,
+        std::optional<autopilot> && autopilot,
+        std::optional<annunciator> && annunciator
+    ) noexcept :
+        name_(std::move(name)),
+        aircrafts_(std::move(aircrafts)),
+        models_(std::move(models)),
+        system_(std::move(system)),
+        autopilot_(std::move(autopilot)),
+        annunciator_(std::move(annunciator))
+    {}
+public:
+
+    static
+    std::expected<configuration, int>
+    read(const std::string & path);
+
+    inline
+    const std::string &
+    name() const noexcept { return this->name_; }
+
+    inline
+    const std::vector<std::string> &
+    aircrafts() const noexcept { return this->aircrafts_; }
+
+    inline
+    const std::vector<std::string> &
+    models() const noexcept { return this->models_; }
+
+    inline
+    const system &
+    system() const noexcept { return this->system_; }
+
+    inline
+    const std::optional<autopilot> &
+    autopilot() const noexcept { return this->autopilot_; }
+
+    inline
+    const std::optional<annunciator> &
+    annunciator() const noexcept { return this->annunciator_; }
+};
+
 }
 
 #endif
