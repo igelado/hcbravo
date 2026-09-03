@@ -123,7 +123,7 @@ commands::ap_knob_update(void * ref) noexcept
     auto now = std::chrono::steady_clock::now();
     auto elapsed = now - self->last_cmd_;
     // We set 250ms as threshold for now
-    bool fast = std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count() < 100;
+    bool fast = std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count() < 250;
     switch(self->active_) {
         case selector::alt:
             if(!dials.alt()) return 0;
