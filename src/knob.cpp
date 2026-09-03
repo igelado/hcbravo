@@ -38,7 +38,7 @@ struct factor {
 
 static const factor factors[] = {
     { 100.0f, 1000.0f },    // ALT
-    { 100.0f, 100.0f },     // VS
+    { 100.0f, 500.0f },     // VS
     { 1.0f, 5.0f },     // HDG
     { 1.0f, 5.0f },     // CRS
     { 1.0f, 2.0f }      // IAS
