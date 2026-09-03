@@ -110,6 +110,14 @@ The `ias` label is not directly a DataRef, but a map with two labels pointing to
 
 The `modes` entry is also map that identifies the DataRef that indicates whether a given autopilot mode is armed.
 All the DataRefs in `modes` are treated as boolean values.
+
+> ⚠️ **"Treated as boolean" is about the result, not the accessor.** An entry with no
+> `type` defaults to `bool`, which reads the DataRef with `XPLMGetDatai`. Aircraft that
+> create their DataRefs from xlua with `create_dataref(..., "number")` publish a **float
+> accessor and no integer one**, so `XPLMGetDatai` returns `0` on them -- with no error and
+> nothing in the log. The symptom is every lamp staying dark on an aircraft whose DataRefs
+> are plainly correct. Give those entries an explicit `type: float`; see `conf/b738.yaml`
+> for a profile where all 34 of them need it.
 The only required label in `modes` is `ap`, which identifies whether the Autopilot is armed or not.
 The remaining labels are optional and identifies other potential Autopilot modes that might be armed:
   - `hdg` Heading Mode
