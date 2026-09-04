@@ -1,8 +1,12 @@
 name: Beechcraft Baron 58
 aircrafts:
  - 'Beechcraft Baron 58'
+ # Reality Expansion Pack renames the aircraft but keeps the same ICAO.
+ - 'Beechcraft Baron 58 + REP'
 models:
- - B58
+ # The stock X-Plane 12 Baron_58.acf declares 'P acf/_ICAO BE58', which is
+ # also the real ICAO type designator. 'B58' matched nothing.
+ - BE58
 
 autopilot:
  dials:

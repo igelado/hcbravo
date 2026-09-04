@@ -38,10 +38,10 @@ struct factor {
 
 static const factor factors[] = {
     { 100.0f, 1000.0f },    // ALT
-    { 100.0f, 100.0f },     // VS
-    { 1.0f, 5.0f },     // HDG
-    { 1.0f, 5.0f },     // CRS
-    { 1.0f, 2.0f }      // IAS
+    { 100.0f, 500.0f },     // VS
+    { 1.0f, 10.0f },    // HDG
+    { 1.0f, 10.0f },    // CRS
+    { 1.0f, 5.0f }      // IAS
 };
 
 static inline
@@ -123,7 +123,7 @@ commands::ap_knob_update(void * ref) noexcept
     auto now = std::chrono::steady_clock::now();
     auto elapsed = now - self->last_cmd_;
     // We set 250ms as threshold for now
-    bool fast = std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count() < 100;
+    bool fast = std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count() < 250;
     switch(self->active_) {
         case selector::alt:
             if(!dials.alt()) return 0;
