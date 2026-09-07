@@ -82,4 +82,7 @@ annunciator:
   - key: 'sim/flightmodel2/misc/door_open_ratio'
     type: float
     index: 0
+  - key: 'sim/flightmodel2/misc/door_open_ratio'
+    type: float
+    index: 1
   - key: 'sim/cockpit2/annunciators/cabin_door_open'
