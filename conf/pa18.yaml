@@ -27,12 +27,20 @@ annunciator:
   - key: 'sim/cockpit2/engine/actuators/starter_hit'
     index: 0
  parking_brake:
-   - key: 'sim/cockpit2/controls/wheel_brake_ratio'
-     type: int
+   - key: 'sim/cockpit2/controls/parking_brake_ratio'
+     type: float
  volt_low:
   - key: 'sim/cockpit2/annunciators/low_voltage'
  door_open:
   - key: 'sim/flightmodel2/misc/canopy_open_ratio'
+    type: float
   - key: 'sim/flightmodel2/misc/door_open_ratio'
+    type: float
     index: 0
+  - key: 'sim/flightmodel2/misc/door_open_ratio'
+    type: float
+    index: 1
+  - key: 'sim/flightmodel2/misc/door_open_ratio'
+    type: float
+    index: 2
   - key: 'sim/cockpit2/annunciators/cabin_door_open'
