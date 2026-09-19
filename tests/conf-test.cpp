@@ -7,6 +7,23 @@
 #include <conf.h>
 
 #include <filesystem>
+#include <fstream>
+
+static
+std::expected<conf::configuration, int>
+read_configuration(const std::string & contents)
+{
+    const auto path = std::filesystem::temp_directory_path() / "hcbravo-conf-test.yaml";
+    {
+        std::ofstream file(path);
+        if(!file) return std::unexpected(0);
+        file << contents;
+    }
+
+    auto configuration = conf::configuration::read(path.string());
+    std::filesystem::remove(path);
+    return configuration;
+}
 
 TEST(conf_test, scalar_data_ref_is_valid)
 {
@@ -235,4 +252,72 @@ TEST(conf_test, bundled_configurations_parse)
     }
 
     EXPECT_GT(configuration_count, 0);
+}
+
+TEST(conf_test, configuration_requires_valid_top_level_identity)
+{
+    const auto valid = read_configuration(R"(
+name: Valid
+aircrafts: [Valid Aircraft]
+models: [VALD]
+system:
+  volts: sim/test/volts
+)");
+    const auto non_map_root = read_configuration("- invalid");
+    const auto missing_name = read_configuration(R"(
+aircrafts: [Valid Aircraft]
+models: [VALD]
+system:
+  volts: sim/test/volts
+)");
+    const auto empty_name = read_configuration(R"(
+name: ''
+aircrafts: [Valid Aircraft]
+models: [VALD]
+system:
+  volts: sim/test/volts
+)");
+
+    ASSERT_TRUE(valid.has_value());
+    EXPECT_EQ(valid->name(), "Valid");
+    EXPECT_FALSE(non_map_root.has_value());
+    EXPECT_FALSE(missing_name.has_value());
+    EXPECT_FALSE(empty_name.has_value());
+}
+
+TEST(conf_test, configuration_requires_non_empty_scalar_aircrafts_and_models)
+{
+    const auto missing_aircrafts = read_configuration(R"(
+name: Invalid
+models: [VALD]
+system:
+  volts: sim/test/volts
+)");
+    const auto invalid_aircraft = read_configuration(R"(
+name: Invalid
+aircrafts: [""]
+models: [VALD]
+system:
+  volts: sim/test/volts
+)");
+    const auto empty_models = read_configuration(R"(
+name: Invalid
+aircrafts: [Valid Aircraft]
+models: []
+system:
+  volts: sim/test/volts
+)");
+    const auto invalid_model = read_configuration(R"(
+name: Invalid
+aircrafts: [Valid Aircraft]
+models:
+  - name: VALD
+system:
+  volts: sim/test/volts
+)");
+
+    EXPECT_FALSE(missing_aircrafts.has_value());
+    EXPECT_FALSE(invalid_aircraft.has_value());
+    EXPECT_FALSE(empty_models.has_value());
+    EXPECT_FALSE(invalid_model.has_value());
 }

@@ -145,6 +145,32 @@ build(const YAML::Node & node, const std::string & key)
     return std::move(ret.value());
 }
 
+static inline
+std::expected<std::vector<std::string>, int>
+build_required_string_list(const YAML::Node & node, const std::string & key)
+{
+    const auto values = node[key];
+    if(!values || !values.IsSequence() || values.size() == 0) {
+        logger() << "Configuration requires a non-empty '" << key << "' sequence";
+        return std::unexpected(0);
+    }
+
+    std::vector<std::string> result;
+    for(const auto & value : values) {
+        if(!value.IsScalar()) {
+            logger() << "Configuration '" << key << "' entries must be scalars";
+            return std::unexpected(0);
+        }
+        auto string_value = value.as<std::string>();
+        if(string_value.empty()) {
+            logger() << "Configuration '" << key << "' entries cannot be empty";
+            return std::unexpected(0);
+        }
+        result.emplace_back(std::move(string_value));
+    }
+    return result;
+}
+
 template<typename T>
 static inline
 std::expected<T, int>
@@ -383,44 +409,26 @@ configuration::read(const std::string & path)
         logger() << "Loading YAML File " << path;
         YAML::Node node = YAML::LoadFile(path);
 
-        if(!node["name"]) {
-            logger() << "Configuration '" << path << "' missing name";
+        if(!node.IsMap()) {
+            logger() << "Configuration '" << path << "' root must be a map";
             return std::unexpected(0);
-        }
-    
-        auto name = node["name"].as<std::string>();
-
-        std::vector<std::string> aircrafts;
-        if(!node["aircrafts"] or node["aircrafts"].IsSequence() == false) {
-            logger() << "Configuration '" << path 
-                     << "' does not include supported aircrafts";
-        }
-        else {
-            for(const auto & aircraft : node["aircrafts"]) {
-                if(aircraft.Type() != YAML::NodeType::Scalar) {
-                    logger() << "Invalid Aircraft '" << node << "'";
-                    continue;
-                }
-                aircrafts.emplace_back(aircraft.as<std::string>());
-            }
         }
 
-        if(!node["models"] or node["models"].IsSequence() == false) {
-            logger() << "Configuration does not include supported models";
+        const auto name_node = node["name"];
+        if(!name_node || !name_node.IsScalar()) {
+            logger() << "Configuration '" << path << "' requires a scalar name";
             return std::unexpected(0);
         }
-        std::vector<std::string> models;
-        for(const auto & model : node["models"]) {
-            if(model.Type() != YAML::NodeType::Scalar) {
-                logger() << "Invalid Model '" << node << "'";
-                continue;
-            }
-            models.emplace_back(model.as<std::string>());
-        }
-        if(models.empty()) {
-            logger() << "No models defined for this configuration";
+        auto name = name_node.as<std::string>();
+        if(name.empty()) {
+            logger() << "Configuration '" << path << "' name cannot be empty";
             return std::unexpected(0);
         }
+
+        auto aircrafts = build_required_string_list(node, "aircrafts");
+        if(!aircrafts.has_value()) return std::unexpected(aircrafts.error());
+        auto models = build_required_string_list(node, "models");
+        if(!models.has_value()) return std::unexpected(models.error());
 
         logger() << "Reading System Configuration";
         auto system = conf::build<conf::system>(node, "system");
@@ -435,8 +443,8 @@ configuration::read(const std::string & path)
         if(annunciator.has_value() == false) return std::unexpected(annunciator.error());   
 
         return configuration(
-            std::move(name), std::move(aircrafts),
-            std::move(models), std::move(system.value()),
+            std::move(name), std::move(aircrafts.value()),
+            std::move(models.value()), std::move(system.value()),
             std::move(autopilot.value()), std::move(annunciator.value())
         );
     }
