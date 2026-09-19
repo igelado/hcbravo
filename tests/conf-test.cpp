@@ -88,3 +88,30 @@ mode:
 
     EXPECT_FALSE(autopilot.has_value());
 }
+
+TEST(conf_test, autopilot_dials_accept_long_aliases)
+{
+    const auto node = YAML::Load(R"(
+course: sim/test/course
+heading: sim/test/heading
+)");
+
+    const auto dials = conf::autopilot_dial::build(node);
+
+    ASSERT_TRUE(dials.has_value());
+    EXPECT_TRUE(dials->course().has_value());
+    EXPECT_TRUE(dials->heading().has_value());
+}
+
+TEST(conf_test, autopilot_dials_reject_invalid_primary_alias)
+{
+    const auto node = YAML::Load(R"(
+crs:
+  not_a_key: sim/test/invalid
+course: sim/test/course
+)");
+
+    const auto dials = conf::autopilot_dial::build(node);
+
+    EXPECT_FALSE(dials.has_value());
+}

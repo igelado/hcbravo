@@ -159,8 +159,9 @@ std::expected<std::optional<T>, int>
 build_optional(const YAML::Node & node, const std::string & key,
                 const std::string & alias)
 {
-    auto ret = build_optional<T>(node, key);
-    if(ret.has_value()) return ret;
+    if(node.IsMap() && node[key]) {
+        return build_optional<T>(node, key);
+    }
     return build_optional<T>(node, alias);
 }
 
@@ -176,7 +177,7 @@ autopilot_dial::build(const YAML::Node & node)
 
     auto heading = build_optional<value>(node, "hdg", "heading");
     if(heading.has_value() == false)
-        return std::unexpected(course.error());
+        return std::unexpected(heading.error());
 
     auto vs = build_optional<value>(node, "vs");
     if(vs.has_value() == false)
