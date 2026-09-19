@@ -1,158 +1,111 @@
 // SPDX-License-Identifier: LGPL-2.1-only
 //
-// src/profile.h
-// XPlane Plugin for HoneyComb Bravo Throttle Controller
-//
-// Copyright (C) 2005 Isaac Gelado
+// Runtime X-Plane dataref bindings built from conf objects.
 
 #ifndef PROFILE_H_
 #define PROFILE_H_
 
-#include "logger.h"
-
 #include <XPLM/XPLMDataAccess.h>
-#include <yaml.h>
 
 #include <expected>
 #include <memory>
 #include <optional>
-#include <string>
 #include <vector>
+
+namespace conf {
+class key;
+class value;
+class airspeed;
+class autopilot_dial;
+class autopilot_mode;
+class autopilot;
+class gear_signals;
+class gear;
+class system;
+class annunciator;
+class configuration;
+}
+
+namespace profile {
+
+enum class gear_state { safe, unsafe, up };
 
 class base_data_ref {
 protected:
+    struct binding {
+        XPLMDataRef data_ref;
+        bool invert;
+        std::optional<int> index;
+        XPLMDataTypeID type;
+    };
+
     XPLMDataRef data_ref_;
     bool invert_;
     std::optional<int> index_;
 
-    inline
-    base_data_ref(XPLMDataRef && data_ref, bool invert,
-            std::optional<int> index) noexcept :
-        data_ref_(std::move(data_ref)),
-        invert_(invert),
-        index_(index)
-    {
-    }
+    base_data_ref(binding && binding) noexcept;
+    static std::expected<binding, int> bind(const conf::key & key);
+
 public:
-    using ptr_type =std::unique_ptr<base_data_ref>;
-
-    template<typename T>
-    static
-    std::expected<T, int>
-    build(const YAML::Node & node);
-
-    base_data_ref(base_data_ref && other) noexcept = default;
-
-    base_data_ref &
-    operator=(base_data_ref && other) noexcept = default;
+    base_data_ref(base_data_ref &&) noexcept = default;
+    base_data_ref & operator=(base_data_ref &&) noexcept = default;
 
 #if defined(HCBRAVO_PROFILE_TESTS)
-    inline
-    const XPLMDataRef &
-    data_ref() const noexcept { return this->data_ref_; }
+    const XPLMDataRef & data_ref() const noexcept { return data_ref_; }
 #endif
 };
 
-class bool_data_ref : public base_data_ref {
+class bool_data_ref final : public base_data_ref {
+    enum class type { integer, floating };
+    type type_;
+    std::vector<int> integer_values_;
+    std::vector<float> float_values_;
+
+    bool_data_ref(binding && binding, std::vector<int> && values) noexcept;
+    bool_data_ref(binding && binding, std::vector<float> && values) noexcept;
+
 public:
     using ptr_type = std::unique_ptr<bool_data_ref>;
 
-    inline
-    bool_data_ref(XPLMDataRef && data_ref, bool invert,
-            std::optional<int> index) noexcept :
-        base_data_ref(std::move(data_ref), invert, index)
-    {}
-
-    bool_data_ref(bool_data_ref && other) noexcept = default;
-
-    bool_data_ref &
-    operator=(bool_data_ref && other) noexcept = default;
-
-    inline
-    virtual
-    ~bool_data_ref() noexcept {}
-
-    virtual
-    bool
-    is_set() const noexcept = 0;
+    static std::expected<ptr_type, int> build(const conf::key & key);
+    bool is_set() const noexcept;
 };
 
-template<typename T>
-class data_ref;
+class float_data_ref final : public base_data_ref {
+    float_data_ref(binding && binding) noexcept;
 
-#include "profile-data-ref-impl.h"
-
-using float_data_ref = data_ref<float>;
+public:
+    static std::expected<float_data_ref, int> build(const conf::key & key);
+    float get() const noexcept;
+    void set(float value) const noexcept;
+};
 
 class value_data_ref {
-protected:
     std::vector<bool_data_ref::ptr_type> data_;
+    explicit value_data_ref(std::vector<bool_data_ref::ptr_type> && data) noexcept;
+
 public:
-    value_data_ref(const YAML::Node & node);
-
-    inline 
-    bool
-    is_set() const noexcept {
-        for(const auto & data : this->data_ ) {
-            if(data->is_set()) return true;
-        }
-        return false;
-    }
-
-    inline
-    bool
-    empty() const noexcept { return this->data_.empty(); }
+    static std::expected<value_data_ref, int> build(const conf::value & value);
+    bool is_set() const noexcept;
+    bool empty() const noexcept { return data_.empty(); }
 
 #if defined(HCBRAVO_PROFILE_TESTS)
-    inline
-    const std::vector<bool_data_ref::ptr_type> &
-    data() const noexcept { return this->data_; }
+    const std::vector<bool_data_ref::ptr_type> & data() const noexcept { return data_; }
 #endif
-
 };
 
-enum class airspeed_unit {
-    Knots,
-    Mach
-};
+enum class airspeed_unit { Knots, Mach };
 
 class airspeed_data_ref {
-protected:
-    XPLMDataRef is_mach_;
-    data_ref<float> value_;
+    bool_data_ref::ptr_type is_mach_;
+    float_data_ref value_;
+    airspeed_data_ref(bool_data_ref::ptr_type && is_mach, float_data_ref && value) noexcept;
 
-    airspeed_data_ref(XPLMDataRef && is_mach, data_ref<float> && value) noexcept;
 public:
-
-    airspeed_data_ref(airspeed_data_ref && other) noexcept = default;
-
-    airspeed_data_ref &
-    operator=(airspeed_data_ref && other) noexcept = default;
-
-    static
-    std::expected<airspeed_data_ref, int>
-    build(const YAML::Node &);
-
-    inline
-    airspeed_unit
-    unit() const noexcept {
-        return XPLMGetDatai(this->is_mach_) ? airspeed_unit::Mach : airspeed_unit::Knots;
-    }
-
-    inline
-    float get() const noexcept {
-        return this->value_.get();
-    }
-
-    inline
-    void set(float value) const noexcept {
-        this->value_.set(value);
-    }
-#if defined(HCBRAVO_PROFILE_TESTS)
-    inline
-    XPLMDataRef &
-    unit_data_ref() noexcept { return this->is_mach_; }
-#endif
+    static std::expected<airspeed_data_ref, int> build(const conf::airspeed & airspeed);
+    airspeed_unit unit() const noexcept;
+    float get() const noexcept { return value_.get(); }
+    void set(float value) const noexcept { value_.set(value); }
 };
 
 class autopilot_dial_data_ref {
@@ -162,54 +115,22 @@ class autopilot_dial_data_ref {
     std::optional<float_data_ref> vs_;
     std::optional<float_data_ref> alt_;
 
-    autopilot_dial_data_ref(std::optional<airspeed_data_ref> && ias, const YAML::Node & node);
+    autopilot_dial_data_ref(
+        std::optional<airspeed_data_ref> && ias,
+        std::optional<float_data_ref> && course,
+        std::optional<float_data_ref> && heading,
+        std::optional<float_data_ref> && vs,
+        std::optional<float_data_ref> && alt
+    ) noexcept;
+
 public:
-
-    autopilot_dial_data_ref(autopilot_dial_data_ref && other) noexcept = default;
-
-    autopilot_dial_data_ref &
-    operator=(autopilot_dial_data_ref && other) noexcept = default;
-
-    static
-    std::expected<autopilot_dial_data_ref, int>
-    build(const YAML::Node & node);
-
-    inline
-    const std::optional<airspeed_data_ref> &
-    ias() const noexcept { return this->ias_; }
-    inline
-    std::optional<airspeed_data_ref> &
-    ias() noexcept { return this->ias_; }
-
-    inline
-    const std::optional<float_data_ref> &
-    course() const noexcept { return this->course_; }
-    inline
-    std::optional<float_data_ref> &
-    course() noexcept { return this->course_; }
-
-    inline
-    const std::optional<float_data_ref> &
-    heading() const noexcept { return this->heading_; }
-    inline
-    std::optional<float_data_ref> &
-    heading() noexcept { return this->heading_; }
-
-    inline
-    const std::optional<float_data_ref> &
-    vs() const noexcept { return this->vs_; }
-    inline
-    std::optional<float_data_ref> &
-    vs() noexcept { return this->vs_; }
-
-    inline
-    const std::optional<float_data_ref> &
-    alt() const noexcept { return this->alt_; }
-    inline
-    std::optional<float_data_ref> &
-    alt() noexcept { return this->alt_; }
+    static std::expected<autopilot_dial_data_ref, int> build(const conf::autopilot_dial & dials);
+    const std::optional<airspeed_data_ref> & ias() const noexcept { return ias_; }
+    const std::optional<float_data_ref> & course() const noexcept { return course_; }
+    const std::optional<float_data_ref> & heading() const noexcept { return heading_; }
+    const std::optional<float_data_ref> & vs() const noexcept { return vs_; }
+    const std::optional<float_data_ref> & alt() const noexcept { return alt_; }
 };
-
 
 class autopilot_mode_data_ref {
     std::optional<value_data_ref> hdg_;
@@ -221,407 +142,123 @@ class autopilot_mode_data_ref {
     std::optional<value_data_ref> ias_;
     value_data_ref ap_;
 
-    autopilot_mode_data_ref(const YAML::Node & node);
+    autopilot_mode_data_ref(
+        std::optional<value_data_ref> && hdg, std::optional<value_data_ref> && nav,
+        std::optional<value_data_ref> && apr, std::optional<value_data_ref> && rev,
+        std::optional<value_data_ref> && alt, std::optional<value_data_ref> && vs,
+        std::optional<value_data_ref> && ias, value_data_ref && ap
+    ) noexcept;
 
 public:
-
-    static
-    std::expected<autopilot_mode_data_ref, int>
-    build(const YAML::Node & node);
-
-    inline
-    std::optional<bool>
-    hdg() const noexcept {
-        return this->hdg_.transform(&value_data_ref::is_set);
-    }
-
-    inline
-    std::optional<bool>
-    nav() const noexcept {
-        return this->nav_.transform(&value_data_ref::is_set);
-    }
-
-    inline 
-    std::optional<bool>
-    apr() const noexcept {
-        return this->apr_.transform(&value_data_ref::is_set);
-    }
-
-    inline
-    std::optional<bool>
-    rev() const noexcept {
-        return this->rev_.transform(&value_data_ref::is_set);
-    }
-
-    inline 
-    std::optional<bool>
-    alt() const noexcept {
-        return this->alt_.transform(&value_data_ref::is_set);
-    }
-
-    inline 
-    std::optional<bool>
-    vs() const noexcept {
-        return this->vs_.transform(&value_data_ref::is_set);
-    }
-
-    inline
-    std::optional<bool>
-    ias() const noexcept {
-        return this->ias_.transform(&value_data_ref::is_set);
-    }
-
-    inline 
-    bool 
-    ap() const noexcept { return this->ap_.is_set(); }
-
-#if defined(HCBRAVO_PROFILE_TESTS)
-    inline
-    const std::optional<value_data_ref> &
-    hdg_data_ref() const noexcept { return this->hdg_; }
-
-    inline
-    const std::optional<value_data_ref> &
-    nav_data_ref() const noexcept { return this->nav_; }
-
-    inline
-    const std::optional<value_data_ref> &
-    apr_data_ref() const noexcept { return this->apr_; }
-
-    inline
-    const std::optional<value_data_ref> &
-    rev_data_ref() const noexcept { return this->rev_; }
-
-    inline
-    const std::optional<value_data_ref> &
-    alt_data_ref() const noexcept { return this->alt_; }
-
-    inline
-    const std::optional<value_data_ref> &
-    vs_data_ref() const noexcept { return this->vs_; }
-
-    inline
-    const std::optional<value_data_ref> &
-    ias_data_ref() const noexcept { return this->ias_; }
-
-    inline
-    const value_data_ref &
-    ap_data_ref() const noexcept { return this->ap_; }
-#endif
-
+    static std::expected<autopilot_mode_data_ref, int> build(const conf::autopilot_mode & modes);
+    std::optional<bool> hdg() const noexcept;
+    std::optional<bool> nav() const noexcept;
+    std::optional<bool> apr() const noexcept;
+    std::optional<bool> rev() const noexcept;
+    std::optional<bool> alt() const noexcept;
+    std::optional<bool> vs() const noexcept;
+    std::optional<bool> ias() const noexcept;
+    bool ap() const noexcept { return ap_.is_set(); }
 };
 
 class autopilot_data_ref {
-protected:
     autopilot_mode_data_ref mode_;
     std::optional<autopilot_dial_data_ref> dials_;
-
     autopilot_data_ref(autopilot_mode_data_ref && mode,
-                       std::optional<autopilot_dial_data_ref> && dial) noexcept;
+                       std::optional<autopilot_dial_data_ref> && dials) noexcept;
+
 public:
+    static std::expected<autopilot_data_ref, int> build(const conf::autopilot & autopilot);
+    const autopilot_mode_data_ref & mode() const noexcept { return mode_; }
+    const std::optional<autopilot_dial_data_ref> & dials() const noexcept { return dials_; }
+};
 
-    autopilot_data_ref(autopilot_data_ref && other) noexcept = default;
+class gear_signals_data_ref {
+    value_data_ref safe_;
+    value_data_ref unsafe_;
+    gear_signals_data_ref(value_data_ref && safe, value_data_ref && unsafe) noexcept;
 
-    inline
-    autopilot_data_ref &
-    operator=(autopilot_data_ref && other) noexcept = default;
-
-    static
-    std::expected<autopilot_data_ref, int>
-    build(const YAML::Node & node);
-
-    inline
-    const autopilot_mode_data_ref &
-    mode() const noexcept { return this->mode_; }
-
-    inline
-    const std::optional<autopilot_dial_data_ref> &
-    dials() const noexcept { return this->dials_; }
+public:
+    static std::expected<gear_signals_data_ref, int> build(const conf::gear_signals & signals);
+    gear_state state() const noexcept;
 };
 
 class gear_data_ref {
-    value_data_ref left_;
-    value_data_ref nose_;
-    value_data_ref right_;
-
-    gear_data_ref(value_data_ref &&, value_data_ref &&, value_data_ref &&) noexcept;
+    gear_signals_data_ref left_;
+    gear_signals_data_ref nose_;
+    gear_signals_data_ref right_;
+    gear_data_ref(gear_signals_data_ref && left, gear_signals_data_ref && nose,
+                  gear_signals_data_ref && right) noexcept;
 
 public:
-    gear_data_ref(gear_data_ref &&) noexcept = default;
-
-    static
-    std::expected<gear_data_ref, int>
-    build(const YAML::Node & node);
-
-    inline
-    bool
-    left() const noexcept { return this->left_.is_set(); }
-
-    inline
-    bool
-    nose() const noexcept { return this->nose_.is_set(); }
-
-    inline
-    bool
-    right() const noexcept { return this->right_.is_set(); }
-
-#if defined(HCBRAVO_PROFILE_TESTS)
-    inline
-    const value_data_ref &
-    left_data_ref() const { return this->left_; }
-
-    inline
-    const value_data_ref &
-    nose_data_ref() const { return this->nose_; }
-
-    inline
-    const value_data_ref &
-    right_data_ref() const { return this->right_; }
-#endif
+    static std::expected<gear_data_ref, int> build(const conf::gear & gear);
+    gear_state left_state() const noexcept { return left_.state(); }
+    gear_state nose_state() const noexcept { return nose_.state(); }
+    gear_state right_state() const noexcept { return right_.state(); }
+    bool left() const noexcept { return left_state() == gear_state::safe; }
+    bool nose() const noexcept { return nose_state() == gear_state::safe; }
+    bool right() const noexcept { return right_state() == gear_state::safe; }
 };
 
 class system_data_ref {
     value_data_ref volts_;
     std::optional<gear_data_ref> gear_;
-
-    system_data_ref(value_data_ref &&, std::optional<gear_data_ref> &&) noexcept;
+    system_data_ref(value_data_ref && volts, std::optional<gear_data_ref> && gear) noexcept;
 
 public:
-
-    static
-    std::expected<system_data_ref, int>
-    build(const YAML::Node & node);
-
-    inline 
-    bool 
-    volts() const noexcept { return this->volts_.is_set(); }
-
-    inline 
-    const std::optional<gear_data_ref> &
-    gear() const noexcept {
-        return this->gear_;
-    }
-
-#if defined(HCBRAVO_PROFILE_TESTS)
-    inline
-    const value_data_ref &
-    volts_data_ref() const noexcept { return this->volts_; }
-#endif
+    static std::expected<system_data_ref, int> build(const conf::system & system);
+    bool volts() const noexcept { return volts_.is_set(); }
+    const std::optional<gear_data_ref> & gear() const noexcept { return gear_; }
 };
 
 class annunciator_data_ref {
-    std::optional<value_data_ref> master_warn_;
-    std::optional<value_data_ref> eng_fire_;
-    std::optional<value_data_ref> oil_low_;
-    std::optional<value_data_ref> fuel_low_;
-    std::optional<value_data_ref> anti_ice_;
-    std::optional<value_data_ref> starter_;
-    std::optional<value_data_ref> apu_;
-    std::optional<value_data_ref> master_caution_;
-    std::optional<value_data_ref> vacuum_low_;
-    std::optional<value_data_ref> hydro_low_;
-    std::optional<value_data_ref> aux_fuel_;
-    std::optional<value_data_ref> parking_brake_;
-    std::optional<value_data_ref> volt_low_;
-    std::optional<value_data_ref> door_open_;
+    std::optional<value_data_ref> master_warn_, eng_fire_, oil_low_, fuel_low_, anti_ice_, starter_, apu_;
+    std::optional<value_data_ref> master_caution_, vacuum_low_, hydro_low_, aux_fuel_, parking_brake_;
+    std::optional<value_data_ref> volt_low_, door_open_;
 
-    annunciator_data_ref(const YAML::Node & node);
+    annunciator_data_ref(
+        std::optional<value_data_ref> && master_warn, std::optional<value_data_ref> && eng_fire,
+        std::optional<value_data_ref> && oil_low, std::optional<value_data_ref> && fuel_low,
+        std::optional<value_data_ref> && anti_ice, std::optional<value_data_ref> && starter,
+        std::optional<value_data_ref> && apu, std::optional<value_data_ref> && master_caution,
+        std::optional<value_data_ref> && vacuum_low, std::optional<value_data_ref> && hydro_low,
+        std::optional<value_data_ref> && aux_fuel, std::optional<value_data_ref> && parking_brake,
+        std::optional<value_data_ref> && volt_low, std::optional<value_data_ref> && door_open
+    ) noexcept;
+
 public:
-
-    static
-    std::expected<annunciator_data_ref, int>
-    build(const YAML::Node & node);
-
-    inline 
-    const std::optional<bool>
-    master_warn() const noexcept {
-        return this->master_warn_.transform(&value_data_ref::is_set);
-    }
-
-    inline 
-    const std::optional<bool> 
-    eng_fire() const noexcept {
-        return this->eng_fire_.transform(&value_data_ref::is_set);
-    }
-
-    inline 
-    const std::optional<bool> 
-    oil_low() const noexcept {
-        return this->oil_low_.transform(&value_data_ref::is_set);
-    }
-
-    inline 
-    const std::optional<bool> 
-    fuel_low() const noexcept {
-        return this->fuel_low_.transform(&value_data_ref::is_set);
-    }
-
-    inline 
-    const std::optional<bool> 
-    anti_ice() const noexcept { 
-        return this->anti_ice_.transform(&value_data_ref::is_set);
-    }
-
-    inline 
-    const std::optional<bool> 
-    starter() const noexcept {
-        return this->starter_.transform(&value_data_ref::is_set);
-    }
-
-    inline 
-    const std::optional<bool>
-    apu() const noexcept {
-        return this->apu_.transform(&value_data_ref::is_set);
-    }
-
-    inline 
-    const std::optional<bool> 
-    master_caution() const noexcept {
-        return this->master_caution_.transform(&value_data_ref::is_set);
-    }
-
-    inline 
-    const std::optional<bool> 
-    vacuum_low() const noexcept {
-        return this->vacuum_low_.transform(&value_data_ref::is_set);
-    }
-
-    inline 
-    const std::optional<bool> 
-    hydro_low() const noexcept {
-        return this->hydro_low_.transform(&value_data_ref::is_set);
-    }
-    
-    inline
-    const std::optional<bool>
-    aux_fuel() const noexcept {
-        return this->aux_fuel_.transform(&value_data_ref::is_set);
-    }
-
-    inline
-    const std::optional<bool>
-    parking_brake() const noexcept {
-        return this->parking_brake_.transform(&value_data_ref::is_set);
-    }
-
-    inline
-    const std::optional<bool>
-    volt_low() const noexcept {
-        return this->volt_low_.transform(&value_data_ref::is_set);
-    }
-    
-    inline
-    const std::optional<bool>
-    door_open() const noexcept {
-        return this->door_open_.transform(&value_data_ref::is_set);
-    }
-
-#if defined(HCBRAVO_PROFILE_TESTS)
-    inline
-    const std::optional<value_data_ref> &
-    master_warn_data_ref() const noexcept { return this->master_warn_; }
-
-    inline
-    const std::optional<value_data_ref> &
-    eng_fire_data_ref() const noexcept { return this->eng_fire_; }
-
-    inline
-    const std::optional<value_data_ref> &
-    oil_low_data_ref() const noexcept { return this->oil_low_; }
-
-    inline
-    const std::optional<value_data_ref> &
-    fuel_low_data_ref() const noexcept { return this->fuel_low_; }
-
-    inline
-    const std::optional<value_data_ref> &
-    anti_ice_data_ref() const noexcept { return this->anti_ice_; }
-
-    inline
-    const std::optional<value_data_ref> &
-    starter_data_ref() const noexcept { return this->starter_; }
-
-    inline
-    const std::optional<value_data_ref> &
-    apu_data_ref() const noexcept { return this->apu_; }
-
-    inline
-    const std::optional<value_data_ref> &
-    master_caution_data_ref() const noexcept { return this->master_caution_; }
-
-    inline
-    const std::optional<value_data_ref> &
-    vacuum_low_data_ref() const noexcept { return this->vacuum_low_; }
-
-    inline
-    const std::optional<value_data_ref> &
-    hydro_low_data_ref() const noexcept { return this->hydro_low_; }
-
-    inline
-    const std::optional<value_data_ref> &
-    aux_fuel_data_ref() const noexcept { return this->aux_fuel_; }
-
-    inline
-    const std::optional<value_data_ref> &
-    parking_brake_data_ref() const noexcept { return this->parking_brake_; }
-
-    inline
-    const std::optional<value_data_ref> &
-    volt_low_data_ref() const noexcept { return this->volt_low_; }
-
-    inline
-    const std::optional<value_data_ref> &
-    door_open_data_ref() const noexcept { return this->door_open_; }
-
-#endif
+    static std::expected<annunciator_data_ref, int> build(const conf::annunciator & annunciator);
+    std::optional<bool> master_warn() const noexcept;
+    std::optional<bool> eng_fire() const noexcept;
+    std::optional<bool> oil_low() const noexcept;
+    std::optional<bool> fuel_low() const noexcept;
+    std::optional<bool> anti_ice() const noexcept;
+    std::optional<bool> starter() const noexcept;
+    std::optional<bool> apu() const noexcept;
+    std::optional<bool> master_caution() const noexcept;
+    std::optional<bool> vacuum_low() const noexcept;
+    std::optional<bool> hydro_low() const noexcept;
+    std::optional<bool> aux_fuel() const noexcept;
+    std::optional<bool> parking_brake() const noexcept;
+    std::optional<bool> volt_low() const noexcept;
+    std::optional<bool> door_open() const noexcept;
 };
 
-
-class profile {
-public:
-    using ptr_type = std::shared_ptr<profile>;
-protected:
-    std::string name_;
-    std::vector<std::string> aircrafts_;
-    std::vector<std::string> models_;
+class configuration {
     system_data_ref system_;
     std::optional<autopilot_data_ref> autopilot_;
     std::optional<annunciator_data_ref> annunciator_;
+    configuration(system_data_ref && system, std::optional<autopilot_data_ref> && autopilot,
+                  std::optional<annunciator_data_ref> && annunciator) noexcept;
 
-    profile(std::string && name, std::vector<std::string> && aircrafts,
-            std::vector<std::string> && models,
-            system_data_ref && system, std::optional<autopilot_data_ref> && autopilot,
-            std::optional<annunciator_data_ref> && annunciator) noexcept;
 public:
-    static
-    std::expected<ptr_type, int>
-    from_yaml(const std::string & path) noexcept;
-
-    inline
-    const std::string &
-    name() const { return this->name_; }
-
-    inline
-    const std::vector<std::string> &
-    aircrafts() const { return this->aircrafts_; }
-
-    inline
-    const std::vector<std::string> &
-    models() const { return this->models_; }
-
-    inline 
-    const system_data_ref &
-    system() const { return this->system_; }
-
-    inline 
-    const std::optional<autopilot_data_ref> &
-    autopilot() const { return this->autopilot_; }
-
-    inline
-    const std::optional<annunciator_data_ref> &
-    annunciator() const { return this->annunciator_; }
+    using ptr_type = std::shared_ptr<configuration>;
+    static std::expected<ptr_type, int> build(const conf::configuration & configuration);
+    const system_data_ref & system() const noexcept { return system_; }
+    const std::optional<autopilot_data_ref> & autopilot() const noexcept { return autopilot_; }
+    const std::optional<annunciator_data_ref> & annunciator() const noexcept { return annunciator_; }
 };
 
-using profile_ptr = profile::ptr_type;
+}
 
 #endif

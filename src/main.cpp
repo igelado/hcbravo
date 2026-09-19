@@ -11,8 +11,6 @@
 #include <XPLM/XPLMUtilities.h>
 
 #include <hidapi.h>
-#include <yaml.h>
-
 #include <cstdint>
 #include <memory>
 #include <optional>

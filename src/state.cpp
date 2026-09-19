@@ -296,8 +296,8 @@ state::~state() noexcept
 void
 state::reload()
 {
-    profile_map_type aircraft_profiles;
-    profile_map_type model_profiles;
+    configuration_map_type aircraft_configurations;
+    configuration_map_type model_configurations;
 
     logger() << "Reading Plugin Configuration Files";
     auto id = XPLMGetMyID();
@@ -330,26 +330,27 @@ state::reload()
             logger() << "Found " << config_file << " in configuration file ( " << config_file.extension() << ")";
             if(config_file.extension() != ".yaml") continue;
             logger() << "Reading " << config_file;
-            auto prof = profile::from_yaml(config_file.string());
-            if(prof.has_value()) {
-                for(const auto &aircraft : prof.value()->aircrafts()) {
-                    auto ret = aircraft_profiles.emplace(aircraft, prof.value());
+            auto parsed = conf::configuration::read(config_file.string());
+            if(parsed.has_value()) {
+                auto configuration = std::make_shared<conf::configuration>(std::move(parsed.value()));
+                for(const auto &aircraft : configuration->aircrafts()) {
+                    auto ret = aircraft_configurations.emplace(aircraft, configuration);
                     if(ret.second == false) {
-                        logger() << "Not using '" << prof.value()->name() << "' for '" << aircraft 
-                                 << "' because another profile already exists";
+                        logger() << "Not using '" << configuration->name() << "' for '" << aircraft
+                                 << "' because another configuration already exists";
                     }
                     else {
-                        logger() << "Using '" << prof.value()->name() << "' for '" << aircraft << "'";
+                        logger() << "Using '" << configuration->name() << "' for '" << aircraft << "'";
                     }
                 }
-                for(const auto &model : prof.value()->models()) {
-                    auto ret = model_profiles.emplace(model, prof.value());
+                for(const auto &model : configuration->models()) {
+                    auto ret = model_configurations.emplace(model, configuration);
                     if(ret.second == false) {
-                        logger() << "Not using '" << prof.value()->name() << "' for ICAO '" << model 
-                                 << "' because another profile already exists";
+                        logger() << "Not using '" << configuration->name() << "' for ICAO '" << model
+                                 << "' because another configuration already exists";
                     }
                     else {
-                        logger() << "Using '" << prof.value()->name() << "' for ICAO '" << model << "'";
+                        logger() << "Using '" << configuration->name() << "' for ICAO '" << model << "'";
                     }
                 }
             }
@@ -362,8 +363,8 @@ state::reload()
         }
         index += file_count;
     } while(index < total_conf_files);
-    profile_aircraft_map_.swap(aircraft_profiles);
-    profile_model_map_.swap(model_profiles);
+    configuration_aircraft_map_.swap(aircraft_configurations);
+    configuration_model_map_.swap(model_configurations);
     logger() << "Done loading plugin configuration";
 }
 
@@ -377,20 +378,30 @@ state::load_plane() noexcept
     logger() << "Aircraft '" << ui_name << "' (" << icao_name << ")";
 
     // First try to get a match for the specific Aircraft
-    auto profile = profile_aircraft_map_.find(ui_name);
-    if(profile != profile_aircraft_map_.end()) {
-        logger() << "Enabling profile '" << profile->first << "' for '" << ui_name << "'";
-        plane_.emplace(profile->second);
+    auto configuration = configuration_aircraft_map_.find(ui_name);
+    if(configuration != configuration_aircraft_map_.end()) {
+        auto profile = profile::configuration::build(*configuration->second);
+        if(!profile) {
+            logger() << "Failed to build profile for '" << ui_name << "'";
+            return false;
+        }
+        logger() << "Enabling profile '" << configuration->second->name() << "' for '" << ui_name << "'";
+        plane_.emplace(std::move(profile.value()));
         XPLMScheduleFlightLoop(this->flight_loop_, -1.0, 1);
         return true;
     }
 
     logger() << "Cannot find a profile for '" << ui_name 
              << "'. Falling back to profile for ICAO '" << icao_name << "'";
-    profile = profile_model_map_.find(icao_name);
-    if(profile != profile_model_map_.end()) {
-        logger() << "Enabling profile '" << profile->first << "' for ICAO '" << icao_name << "'";
-        plane_.emplace(profile->second);
+    configuration = configuration_model_map_.find(icao_name);
+    if(configuration != configuration_model_map_.end()) {
+        auto profile = profile::configuration::build(*configuration->second);
+        if(!profile) {
+            logger() << "Failed to build profile for ICAO '" << icao_name << "'";
+            return false;
+        }
+        logger() << "Enabling profile '" << configuration->second->name() << "' for ICAO '" << icao_name << "'";
+        plane_.emplace(std::move(profile.value()));
         XPLMScheduleFlightLoop(this->flight_loop_, -1.0, 1);
         return true;
     }

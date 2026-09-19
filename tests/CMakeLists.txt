@@ -15,6 +15,7 @@ set(hcbravo_TEST ${PROJECT_SOURCE_DIR}/tests)
 
 add_executable(profile-test
     ${hcbravo_TEST}/profile-test.cpp
+    ${hcbravo_SRC}/conf.cpp
     ${hcbravo_SRC}/profile.cpp
 )
 

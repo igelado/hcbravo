@@ -163,7 +163,7 @@ commands::ap_knob_update(void * ref) noexcept
                 std::max(
                 0.0f,
                 dials.ias().value().get() + 
-                    ((dials.ias().value().unit() == airspeed_unit::Knots) ?
+                    ((dials.ias().value().unit() == profile::airspeed_unit::Knots) ?
                         get_update_value<selector::ias, Dir>(fast) : 
                         get_update_value<selector::ias, Dir>(fast) * 0.1f)
                 )
