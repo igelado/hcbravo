@@ -157,6 +157,19 @@ systems:
 )").has_value());
 }
 
+TEST(conf_test, configuration_reader_rejects_duplicate_keys)
+{
+    EXPECT_FALSE(read_configuration(R"(
+name: Valid
+aircrafts: [Valid]
+models: [VALID]
+system:
+  volts: sim/test/volts
+system:
+  volts: sim/test/other-volts
+)").has_value());
+}
+
 TEST(conf_test, negative_index_is_invalid)
 {
     const auto node = YAML::Load(R"(
