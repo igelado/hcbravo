@@ -55,11 +55,6 @@ system:
     type: float
     index: 0
 
- gear:
-  - key: 'sim/flightmodel2/gear/deploy_ratio'
-    type: float
-
-
 annunciator:
  master_warn:
   - key: 'sim/cockpit2/annunciators/master_warning'

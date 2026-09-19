@@ -6,6 +6,8 @@
 
 #include <conf.h>
 
+#include <filesystem>
+
 TEST(conf_test, scalar_data_ref_is_valid)
 {
     const auto node = YAML::Load("'sim/test/scalar'");
@@ -192,4 +194,45 @@ volts: []
 )");
 
     EXPECT_FALSE(conf::system::build(node).has_value());
+}
+
+TEST(conf_test, gear_uses_safe_and_unsafe_signals_for_each_wheel)
+{
+    const auto node = YAML::Load(R"(
+left:
+  safe: sim/test/left-safe
+  unsafe: sim/test/left-unsafe
+nose:
+  safe: sim/test/nose-safe
+  unsafe: sim/test/nose-unsafe
+right:
+  safe: sim/test/right-safe
+  unsafe: sim/test/right-unsafe
+)");
+
+    const auto gear = conf::gear::build(node);
+
+    ASSERT_TRUE(gear.has_value());
+    EXPECT_EQ(gear->left().safe().keys().front().path(), "sim/test/left-safe");
+    EXPECT_EQ(gear->left().unsafe().keys().front().path(), "sim/test/left-unsafe");
+    EXPECT_EQ(gear->nose().safe().keys().front().path(), "sim/test/nose-safe");
+    EXPECT_EQ(gear->nose().unsafe().keys().front().path(), "sim/test/nose-unsafe");
+    EXPECT_EQ(gear->right().safe().keys().front().path(), "sim/test/right-safe");
+    EXPECT_EQ(gear->right().unsafe().keys().front().path(), "sim/test/right-unsafe");
+}
+
+TEST(conf_test, bundled_configurations_parse)
+{
+    const auto conf_dir = std::filesystem::path(HCBRAVO_SOURCE_DIR) / "conf";
+    size_t configuration_count = 0;
+
+    for(const auto & entry : std::filesystem::directory_iterator(conf_dir)) {
+        if(entry.path().extension() != ".yaml") continue;
+
+        const auto configuration = conf::configuration::read(entry.path().string());
+        ASSERT_TRUE(configuration.has_value()) << entry.path();
+        ++configuration_count;
+    }
+
+    EXPECT_GT(configuration_count, 0);
 }

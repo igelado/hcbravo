@@ -282,6 +282,21 @@ autopilot::build(const YAML::Node & node)
     return autopilot(std::move(mode.value()), std::move(dials.value()));
 }
 
+std::expected<gear_signals, int>
+gear_signals::build(const YAML::Node & node)
+{
+    if(!node.IsMap()) {
+        logger() << "Gear signals node has invalid format";
+        return std::unexpected(0);
+    }
+    auto safe = conf::build<value>(node, "safe");
+    if(safe.has_value() == false) return std::unexpected(safe.error());
+    auto unsafe = conf::build<value>(node, "unsafe");
+    if(unsafe.has_value() == false) return std::unexpected(unsafe.error());
+
+    return gear_signals(std::move(safe.value()), std::move(unsafe.value()));
+}
+
 std::expected<gear, int>
 gear::build(const YAML::Node & node)
 {
@@ -289,11 +304,11 @@ gear::build(const YAML::Node & node)
         logger() << "Gear node has invalid format";
         return std::unexpected(0);
     }
-    auto left = conf::build<value>(node, "left");
+    auto left = conf::build<gear_signals>(node, "left");
     if(left.has_value() == false) return std::unexpected(left.error());
-    auto nose = conf::build<value>(node, "nose");
+    auto nose = conf::build<gear_signals>(node, "nose");
     if(nose.has_value() == false) return std::unexpected(nose.error());
-    auto right = conf::build<value>(node, "right");
+    auto right = conf::build<gear_signals>(node, "right");
     if(right.has_value() == false) return std::unexpected(right.error());
 
     return gear(std::move(left.value()), std::move(nose.value()), std::move(right.value()));

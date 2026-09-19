@@ -254,14 +254,39 @@ public:
     dials() const noexcept { return this->dials_; }
 };
 
-class gear {
+class gear_signals {
 protected:
-    value left_;
-    value nose_;
-    value right_;
+    value safe_;
+    value unsafe_;
 
     inline
-    gear(value && left, value && nose, value && right) :
+    gear_signals(value && safe, value && unsafe) :
+        safe_(std::move(safe)),
+        unsafe_(std::move(unsafe))
+    {}
+public:
+
+    static
+    std::expected<gear_signals, int>
+    build(const YAML::Node & node);
+
+    inline
+    const value &
+    safe() const { return this->safe_; }
+
+    inline
+    const value &
+    unsafe() const { return this->unsafe_; }
+};
+
+class gear {
+protected:
+    gear_signals left_;
+    gear_signals nose_;
+    gear_signals right_;
+
+    inline
+    gear(gear_signals && left, gear_signals && nose, gear_signals && right) :
         left_(std::move(left)),
         nose_(std::move(nose)),
         right_(std::move(right))
@@ -273,15 +298,15 @@ public:
     build(const YAML::Node & node);
 
     inline
-    const value &
+    const gear_signals &
     left() const { return this->left_; }
 
     inline
-    const value &
+    const gear_signals &
     nose() const { return this->nose_; }
 
     inline
-    const value &
+    const gear_signals &
     right() const { return this->right_; }
 };
 

@@ -30,5 +30,6 @@ add_executable(conf-test
 )
 
 target_include_directories(conf-test PRIVATE ${hcbravo_SRC} ${hcbravo_TEST}/XPSDK ${yaml-cpp_SOURCE_DIR}/include/yaml-cpp)
+target_compile_definitions(conf-test PRIVATE HCBRAVO_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
 target_link_libraries(conf-test GTest::gtest_main yaml-cpp::yaml-cpp)
 gtest_discover_tests(conf-test)

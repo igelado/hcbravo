@@ -42,8 +42,16 @@ system:
   - key: 'sim/cockpit2/electrical/bus_volts'
     type: float
     index: 0
-  gear:
-  - key: 'sim/cockpit2/annunciators/gear_unsafe'
+ gear:
+  left:
+   safe: 'laminar/n844x/lights/left_gear_down'
+   unsafe: 'laminar/n844x/lights/any_gear_in_transit'
+  nose:
+   safe: 'laminar/n844x/lights/nose_gear_down'
+   unsafe: 'laminar/n844x/lights/any_gear_in_transit'
+  right:
+   safe: 'laminar/n844x/lights/right_gear_down'
+   unsafe: 'laminar/n844x/lights/any_gear_in_transit'
 
 annunciator:
  master_warn:
