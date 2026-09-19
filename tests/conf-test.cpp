@@ -64,3 +64,27 @@ index: -1
 
     EXPECT_FALSE(data_ref.has_value());
 }
+
+TEST(conf_test, autopilot_uses_modes_key)
+{
+    const auto node = YAML::Load(R"(
+modes:
+  ap: sim/test/autopilot
+)");
+
+    const auto autopilot = conf::autopilot::build(node);
+
+    EXPECT_TRUE(autopilot.has_value());
+}
+
+TEST(conf_test, autopilot_rejects_legacy_mode_key)
+{
+    const auto node = YAML::Load(R"(
+mode:
+  ap: sim/test/autopilot
+)");
+
+    const auto autopilot = conf::autopilot::build(node);
+
+    EXPECT_FALSE(autopilot.has_value());
+}

@@ -250,11 +250,11 @@ autopilot::build(const YAML::Node & node)
         logger() << "Autopilot node has invalid format";
         return std::unexpected(0);
     }
-    if(!node["mode"]) {
-        logger() << "Autopilot node missing mode";
+    if(!node["modes"]) {
+        logger() << "Autopilot node missing modes";
         return std::unexpected(0);
     }
-    auto mode = autopilot_mode::build(node["mode"]);
+    auto mode = autopilot_mode::build(node["modes"]);
     if(mode.has_value() == false) return std::unexpected(mode.error());
     auto dials = build_optional<autopilot_dial>(node, "dials");
     if(dials.has_value() == false) return std::unexpected(dials.error());
