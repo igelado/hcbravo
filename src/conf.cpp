@@ -258,9 +258,7 @@ static inline
 std::expected<std::optional<T>, int>
 build_optional(const YAML::Node & node, const std::string & key)
 {
-    logger() << "Checking for optional '" << key << "'";
     if(!node.IsMap() or !node[key]) {
-        logger() << "Key '" << key << "' not found" << yaml_location(node) << ": " << node;
         return std::nullopt;
     }
     auto ret = T::build(node[key]);
