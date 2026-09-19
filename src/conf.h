@@ -40,6 +40,18 @@ public:
 
     key &
     operator=(key && other) noexcept = default;
+
+    inline
+    const std::string &
+    path() const noexcept { return this->key_; }
+
+    inline
+    bool
+    inverted() const noexcept { return this->invert_; }
+
+    inline
+    const std::optional<int> &
+    index() const noexcept { return this->index_; }
 };
 
 class value {
@@ -80,6 +92,14 @@ public:
     static
     std::expected<airspeed, int>
     build(const YAML::Node & node);
+
+    inline
+    const key &
+    is_mach() const noexcept { return this->is_mach_; }
+
+    inline
+    const value &
+    value() const noexcept { return this->value_; }
 
 };
 

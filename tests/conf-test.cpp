@@ -13,6 +13,9 @@ TEST(conf_test, scalar_data_ref_is_valid)
     const auto data_ref = conf::key::build(node);
 
     ASSERT_TRUE(data_ref.has_value());
+    EXPECT_EQ(data_ref->path(), "sim/test/scalar");
+    EXPECT_FALSE(data_ref->inverted());
+    EXPECT_FALSE(data_ref->index().has_value());
 }
 
 TEST(conf_test, mapped_data_ref_is_valid)
@@ -26,6 +29,10 @@ index: 2
     const auto data_ref = conf::key::build(node);
 
     ASSERT_TRUE(data_ref.has_value());
+    EXPECT_EQ(data_ref->path(), "sim/test/mapped");
+    EXPECT_TRUE(data_ref->inverted());
+    ASSERT_TRUE(data_ref->index().has_value());
+    EXPECT_EQ(data_ref->index().value(), 2);
 }
 
 TEST(conf_test, sequence_parses_each_data_ref)
@@ -114,4 +121,19 @@ course: sim/test/course
     const auto dials = conf::autopilot_dial::build(node);
 
     EXPECT_FALSE(dials.has_value());
+}
+
+TEST(conf_test, airspeed_exposes_its_data_ref_descriptors)
+{
+    const auto node = YAML::Load(R"(
+is_mach: sim/test/is_mach
+value: sim/test/airspeed
+)");
+
+    const auto airspeed = conf::airspeed::build(node);
+
+    ASSERT_TRUE(airspeed.has_value());
+    EXPECT_EQ(airspeed->is_mach().path(), "sim/test/is_mach");
+    ASSERT_EQ(airspeed->value().keys().size(), 1);
+    EXPECT_EQ(airspeed->value().keys().front().path(), "sim/test/airspeed");
 }
