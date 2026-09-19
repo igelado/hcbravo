@@ -23,3 +23,12 @@ target_compile_definitions(profile-test PRIVATE HCBRAVO_SOURCE_DIR="${PROJECT_SO
 target_include_directories(profile-test PRIVATE ${hcbravo_SRC} ${hcbravo_TEST}/XPSDK ${yaml-cpp_SOURCE_DIR}/include/yaml-cpp)
 target_link_libraries(profile-test GTest::gtest_main yaml-cpp::yaml-cpp)
 gtest_discover_tests(profile-test)
+
+add_executable(conf-test
+    ${hcbravo_TEST}/conf-test.cpp
+    ${hcbravo_SRC}/conf.cpp
+)
+
+target_include_directories(conf-test PRIVATE ${hcbravo_SRC} ${hcbravo_TEST}/XPSDK ${yaml-cpp_SOURCE_DIR}/include/yaml-cpp)
+target_link_libraries(conf-test GTest::gtest_main yaml-cpp::yaml-cpp)
+gtest_discover_tests(conf-test)

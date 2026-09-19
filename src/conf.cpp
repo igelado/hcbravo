@@ -12,27 +12,55 @@ namespace conf {
 std::expected<conf::key, int>
 key::build(const YAML::Node & node)
 {
-    bool invert = node["invert"] ? node["invert"].as<bool>() : false;
-    std::optional<int> index;
-    if(node["index"]) {
-        int parsed_index = node["index"].as<int>();
-        if(parsed_index < 0) {
-            logger() << "Invalid negative index in DataRef node '" << node << "'";
+    if(node.IsScalar()) {
+        try {
+            auto data_ref = node.as<std::string>();
+            if(data_ref.empty()) {
+                logger() << "DataRef key cannot be empty";
+                return std::unexpected(0);
+            }
+            return key(std::move(data_ref), false, std::nullopt);
+        }
+        catch(const YAML::Exception & ex) {
+            logger() << "Invalid scalar DataRef node '" << node << "': " << ex.what();
             return std::unexpected(0);
         }
-        index = parsed_index;
     }
-    if(node.IsMap()) {
-        return key(node["key"].as<std::string>(), invert, index);
-    }
-    else if(node.IsScalar()) {
-        return key(node.as<std::string>(), invert, index);
-    }
-    else {
+
+    if(!node.IsMap()) {
         logger() << "Invalid DataRef node '" << node << "'";
         return std::unexpected(1);
     }
 
+    const auto key_node = node["key"];
+    if(!key_node || !key_node.IsScalar()) {
+        logger() << "DataRef map is missing a scalar 'key': '" << node << "'";
+        return std::unexpected(0);
+    }
+
+    try {
+        auto data_ref = key_node.as<std::string>();
+        if(data_ref.empty()) {
+            logger() << "DataRef key cannot be empty";
+            return std::unexpected(0);
+        }
+
+        const bool invert = node["invert"] ? node["invert"].as<bool>() : false;
+        std::optional<int> index;
+        if(node["index"]) {
+            const int parsed_index = node["index"].as<int>();
+            if(parsed_index < 0) {
+                logger() << "Invalid negative index in DataRef node '" << node << "'";
+                return std::unexpected(0);
+            }
+            index = parsed_index;
+        }
+        return key(std::move(data_ref), invert, index);
+    }
+    catch(const YAML::Exception & ex) {
+        logger() << "Invalid DataRef map '" << node << "': " << ex.what();
+        return std::unexpected(0);
+    }
 }
 
 std::expected<conf::value, int>
@@ -44,7 +72,7 @@ value::build(const YAML::Node & node)
 
     if(node.IsSequence()) {
         for(const auto & value : node) {
-            auto key = key::build(node);
+            auto key = key::build(value);
             if(key.has_value()) keys.emplace_back(std::move(key.value()));
             else return std::unexpected(key.error());
         }
