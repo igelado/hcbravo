@@ -260,6 +260,14 @@ autopilot_dial::build(const YAML::Node & node)
                           {"ias", "crs", "course", "hdg", "heading", "vs", "alt"})) {
         return std::unexpected(0);
     }
+    if(node["crs"] && node["course"]) {
+        logger() << "Autopilot dials cannot define both 'crs' and 'course'";
+        return std::unexpected(0);
+    }
+    if(node["hdg"] && node["heading"]) {
+        logger() << "Autopilot dials cannot define both 'hdg' and 'heading'";
+        return std::unexpected(0);
+    }
 
     auto ias = build_optional<airspeed>(node, "ias");
     if(ias.has_value() == false)

@@ -207,6 +207,21 @@ heading: sim/test/heading
     EXPECT_TRUE(dials->heading().has_value());
 }
 
+TEST(conf_test, autopilot_dials_reject_ambiguous_aliases)
+{
+    const auto course_aliases = YAML::Load(R"(
+crs: sim/test/course-short
+course: sim/test/course-long
+)");
+    const auto heading_aliases = YAML::Load(R"(
+hdg: sim/test/heading-short
+heading: sim/test/heading-long
+)");
+
+    EXPECT_FALSE(conf::autopilot_dial::build(course_aliases).has_value());
+    EXPECT_FALSE(conf::autopilot_dial::build(heading_aliases).has_value());
+}
+
 TEST(conf_test, autopilot_dials_reject_invalid_primary_alias)
 {
     const auto node = YAML::Load(R"(
