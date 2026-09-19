@@ -177,3 +177,19 @@ values:
     EXPECT_FALSE(conf::key::build(empty_values).has_value());
     EXPECT_FALSE(conf::key::build(non_scalar_values).has_value());
 }
+
+TEST(conf_test, data_ref_value_rejects_empty_sequence)
+{
+    const auto node = YAML::Load("[]");
+
+    EXPECT_FALSE(conf::value::build(node).has_value());
+}
+
+TEST(conf_test, required_system_volts_rejects_empty_sequence)
+{
+    const auto node = YAML::Load(R"(
+volts: []
+)");
+
+    EXPECT_FALSE(conf::system::build(node).has_value());
+}

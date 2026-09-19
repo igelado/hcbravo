@@ -87,6 +87,10 @@ value::build(const YAML::Node & node)
     if(!node) return value(std::move(keys));
 
     if(node.IsSequence()) {
+        if(node.size() == 0) {
+            logger() << "DataRef value cannot be an empty sequence";
+            return std::unexpected(0);
+        }
         for(const auto & value : node) {
             auto key = key::build(value);
             if(key.has_value()) keys.emplace_back(std::move(key.value()));
