@@ -93,6 +93,70 @@ type: int
     EXPECT_FALSE(conf::key::build(node).has_value());
 }
 
+TEST(conf_test, configuration_maps_reject_unknown_keys)
+{
+    EXPECT_FALSE(conf::airspeed::build(YAML::Load(R"(
+is_mach: sim/test/is_mach
+value: sim/test/value
+units: knots
+)")).has_value());
+
+    EXPECT_FALSE(conf::autopilot_dial::build(YAML::Load(R"(
+crs: sim/test/course
+headingg: sim/test/heading
+)")).has_value());
+
+    EXPECT_FALSE(conf::autopilot_mode::build(YAML::Load(R"(
+ap: sim/test/ap
+heading: sim/test/heading
+)")).has_value());
+
+    EXPECT_FALSE(conf::autopilot::build(YAML::Load(R"(
+modes:
+  ap: sim/test/ap
+mode: sim/test/legacy
+)")).has_value());
+
+    EXPECT_FALSE(conf::gear_signals::build(YAML::Load(R"(
+safe: sim/test/safe
+unsafe: sim/test/unsafe
+up: sim/test/up
+)")).has_value());
+
+    EXPECT_FALSE(conf::gear::build(YAML::Load(R"(
+left:
+  safe: sim/test/left-safe
+  unsafe: sim/test/left-unsafe
+nose:
+  safe: sim/test/nose-safe
+  unsafe: sim/test/nose-unsafe
+right:
+  safe: sim/test/right-safe
+  unsafe: sim/test/right-unsafe
+center: sim/test/center
+)")).has_value());
+
+    EXPECT_FALSE(conf::system::build(YAML::Load(R"(
+volts: sim/test/volts
+voltage: sim/test/voltage
+)")).has_value());
+
+    EXPECT_FALSE(conf::annunciator::build(YAML::Load(R"(
+master_warn: sim/test/master-warn
+master_warning: sim/test/master-warning
+)")).has_value());
+
+    EXPECT_FALSE(read_configuration(R"(
+name: Valid
+aircrafts: [Valid]
+models: [VALID]
+system:
+  volts: sim/test/volts
+systems:
+  volts: sim/test/other-volts
+)").has_value());
+}
+
 TEST(conf_test, negative_index_is_invalid)
 {
     const auto node = YAML::Load(R"(

@@ -7,7 +7,51 @@
 
 #include "conf.h"
 
+#include <initializer_list>
+#include <string_view>
+
 namespace conf {
+
+static
+std::expected<void, int>
+validate_map_keys(const YAML::Node & node, const std::string & description,
+                  std::initializer_list<std::string_view> allowed_keys)
+{
+    if(!node.IsMap()) {
+        logger() << description << " must be a map: '" << node << "'";
+        return std::unexpected(0);
+    }
+
+    try {
+        for(const auto & entry : node) {
+            if(!entry.first.IsScalar()) {
+                logger() << description << " has a non-scalar key: '" << node << "'";
+                return std::unexpected(0);
+            }
+
+            const auto key = entry.first.as<std::string>();
+            bool allowed = false;
+            for(const auto allowed_key : allowed_keys) {
+                if(key == allowed_key) {
+                    allowed = true;
+                    break;
+                }
+            }
+            if(!allowed) {
+                logger() << "Unexpected " << description << " key '" << key
+                         << "' in node '" << node << "'";
+                return std::unexpected(0);
+            }
+        }
+    }
+    catch(const YAML::Exception & ex) {
+        logger() << "Invalid " << description << " node '" << node
+                 << "': " << ex.what();
+        return std::unexpected(0);
+    }
+
+    return {};
+}
 
 std::expected<conf::key, int>
 key::build(const YAML::Node & node)
@@ -27,8 +71,7 @@ key::build(const YAML::Node & node)
         }
     }
 
-    if(!node.IsMap()) {
-        logger() << "Invalid DataRef node '" << node << "'";
+    if(!validate_map_keys(node, "DataRef", {"key", "invert", "index", "values"})) {
         return std::unexpected(1);
     }
 
@@ -39,16 +82,6 @@ key::build(const YAML::Node & node)
     }
 
     try {
-        for(const auto & entry : node) {
-            const auto property = entry.first.as<std::string>();
-            if(property != "key" && property != "invert" &&
-               property != "index" && property != "values") {
-                logger() << "Unexpected DataRef property '" << property
-                         << "' in node '" << node << "'";
-                return std::unexpected(0);
-            }
-        }
-
         auto data_ref = key_node.as<std::string>();
         if(data_ref.empty()) {
             logger() << "DataRef key cannot be empty";
@@ -118,8 +151,7 @@ value::build(const YAML::Node & node)
 std::expected<airspeed, int>
 airspeed::build(const YAML::Node & node)
 {
-    if(!node.IsMap()) {
-        logger() << "IAS node has invalid format";
+    if(!validate_map_keys(node, "IAS", {"is_mach", "value"})) {
         return std::unexpected(0);
     }
     else if(!node["is_mach"]) {
@@ -224,6 +256,11 @@ build_optional(const YAML::Node & node, const std::string & key,
 std::expected<autopilot_dial, int>
 autopilot_dial::build(const YAML::Node & node)
 {
+    if(!validate_map_keys(node, "Autopilot dials",
+                          {"ias", "crs", "course", "hdg", "heading", "vs", "alt"})) {
+        return std::unexpected(0);
+    }
+
     auto ias = build_optional<airspeed>(node, "ias");
     if(ias.has_value() == false)
         return std::unexpected(ias.error());
@@ -255,6 +292,11 @@ autopilot_dial::build(const YAML::Node & node)
 std::expected<autopilot_mode, int>
 autopilot_mode::build(const YAML::Node & node)
 {
+    if(!validate_map_keys(node, "Autopilot modes",
+                          {"hdg", "nav", "apr", "rev", "alt", "vs", "ias", "ap"})) {
+        return std::unexpected(0);
+    }
+
     auto hdg = build_optional<value>(node, "hdg");
     if(hdg.has_value() == false) {
         return std::unexpected(hdg.error());
@@ -303,8 +345,7 @@ autopilot_mode::build(const YAML::Node & node)
 std::expected<autopilot, int>
 autopilot::build(const YAML::Node & node)
 {
-    if(!node.IsMap()) {
-        logger() << "Autopilot node has invalid format";
+    if(!validate_map_keys(node, "Autopilot", {"dials", "modes"})) {
         return std::unexpected(0);
     }
     if(!node["modes"]) {
@@ -321,8 +362,7 @@ autopilot::build(const YAML::Node & node)
 std::expected<gear_signals, int>
 gear_signals::build(const YAML::Node & node)
 {
-    if(!node.IsMap()) {
-        logger() << "Gear signals node has invalid format";
+    if(!validate_map_keys(node, "Gear signals", {"safe", "unsafe"})) {
         return std::unexpected(0);
     }
     auto safe = conf::build<value>(node, "safe");
@@ -336,8 +376,7 @@ gear_signals::build(const YAML::Node & node)
 std::expected<gear, int>
 gear::build(const YAML::Node & node)
 {
-    if(!node.IsMap()) {
-        logger() << "Gear node has invalid format";
+    if(!validate_map_keys(node, "Gear", {"left", "nose", "right"})) {
         return std::unexpected(0);
     }
     auto left = conf::build<gear_signals>(node, "left");
@@ -353,8 +392,7 @@ gear::build(const YAML::Node & node)
 std::expected<system, int>
 system::build(const YAML::Node & node)
 {
-    if(!node.IsMap()) {
-        logger() << "System node has invalid format";
+    if(!validate_map_keys(node, "System", {"volts", "gear"})) {
         return std::unexpected(0);
     }
     auto volts = conf::build<value>(node, "volts");
@@ -368,8 +406,11 @@ system::build(const YAML::Node & node)
 std::expected<annunciator, int>
 annunciator::build(const YAML::Node & node)
 {
-    if(!node.IsMap()) {
-        logger() << "Annunciator node has invalid format";
+    if(!validate_map_keys(node, "Annunciator", {
+        "master_warn", "eng_fire", "oil_low", "fuel_low", "anti_ice", "starter",
+        "apu", "master_caution", "vacuum_low", "hydro_low", "aux_fuel",
+        "parking_brake", "volt_low", "door_open"
+    })) {
         return std::unexpected(0);
     }
 
@@ -419,8 +460,9 @@ configuration::read(const std::string & path)
         logger() << "Loading YAML File " << path;
         YAML::Node node = YAML::LoadFile(path);
 
-        if(!node.IsMap()) {
-            logger() << "Configuration '" << path << "' root must be a map";
+        if(!validate_map_keys(node, "Configuration '" + path + "'", {
+            "name", "aircrafts", "models", "system", "autopilot", "annunciator"
+        })) {
             return std::unexpected(0);
         }
 
