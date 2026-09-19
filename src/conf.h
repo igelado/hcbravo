@@ -23,12 +23,15 @@ protected:
     std::string key_;
     bool invert_;
     std::optional<int> index_;
+    std::vector<std::string> values_;
 
     inline
-    key(std::string && key, bool invert, std::optional<int> index) noexcept :
+    key(std::string && key, bool invert, std::optional<int> index,
+            std::vector<std::string> && values) noexcept :
         key_(key),
         invert_(invert),
-        index_(index)
+        index_(index),
+        values_(std::move(values))
     {}
 
 public:
@@ -52,6 +55,10 @@ public:
     inline
     const std::optional<int> &
     index() const noexcept { return this->index_; }
+
+    inline
+    const std::vector<std::string> &
+    values() const noexcept { return this->values_; }
 };
 
 class value {

@@ -24,6 +24,9 @@ TEST(conf_test, mapped_data_ref_is_valid)
 key: sim/test/mapped
 invert: true
 index: 2
+values:
+  - 1
+  - 14
 )");
 
     const auto data_ref = conf::key::build(node);
@@ -33,6 +36,7 @@ index: 2
     EXPECT_TRUE(data_ref->inverted());
     ASSERT_TRUE(data_ref->index().has_value());
     EXPECT_EQ(data_ref->index().value(), 2);
+    EXPECT_EQ(data_ref->values(), (std::vector<std::string>{"1", "14"}));
 }
 
 TEST(conf_test, sequence_parses_each_data_ref)
@@ -136,4 +140,40 @@ value: sim/test/airspeed
     EXPECT_EQ(airspeed->is_mach().path(), "sim/test/is_mach");
     ASSERT_EQ(airspeed->value().keys().size(), 1);
     EXPECT_EQ(airspeed->value().keys().front().path(), "sim/test/airspeed");
+}
+
+TEST(conf_test, data_ref_values_preserve_float_literals)
+{
+    const auto node = YAML::Load(R"(
+key: sim/test/float
+values:
+  - 1.25
+  - 2.5
+)");
+
+    const auto data_ref = conf::key::build(node);
+
+    ASSERT_TRUE(data_ref.has_value());
+    EXPECT_EQ(data_ref->values(), (std::vector<std::string>{"1.25", "2.5"}));
+}
+
+TEST(conf_test, data_ref_values_must_be_a_non_empty_scalar_sequence)
+{
+    const auto scalar_values = YAML::Load(R"(
+key: sim/test/scalar-values
+values: 1
+)");
+    const auto empty_values = YAML::Load(R"(
+key: sim/test/empty-values
+values: []
+)");
+    const auto non_scalar_values = YAML::Load(R"(
+key: sim/test/non-scalar-values
+values:
+  - nested: value
+)");
+
+    EXPECT_FALSE(conf::key::build(scalar_values).has_value());
+    EXPECT_FALSE(conf::key::build(empty_values).has_value());
+    EXPECT_FALSE(conf::key::build(non_scalar_values).has_value());
 }

@@ -19,7 +19,7 @@ key::build(const YAML::Node & node)
                 logger() << "DataRef key cannot be empty";
                 return std::unexpected(0);
             }
-            return key(std::move(data_ref), false, std::nullopt);
+            return key(std::move(data_ref), false, std::nullopt, {});
         }
         catch(const YAML::Exception & ex) {
             logger() << "Invalid scalar DataRef node '" << node << "': " << ex.what();
@@ -55,7 +55,23 @@ key::build(const YAML::Node & node)
             }
             index = parsed_index;
         }
-        return key(std::move(data_ref), invert, index);
+
+        std::vector<std::string> values;
+        if(node["values"]) {
+            const auto values_node = node["values"];
+            if(!values_node.IsSequence() || values_node.size() == 0) {
+                logger() << "DataRef values must be a non-empty sequence in node '" << node << "'";
+                return std::unexpected(0);
+            }
+            for(const auto & value : values_node) {
+                if(!value.IsScalar()) {
+                    logger() << "DataRef values must contain only scalars in node '" << node << "'";
+                    return std::unexpected(0);
+                }
+                values.emplace_back(value.as<std::string>());
+            }
+        }
+        return key(std::move(data_ref), invert, index, std::move(values));
     }
     catch(const YAML::Exception & ex) {
         logger() << "Invalid DataRef map '" << node << "': " << ex.what();
