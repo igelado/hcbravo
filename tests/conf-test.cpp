@@ -83,6 +83,16 @@ invert: true
     EXPECT_FALSE(data_ref.has_value());
 }
 
+TEST(conf_test, mapped_data_ref_rejects_obsolete_type_property)
+{
+    const auto node = YAML::Load(R"(
+key: sim/test/mapped
+type: int
+)");
+
+    EXPECT_FALSE(conf::key::build(node).has_value());
+}
+
 TEST(conf_test, negative_index_is_invalid)
 {
     const auto node = YAML::Load(R"(

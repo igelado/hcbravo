@@ -17,7 +17,6 @@ autopilot:
  modes:
   hdg:
    - key: 'sim/cockpit2/autopilot/heading_mode'
-     type: int
      values:
        - 1
        - 14
@@ -40,7 +39,6 @@ autopilot:
 system:
  volts:
   - key: 'sim/cockpit2/electrical/bus_volts'
-    type: float
     index: 0
  gear:
   left:
@@ -80,7 +78,6 @@ annunciator:
     index: 0
  parking_brake:
    - key: 'sim/cockpit2/controls/wheel_brake_ratio'
-     type: int
  volt_low:
   - key: 'sim/cockpit2/annunciators/low_voltage'
  door_open:

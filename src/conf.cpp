@@ -39,6 +39,16 @@ key::build(const YAML::Node & node)
     }
 
     try {
+        for(const auto & entry : node) {
+            const auto property = entry.first.as<std::string>();
+            if(property != "key" && property != "invert" &&
+               property != "index" && property != "values") {
+                logger() << "Unexpected DataRef property '" << property
+                         << "' in node '" << node << "'";
+                return std::unexpected(0);
+            }
+        }
+
         auto data_ref = key_node.as<std::string>();
         if(data_ref.empty()) {
             logger() << "DataRef key cannot be empty";

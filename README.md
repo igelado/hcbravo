@@ -66,16 +66,17 @@ In this case, we treat each DataRef as a boolean value, and if any of them is `t
 
 The second usage og the long form is to allow complex DataRef entries.
 The long form also accepts additional labels to characterize the DataRef:
- - `type` identifies the DataRef type. Allowed values are `bool`, `int` and `float`.
  - `index` identifies the DataRef as a vector, and specifies the vector index where the value is located.
  - `invert` indicates that when the DataRef is used as a boolean, the result should be negated.
  - `values` a sequence of values that will make the DataRef return `true` when used as a boolean.
+
+The DataRef type is discovered when the configuration is bound to X-Plane, rather
+than being declared in YAML.
 
 For instance, the following example indicates that heading mode is enable when the corresponding DataRef takes one of multiple values:
 ```yaml
   hdg:
    - key: 'sim/cockpit2/autopilot/heading_mode'
-     type: int
      values: 
        - 1
        - 14
@@ -85,7 +86,6 @@ Another example, is to use a specific index of a vector DataRef to read the curr
 ```yaml
  volts:
   - key: 'sim/cockpit2/electrical/bus_volts'
-    type: float
     index: 0
 ```
 
