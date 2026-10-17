@@ -255,8 +255,13 @@ float_data_ref::get() const noexcept
     float value = 0.0f;
     if(index_) {
         if(XPLMGetDatavf(data_ref_, &value, *index_, 1) != 1) {
-            logger::info() << "Failed to read indexed float DataRef at " << *index_;
+            if(!read_failure_logged_) {
+                read_failure_logged_ = true;
+                logger::info() << "Failed to read indexed float DataRef at " << *index_
+                               << " ('" << path_ << "'); further failures are not logged until a read succeeds";
+            }
         }
+        else read_failure_logged_ = false;
     }
     else value = XPLMGetDataf(data_ref_);
 #if !defined(NDEBUG)
