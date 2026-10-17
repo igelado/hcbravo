@@ -94,6 +94,7 @@ public:
 #endif
 
     void update(const led_mask & mask);
+    void turn_off();
 
 };
 

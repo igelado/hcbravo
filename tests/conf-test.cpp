@@ -220,6 +220,18 @@ heading: sim/test/heading
     EXPECT_TRUE(dials->heading().has_value());
 }
 
+TEST(conf_test, autopilot_dials_require_exactly_one_dataref_for_each_dial)
+{
+    for(const auto label : {"crs", "course", "hdg", "heading", "vs", "alt"}) {
+        SCOPED_TRACE(label);
+        EXPECT_FALSE(conf::autopilot_dial::build(YAML::Load(std::string(label) + ": [sim/a, sim/b]")).has_value());
+        EXPECT_TRUE(conf::autopilot_dial::build(YAML::Load(std::string(label) + ": [sim/a]")).has_value());
+        EXPECT_TRUE(conf::autopilot_dial::build(YAML::Load(std::string(label) + ": {key: sim/a, index: 0}")).has_value());
+    }
+    EXPECT_FALSE(conf::airspeed::build(YAML::Load("{is_mach: sim/mach, value: [sim/a, sim/b]}")).has_value());
+    EXPECT_TRUE(conf::airspeed::build(YAML::Load("{is_mach: sim/mach, value: [sim/a]}")).has_value());
+}
+
 TEST(conf_test, autopilot_dials_reject_ambiguous_aliases)
 {
     const auto course_aliases = YAML::Load(R"(

@@ -18,6 +18,7 @@ protected:
     void SetUp() override {
         xplm_test::data_refs.clear();
         xplm_test::read_counts.clear();
+        xplm_test::last_access.clear();
         xplm_test::strings = {
             {"sim/aircraft/view/acf_ICAO", "EVOT"},
             {"sim/aircraft/view/acf_ui_name", "Lancair Evolution"}
@@ -413,6 +414,39 @@ TEST_F(runtime_test, short_hid_write_does_not_mark_output_as_synchronized) {
     leds.allow_retry();
     leds.update(mask);
     EXPECT_EQ(hid_test::reports.size(), 2);
+}
+
+TEST_F(runtime_test, turning_off_leds_bypasses_cooldown_after_a_failed_nonzero_write) {
+    test_led_state leds;
+    led_mask green;
+    green.update(LED_LDG_L_GREEN, true);
+    leds.update(green);
+    led_mask red;
+    red.update(LED_LDG_L_RED, true);
+    hid_test::result = -1;
+    leds.update(red);
+    ASSERT_EQ(hid_test::reports.size(), 2);
+    hid_test::result = 65;
+    leds.update(red);
+    EXPECT_EQ(hid_test::reports.size(), 2); // Regular updates still respect cooldown.
+    leds.turn_off();
+    ASSERT_EQ(hid_test::reports.size(), 3);
+    for(const auto byte : hid_test::reports.back()) EXPECT_EQ(byte, 0);
+    leds.turn_off();
+    EXPECT_EQ(hid_test::reports.size(), 3); // Already synchronized to all-off.
+}
+
+TEST_F(runtime_test, plugin_stop_attempts_all_off_even_when_led_writes_are_in_cooldown) {
+    ASSERT_TRUE(start_plugin());
+    XPluginReceiveMessage(XPLM_PLUGIN_XPLANE, XPLM_MSG_PLANE_LOADED, nullptr);
+    hid_test::result = -1;
+    ASSERT_EQ(xplm_test::tick(), -1);
+    const auto reports = hid_test::reports.size();
+    hid_test::result = 65;
+    XPluginStop();
+    plugin_started_ = false;
+    ASSERT_EQ(hid_test::reports.size(), reports + 1);
+    for(const auto byte : hid_test::reports.back()) EXPECT_EQ(byte, 0);
 }
 
 TEST_F(runtime_test, logs_raw_values_and_applies_value_filters_before_inversion) {

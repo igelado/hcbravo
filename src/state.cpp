@@ -547,6 +547,5 @@ state::unload_plane() noexcept
     waiting_for_data_refs_ = false;
 
     // Turn off all lights
-    led_mask mask;
-    this->leds_.update(mask);
+    this->leds_.turn_off();
 }

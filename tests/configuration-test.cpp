@@ -60,6 +60,18 @@ TEST(ValidationTest, AcceptsMinimalProfile) {
     ASSERT_TRUE(result.has_value()) << result.error();
 }
 
+TEST(ValidationTest, RejectsMultipleDialDataRefs) {
+    const std::string prefix = "name: Test\naircrafts: [Test]\nmodels: [TEST]\nsystem: {volts: sim/volts}\n"
+        "autopilot:\n  modes: {ap: sim/ap}\n  dials:\n    ";
+    for(const auto label : {"crs", "course", "hdg", "heading", "vs", "alt"}) {
+        SCOPED_TRACE(label);
+        EXPECT_FALSE(validate_contents(prefix + label + ": [sim/a, sim/b]").has_value());
+        EXPECT_TRUE(validate_contents(prefix + label + ": [sim/a]").has_value());
+    }
+    EXPECT_FALSE(validate_contents(prefix + "ias: {is_mach: sim/mach, value: [sim/a, sim/b]}").has_value());
+    EXPECT_TRUE(validate_contents(prefix + "ias: {is_mach: sim/mach, value: [sim/a]}").has_value());
+}
+
 TEST(ValidationTest, RejectsMalformedYaml) {
     EXPECT_FALSE(validate_contents("name: [unterminated").has_value());
 }

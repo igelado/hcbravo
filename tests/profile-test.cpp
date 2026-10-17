@@ -130,3 +130,69 @@ TEST(profile_test, binds_zibo_profile_and_resolves_gear_up_transit_and_down)
         EXPECT_EQ(bound_gear.right_state(), expected);
     }
 }
+
+TEST(profile_test, boolean_bindings_select_supported_numeric_and_scalar_or_array_accessors)
+{
+    struct test_case { int mask; bool indexed; const char * accessor; const char * accepted; };
+    const test_case cases[] = {
+        {xplmType_Int | xplmType_FloatArray, false, "int", "1"},
+        {xplmType_Int | xplmType_FloatArray, true, "float array", "1.5"},
+        {xplmType_Float | xplmType_IntArray, false, "float", "1.5"},
+        {xplmType_Float | xplmType_IntArray, true, "int array", "1"},
+        {xplmType_Int | xplmType_IntArray, false, "int", "1"},
+        {xplmType_Int | xplmType_IntArray, true, "int array", "1"},
+        {xplmType_Float | xplmType_FloatArray, false, "float", "1.5"},
+        {xplmType_Float | xplmType_FloatArray, true, "float array", "1.5"},
+        {xplmType_IntArray | xplmType_FloatArray, false, "int array", "1"},
+        {xplmType_Int, true, "int", "1"},
+        {xplmType_Float, true, "float", "1.5"}
+    };
+    for(const auto & entry : cases) {
+        SCOPED_TRACE(std::to_string(entry.mask) + (entry.indexed ? " indexed" : " unindexed"));
+        const std::string path = "sim/test/mixed_bool";
+        xplm_test::data_refs[path] = {static_cast<XPLMDataTypeID>(entry.mask), true, 1, 1.5};
+        auto node = YAML::Load("{key: sim/test/mixed_bool, values: [" + std::string(entry.accepted) + "]}");
+        if(entry.indexed) node["index"] = 3;
+        const auto key = conf::key::build(node);
+        ASSERT_TRUE(key.has_value());
+        const auto bound = profile::bool_data_ref::build(key.value());
+        ASSERT_TRUE(bound.has_value());
+        EXPECT_TRUE(bound.value()->is_set());
+        EXPECT_EQ(xplm_test::last_access[path], entry.accessor);
+    }
+}
+
+TEST(profile_test, float_bindings_ignore_integer_bits_and_use_supported_read_and_write_accessors)
+{
+    struct test_case { int mask; bool indexed; const char * reader; const char * writer; };
+    const test_case cases[] = {
+        {xplmType_Int | xplmType_FloatArray, false, "float array", "float array write"},
+        {xplmType_Int | xplmType_FloatArray, true, "float array", "float array write"},
+        {xplmType_Float | xplmType_IntArray, false, "float", "float write"},
+        {xplmType_Float | xplmType_IntArray, true, "float", "float write"},
+        {xplmType_Float | xplmType_FloatArray | xplmType_Int, false, "float", "float write"},
+        {xplmType_Float | xplmType_FloatArray | xplmType_Int, true, "float array", "float array write"},
+        {xplmType_FloatArray, false, "float array", "float array write"},
+        {xplmType_Float, true, "float", "float write"}
+    };
+    for(const auto & entry : cases) {
+        SCOPED_TRACE(std::to_string(entry.mask) + (entry.indexed ? " indexed" : " unindexed"));
+        const std::string path = "sim/test/mixed_float";
+        xplm_test::data_refs[path] = {static_cast<XPLMDataTypeID>(entry.mask), true, 1, 1.5};
+        auto node = YAML::Load("{key: sim/test/mixed_float}");
+        if(entry.indexed) node["index"] = 3;
+        const auto key = conf::key::build(node);
+        ASSERT_TRUE(key.has_value());
+        const auto bound = profile::float_data_ref::build(key.value());
+        ASSERT_TRUE(bound.has_value());
+        EXPECT_FLOAT_EQ(bound->get(), 1.5f);
+        EXPECT_EQ(xplm_test::last_access[path], entry.reader);
+        bound->set(5.75f);
+        EXPECT_EQ(xplm_test::last_access[path], entry.writer);
+        EXPECT_FLOAT_EQ(bound->get(), 5.75f);
+    }
+    xplm_test::data_refs["sim/test/integer_only"].type = xplmType_IntArray;
+    const auto key = conf::key::build(YAML::Load("sim/test/integer_only"));
+    ASSERT_TRUE(key.has_value());
+    EXPECT_FALSE(profile::float_data_ref::build(key.value()).has_value());
+}

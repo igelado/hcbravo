@@ -35,13 +35,14 @@ struct data_ref_settings {
 };
 inline std::unordered_map<std::string, data_ref_settings> data_refs;
 inline std::unordered_map<std::string, int> read_counts;
+inline std::unordered_map<std::string, std::string> last_access;
 inline std::unordered_map<std::string, std::string> strings;
 }
 
 
 struct xplm_data_ref {
     std::string name;
-    union {
+    struct {
         int i;
         float f;
     } value;
@@ -52,7 +53,7 @@ struct xplm_data_ref {
     inline
     xplm_data_ref(std::string && name, int value) noexcept :
         name(std::move(name)),
-        value(value),
+        value {value, static_cast<float>(value)},
         type(xplmType_Int)
     {}
 
@@ -89,10 +90,8 @@ XPLMDataRef XPLMFindDataRef(const char * key) noexcept {
     if(settings != xplm_test::data_refs.end()) {
         result->type = settings->second.type;
         result->array_read_count = settings->second.array_read_count;
-        if(result->type == xplmType_Float || result->type == xplmType_FloatArray) {
-            result->value.f = static_cast<float>(settings->second.value);
-        }
-        else result->value.i = static_cast<int>(settings->second.value);
+        result->value.f = static_cast<float>(settings->second.value);
+        result->value.i = static_cast<int>(settings->second.value);
     }
     return result;
 }
@@ -100,12 +99,16 @@ XPLMDataRef XPLMFindDataRef(const char * key) noexcept {
 static inline
 int XPLMGetDatai(const XPLMDataRef & data_ref) noexcept {
     ++xplm_test::read_counts[data_ref->name];
+    xplm_test::last_access[data_ref->name] = "int";
+    if((data_ref->type & xplmType_Int) == 0) return 0;
     return data_ref->value.i;
 }
 
 static inline
 int XPLMGetDatavi(const XPLMDataRef & data_ref, int * out, int off, int size) noexcept {
     ++xplm_test::read_counts[data_ref->name];
+    xplm_test::last_access[data_ref->name] = "int array";
+    if((data_ref->type & xplmType_IntArray) == 0) return 0;
     if(data_ref->array_read_count != 1) return data_ref->array_read_count;
     if(out != nullptr) *out = data_ref->value.i;
     return 1;
@@ -114,12 +117,16 @@ int XPLMGetDatavi(const XPLMDataRef & data_ref, int * out, int off, int size) no
 static inline
 float XPLMGetDataf(const XPLMDataRef & data_ref) noexcept {
     ++xplm_test::read_counts[data_ref->name];
+    xplm_test::last_access[data_ref->name] = "float";
+    if((data_ref->type & xplmType_Float) == 0) return 0;
     return data_ref->value.f;
 }
 
 static inline
 int XPLMGetDatavf(const XPLMDataRef & data_ref, float * out, int off, int size) noexcept {
     ++xplm_test::read_counts[data_ref->name];
+    xplm_test::last_access[data_ref->name] = "float array";
+    if((data_ref->type & xplmType_FloatArray) == 0) return 0;
     if(data_ref->array_read_count != 1) return data_ref->array_read_count;
     if(out != nullptr) *out = data_ref->value.f;
     return 1;
@@ -127,12 +134,20 @@ int XPLMGetDatavf(const XPLMDataRef & data_ref, float * out, int off, int size) 
 
 static inline
 void XPLMSetDataf(const XPLMDataRef & data_ref, float value) noexcept {
+    xplm_test::last_access[data_ref->name] = "float write";
+    if((data_ref->type & xplmType_Float) == 0) return;
     data_ref->value.f = value;
+    data_ref->value.i = static_cast<int>(value);
 }
 
 static inline
 int XPLMSetDatavf(const XPLMDataRef & data_ref, float * value, int off, int size) noexcept {
-    if(value != nullptr) data_ref->value.f = *value;
+    xplm_test::last_access[data_ref->name] = "float array write";
+    if((data_ref->type & xplmType_FloatArray) == 0) return 0;
+    if(value != nullptr) {
+        data_ref->value.f = *value;
+        data_ref->value.i = static_cast<int>(*value);
+    }
     return 1;
 }
 

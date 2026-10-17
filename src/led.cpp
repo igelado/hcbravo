@@ -63,6 +63,15 @@ led_state::update(const led_mask & mask)
     synchronized_ = true;
 }
 
+void
+led_state::turn_off()
+{
+    // Unload/shutdown may have no later flight-loop callback. Always allow
+    // this final all-off attempt even if a previous write started a cooldown.
+    next_retry_ = {};
+    update(led_mask {});
+}
+
 #if !defined(NDEBUG)
 void
 led_state::dump_state() const noexcept

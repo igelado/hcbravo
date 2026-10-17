@@ -72,6 +72,11 @@ The long form also accepts additional labels to characterize the DataRef:
 
 The DataRef type is discovered when the configuration is bound to X-Plane, rather
 than being declared in YAML.
+An explicit `index` selects a supported array accessor when one is available;
+otherwise a supported scalar accessor is preferred. Array-only DataRefs default
+to index 0 with a warning, and scalar-only DataRefs ignore a configured index
+with a warning. Boolean inputs prefer integers when both numeric types support
+the selected shape; autopilot dial values require floats.
 
 For instance, the following example indicates that heading mode is enable when the corresponding DataRef takes one of multiple values:
 ```yaml
@@ -124,6 +129,8 @@ the aircraft's transit indicator:
 The autopilot configuration is map with two entries: `dials` and `modes`.
 The `dials` entry is itself another map, which selects the DataRef to set the value for each of the positions in the selector knob:
 `crs`, `hdg`, `vs`, `alt`.
+Each dial, including `ias.value`, must contain exactly one DataRef; offline
+validation rejects sequences with multiple entries.
 If not specified, the plugin assumes that the DataRef in each of these labels takes a `float` value.
 The `ias` label is not directly a DataRef, but a map with two labels pointing to two related DataRefs:
   - `is_mach` a boolean DataRef that is true if the airspeed is reported in Mach values
@@ -263,7 +270,9 @@ autopilot; gear/master warning/engine fire; annunciators through hydraulic;
 auxiliary fuel/parking brake/low voltage/door.
 
 Failed or incomplete HID writes log the returned byte count and HID error text,
-and are retried after five seconds. A successful write confirms that the HID API
+and normal updates retry after five seconds. Aircraft unload and plugin shutdown
+allow a final all-off write immediately, even during that cooldown.
+A successful write confirms that the HID API
 accepted the report; observing the physical lights still requires the controller.
 
  ## Using the Plugin in XPlane

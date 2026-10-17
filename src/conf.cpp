@@ -187,6 +187,27 @@ value::build(const YAML::Node & node)
     return value(std::move(keys));
 }
 
+static std::expected<value, int>
+build_dial_value(const YAML::Node & node)
+{
+    auto result = value::build(node);
+    if(!result) return std::unexpected(result.error());
+    if(result->keys().size() != 1) {
+        logger() << "Autopilot dial must contain exactly one DataRef" << yaml_location(node);
+        return std::unexpected(0);
+    }
+    return result;
+}
+
+static std::expected<std::optional<value>, int>
+build_optional_dial(const YAML::Node & node, const char * key)
+{
+    if(!node[key]) return std::optional<value> {};
+    auto result = build_dial_value(node[key]);
+    if(!result) return std::unexpected(result.error());
+    return std::optional<value>(std::move(result.value()));
+}
+
 std::expected<airspeed, int>
 airspeed::build(const YAML::Node & node)
 {
@@ -204,7 +225,7 @@ airspeed::build(const YAML::Node & node)
     
     auto is_mach = key::build(node["is_mach"]);
     if(is_mach.has_value() == false) return std::unexpected(is_mach.error());
-    auto val = value::build(node["value"]);
+    auto val = build_dial_value(node["value"]);
     if(val.has_value() == false) return std::unexpected(val.error());
     return airspeed(std::move(is_mach.value()), std::move(val.value()));
 }
@@ -317,19 +338,19 @@ autopilot_dial::build(const YAML::Node & node)
     auto ias = build_optional<airspeed>(node, "ias");
     if(ias.has_value() == false)
         return std::unexpected(ias.error());
-    auto course = build_optional<value>(node, "crs", "course");
+    auto course = build_optional_dial(node, node["crs"] ? "crs" : "course");
     if(course.has_value() == false)
         return std::unexpected(course.error());
 
-    auto heading = build_optional<value>(node, "hdg", "heading");
+    auto heading = build_optional_dial(node, node["hdg"] ? "hdg" : "heading");
     if(heading.has_value() == false)
         return std::unexpected(heading.error());
 
-    auto vs = build_optional<value>(node, "vs");
+    auto vs = build_optional_dial(node, "vs");
     if(vs.has_value() == false)
         return std::unexpected(vs.error());
 
-    auto alt = build_optional<value>(node, "alt");
+    auto alt = build_optional_dial(node, "alt");
     if(alt.has_value() == false)
         return std::unexpected(alt.error());
 

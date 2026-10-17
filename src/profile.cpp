@@ -27,7 +27,7 @@ base_data_ref::base_data_ref(binding && binding) noexcept :
 {}
 
 std::expected<base_data_ref::binding, int>
-base_data_ref::bind(const conf::key & key)
+base_data_ref::bind(const conf::key & key, numeric_type numeric)
 {
     auto data_ref = XPLMFindDataRef(key.path().c_str());
     if(data_ref == nullptr) {
@@ -40,8 +40,24 @@ base_data_ref::bind(const conf::key & key)
     XPLMGetDataRefInfo(data_ref, &info);
 
     auto index = key.index();
-    const bool is_array = has_type(info.type, xplmType_IntArray) ||
-                          has_type(info.type, xplmType_FloatArray);
+    const auto select_type = [&](bool array) {
+        const auto integer = array ? xplmType_IntArray : xplmType_Int;
+        const auto floating = array ? xplmType_FloatArray : xplmType_Float;
+        if(numeric == numeric_type::any && has_type(info.type, integer)) return integer;
+        if(has_type(info.type, floating)) return floating;
+        return xplmType_Unknown;
+    };
+    // An explicit index prefers an array; otherwise prefer a supported scalar.
+    // Select the numeric accessor and its shape together so mixed type masks
+    // never result in an unsupported integer-array or float-array read.
+    auto type = select_type(index.has_value());
+    if(type == xplmType_Unknown) type = select_type(!index.has_value());
+    if(type == xplmType_Unknown) {
+        logger() << "DataRef '" << key.path() << "' has no supported "
+                 << (numeric == numeric_type::floating ? "float" : "numeric") << " accessor";
+        return std::unexpected(0);
+    }
+    const bool is_array = type == xplmType_IntArray || type == xplmType_FloatArray;
     if(is_array && !index) {
         logger() << "Array DataRef '" << key.path() << "' has no index; using index 0";
         index = 0;
@@ -55,6 +71,7 @@ base_data_ref::bind(const conf::key & key)
     if(diagnostics::enabled(diagnostic_category::datarefs)) {
         debug_logger log;
         log << "DataRef bound: '" << key.path() << "' type_mask=" << info.type
+            << " accessor_type=" << type
             << " index=" << (index ? std::to_string(*index) : "scalar")
             << " invert=" << key.inverted() << " values=[";
         for(const auto & value : key.values()) log << value << " ";
@@ -62,7 +79,7 @@ base_data_ref::bind(const conf::key & key)
     }
 #endif
 
-    return binding { std::move(data_ref), key.inverted(), index, info.type, key.path() };
+    return binding { std::move(data_ref), key.inverted(), index, type, key.path() };
 }
 
 bool_data_ref::bool_data_ref(binding && binding, std::vector<int> && values) noexcept :
@@ -200,7 +217,7 @@ float_data_ref::float_data_ref(binding && binding) noexcept :
 std::expected<float_data_ref, int>
 float_data_ref::build(const conf::key & key)
 {
-    auto binding = base_data_ref::bind(key);
+    auto binding = base_data_ref::bind(key, numeric_type::floating);
     if(!binding) return std::unexpected(binding.error());
     if(!has_type(binding->type, xplmType_Float) && !has_type(binding->type, xplmType_FloatArray)) {
         logger() << "DataRef '" << key.path() << "' is not a float DataRef";

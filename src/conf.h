@@ -91,10 +91,10 @@ public:
 class airspeed {
 protected:
     key is_mach_;
-    value value_;
+    conf::value value_;
 
     inline
-    airspeed(key && is_mach, value && value) noexcept :
+    airspeed(key && is_mach, conf::value && value) noexcept :
         is_mach_(std::move(is_mach)),
         value_(std::move(value))
     {}
@@ -109,7 +109,7 @@ public:
     is_mach() const noexcept { return this->is_mach_; }
 
     inline
-    const value &
+    const conf::value &
     value() const noexcept { return this->value_; }
 
 };
@@ -317,10 +317,10 @@ public:
 class system {
 protected:
     value volts_;
-    std::optional<gear> gear_;
+    std::optional<conf::gear> gear_;
 
     inline
-    system(value && volts, std::optional<gear> && gear) :
+    system(value && volts, std::optional<conf::gear> && gear) :
         volts_(std::move(volts)),
         gear_(std::move(gear))
     {}
@@ -335,7 +335,7 @@ public:
     volts() const { return this->volts_; }
 
     inline
-    const std::optional<gear> &
+    const std::optional<conf::gear> &
     gear() const { return this->gear_; }
 };
 
@@ -456,18 +456,18 @@ protected:
     std::string name_;
     std::vector<std::string> aircrafts_;
     std::vector<std::string> models_;
-    system system_;
-    std::optional<autopilot> autopilot_;
-    std::optional<annunciator> annunciator_;
+    conf::system system_;
+    std::optional<conf::autopilot> autopilot_;
+    std::optional<conf::annunciator> annunciator_;
 
     inline
     configuration(
         std::string && name,
         std::vector<std::string> && aircrafts,
         std::vector<std::string> && models,
-        system && system,
-        std::optional<autopilot> && autopilot,
-        std::optional<annunciator> && annunciator
+        conf::system && system,
+        std::optional<conf::autopilot> && autopilot,
+        std::optional<conf::annunciator> && annunciator
     ) noexcept :
         name_(std::move(name)),
         aircrafts_(std::move(aircrafts)),
@@ -495,15 +495,15 @@ public:
     models() const noexcept { return this->models_; }
 
     inline
-    const system &
+    const conf::system &
     system() const noexcept { return this->system_; }
 
     inline
-    const std::optional<autopilot> &
+    const std::optional<conf::autopilot> &
     autopilot() const noexcept { return this->autopilot_; }
 
     inline
-    const std::optional<annunciator> &
+    const std::optional<conf::annunciator> &
     annunciator() const noexcept { return this->annunciator_; }
 };
 

@@ -47,7 +47,8 @@ protected:
     std::string path_;
 
     base_data_ref(binding && binding) noexcept;
-    static std::expected<binding, int> bind(const conf::key & key);
+    enum class numeric_type { any, floating };
+    static std::expected<binding, int> bind(const conf::key & key, numeric_type numeric = numeric_type::any);
 
 public:
     base_data_ref(base_data_ref &&) noexcept = default;
