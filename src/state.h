@@ -13,11 +13,15 @@
 #include <XPLM/XPLMProcessing.h>
 
 #include <optional>
+#include <array>
+#include <memory>
 #include <string>
+#include <unordered_map>
 
 #include <hidapi.h>
 
 #include "error.h"
+#include "conf.h"
 #include "knob.h"
 #include "led.h"
 #include "profile.h"
@@ -30,12 +34,22 @@ class state {
     int menu_item_;
     commands::ptr_type cmds_;
 
-    using profile_map_type = std::unordered_map<std::string, std::shared_ptr<profile>>;
-    profile_map_type profile_aircraft_map_;
-    profile_map_type profile_model_map_;
+    using configuration_ptr = std::shared_ptr<conf::configuration>;
+    using configuration_map_type = std::unordered_map<std::string, configuration_ptr>;
+    configuration_map_type configuration_aircraft_map_;
+    configuration_map_type configuration_model_map_;
     XPLMDataRef plane_icao_data_ref_;
     XPLMDataRef plane_name_data_ref_;
-    std::optional<profile::ptr_type> plane_;
+    std::optional<profile::configuration::ptr_type> plane_;
+    std::string active_aircraft_name_;
+    bool load_pending_ = false;
+    bool waiting_for_data_refs_ = false;
+#if !defined(NDEBUG)
+    std::array<int, 3> diagnostics_menu_items_ {};
+
+    void dump_led_state() const noexcept;
+    void dump_autopilot_state() const noexcept;
+#endif
 
     XPLMFlightLoopID flight_loop_;
 
@@ -71,10 +85,16 @@ public:
     load_plane() noexcept;
 
     void
+    request_load_plane() noexcept;
+
+    void
+    data_refs_added() noexcept;
+
+    void
     unload_plane() noexcept;
 
     inline
-    const std::optional<profile::ptr_type> &
+    const std::optional<profile::configuration::ptr_type> &
     active_plane() const noexcept {
         return this->plane_;
     }

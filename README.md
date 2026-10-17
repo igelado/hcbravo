@@ -66,16 +66,22 @@ In this case, we treat each DataRef as a boolean value, and if any of them is `t
 
 The second usage og the long form is to allow complex DataRef entries.
 The long form also accepts additional labels to characterize the DataRef:
- - `type` identifies the DataRef type. Allowed values are `bool`, `int` and `float`.
  - `index` identifies the DataRef as a vector, and specifies the vector index where the value is located.
  - `invert` indicates that when the DataRef is used as a boolean, the result should be negated.
  - `values` a sequence of values that will make the DataRef return `true` when used as a boolean.
+
+The DataRef type is discovered when the configuration is bound to X-Plane, rather
+than being declared in YAML.
+An explicit `index` selects a supported array accessor when one is available;
+otherwise a supported scalar accessor is preferred. Array-only DataRefs default
+to index 0 with a warning, and scalar-only DataRefs ignore a configured index
+with a warning. Boolean inputs prefer integers when both numeric types support
+the selected shape; autopilot dial values require floats.
 
 For instance, the following example indicates that heading mode is enable when the corresponding DataRef takes one of multiple values:
 ```yaml
   hdg:
    - key: 'sim/cockpit2/autopilot/heading_mode'
-     type: int
      values: 
        - 1
        - 14
@@ -85,7 +91,6 @@ Another example, is to use a specific index of a vector DataRef to read the curr
 ```yaml
  volts:
   - key: 'sim/cockpit2/electrical/bus_volts'
-    type: float
     index: 0
 ```
 
@@ -98,11 +103,34 @@ voltage, and thus it can start lighting the Bravo throttle annunciators.
 The `system` map also has an optional `gear` field to define the DataRef used to know the state of the landing gear.
 Obviously, if a given aircraft has fixed gear, this field is not required and the landing gear LEDs will remain off.
 
+The `gear` map requires `left`, `nose`, and `right` entries. Each gear requires
+`safe` and `unsafe` DataRef entries, using the short or long form described above.
+Its LED is green when `safe` is true, red when `safe` is false and `unsafe` is true,
+and off when both are false. Safe takes priority when both are true.
+
+For the Lancair Evolution, each gear has its own locked-down indicator and shares
+the aircraft's transit indicator:
+
+```yaml
+ gear:
+  left:
+   safe: 'laminar/n844x/lights/left_gear_down'
+   unsafe: 'laminar/n844x/lights/any_gear_in_transit'
+  nose:
+   safe: 'laminar/n844x/lights/nose_gear_down'
+   unsafe: 'laminar/n844x/lights/any_gear_in_transit'
+  right:
+   safe: 'laminar/n844x/lights/right_gear_down'
+   unsafe: 'laminar/n844x/lights/any_gear_in_transit'
+```
+
 #### Autopilot Configuration
 
 The autopilot configuration is map with two entries: `dials` and `modes`.
 The `dials` entry is itself another map, which selects the DataRef to set the value for each of the positions in the selector knob:
 `crs`, `hdg`, `vs`, `alt`.
+Each dial, including `ias.value`, must contain exactly one DataRef; offline
+validation rejects sequences with multiple entries.
 If not specified, the plugin assumes that the DataRef in each of these labels takes a `float` value.
 The `ias` label is not directly a DataRef, but a map with two labels pointing to two related DataRefs:
   - `is_mach` a boolean DataRef that is true if the airspeed is reported in Mach values
@@ -111,13 +139,10 @@ The `ias` label is not directly a DataRef, but a map with two labels pointing to
 The `modes` entry is also map that identifies the DataRef that indicates whether a given autopilot mode is armed.
 All the DataRefs in `modes` are treated as boolean values.
 
-> ⚠️ **"Treated as boolean" is about the result, not the accessor.** An entry with no
-> `type` defaults to `bool`, which reads the DataRef with `XPLMGetDatai`. Aircraft that
-> create their DataRefs from xlua with `create_dataref(..., "number")` publish a **float
-> accessor and no integer one**, so `XPLMGetDatai` returns `0` on them -- with no error and
-> nothing in the log. The symptom is every lamp staying dark on an aircraft whose DataRefs
-> are plainly correct. Give those entries an explicit `type: float`; see `conf/b738.yaml`
-> for a profile where all 34 of them need it.
+The plugin selects an integer or float accessor from the type published by X-Plane.
+This also supports float-only custom DataRefs, such as the Zibo's xlua numbers in
+`conf/b738.yaml`. Do not declare `type` in YAML; it is discovered during binding.
+
 The only required label in `modes` is `ap`, which identifies whether the Autopilot is armed or not.
 The remaining labels are optional and identifies other potential Autopilot modes that might be armed:
   - `hdg` Heading Mode
@@ -159,6 +184,96 @@ As in the case of the autopilot modes, all DataRefs are interpreted as boolean v
  After running those commands, there should a `hcbravo.zip` file that contains the plugin, configuration files, and joystick profiles.
  You can unzip that archive into the top-level X-Plane 12 installation directory.
 
+
+ ## Testing Configuration Files
+
+CMake discovers `conf/*.yaml` and registers a separate parameterized GoogleTest
+for each file. Adding or removing a file updates the test list on the next build.
+Editing an existing file only requires rerunning its test.
+
+```powershell
+ctest --test-dir build -C Release -L configuration --output-on-failure
+ctest --test-dir build -C Release -R '^conf.evot$' --output-on-failure
+```
+
+The `hcbravo-validate` executable uses the same `conf::validate_file` function
+as these tests, backed by the configuration parser used by the plugin:
+
+```powershell
+.\build\Release\hcbravo-validate.exe conf\evot.yaml conf\b58.yaml
+```
+
+It returns 0 when all files are valid, 1 when any file fails, and 2 when no files
+are supplied. Parser diagnostics are written to stderr. Validation checks YAML
+structure and DataRef descriptors; DataRef availability and numeric type
+compatibility are checked when an aircraft is loaded in X-Plane.
+
+## Diagnosing LED Problems
+
+HCBravo writes diagnostics to `Log.txt` in the X-Plane installation directory,
+prefixed with `[HCBravo]`. After an aircraft loads, HCBravo binds the profile on
+the first flight-loop callback. This follows the SDK's
+[deferred initialization guidance](https://developer.x-plane.com/article/deferredinitialization/).
+If binding fails, it logs the missing or incompatible DataRef and stops the flight
+loop until a
+[DataRefs-added notification](https://developer.x-plane.com/sdk/XPLM_MSG_DATAREFS_ADDED/)
+schedules another load on the next flight-loop callback. There are no timed
+profile retries; repeated notifications are coalesced while a load is pending.
+Notifications do not reload an active profile. Unloading the aircraft cancels
+pending binding and notification recovery.
+This waits for HCBravo's required DataRefs; it does not guarantee that every
+plugin has finished asynchronous initialization. Use
+`Plugins > HoneyComb Bravo > Reload Aircraft Profiles` to retry after correcting
+a configuration.
+
+Diagnostic categories, runtime checks, and detailed log bodies are compiled only
+in Debug builds (`NDEBUG` is not defined). All builds log plugin load/unload and
+aircraft enable/disable transitions, including the aircraft name and the selected
+profile when enabled. Release builds retain errors and configuration warnings;
+the Release menu contains only `Reload Aircraft Profiles`.
+
+Debug builds add `Reload All Plugins` and two actions under
+`Plugins > HoneyComb Bravo`:
+
+- `Dump LED State`: reads power, gear, autopilot LED modes, and annunciator inputs,
+  then logs the cached HID banks and synchronization status.
+- `Dump Autopilot State`: reads the configured modes and dial values, including
+  airspeed units and unconfigured entries.
+
+Each selection writes one dump immediately. Dumps include raw DataRef values,
+array read counts, accepted values, inversion, and resulting boolean states.
+They read all configured inputs, including those normally skipped by boolean
+short-circuiting or the electrical power gate. Dumping does not change DataRefs,
+send HID reports, bind a profile, or schedule flight-loop work. Re-select an action
+to inspect the latest state. There is no periodic diagnostic sampling or timer.
+
+Three independent checkable entries control event-based diagnostics; all start
+disabled:
+
+- `Knob Diagnostics`: selector changes, rotation direction, acceleration, and ignored commands.
+- `DataRef Diagnostics`: binding metadata and knob dial reads/writes.
+- `Configuration Diagnostics`: YAML parsing and configuration/profile registration.
+
+Select an entry to enable or disable it; its check mark shows the current setting.
+Knob actions and dial reads/writes log when the command runs. Enable Configuration or DataRef
+diagnostics and select `Reload Aircraft Profiles` to inspect parsing or binding.
+Profile reloads preserve the settings; a plugin restart resets them.
+
+`diagnostic_scope` exists only in Debug builds. Knob callbacks set the DataRef
+category while processing an opted-in command. The destructor restores the
+previous mask when the callback returns. LED and autopilot dumps have dedicated
+functions; regular LED updates and boolean DataRef reads contain no diagnostic
+checks or logging.
+Binding logs show accepted `values` and type masks (1 = int, 2 = float,
+8 = float array, 16 = int array). LED banks are hexadecimal bytes in this order:
+autopilot; gear/master warning/engine fire; annunciators through hydraulic;
+auxiliary fuel/parking brake/low voltage/door.
+
+Failed or incomplete HID writes log the returned byte count and HID error text,
+and normal updates retry after five seconds. Aircraft unload and plugin shutdown
+allow a final all-off write immediately, even during that cooldown.
+A successful write confirms that the HID API
+accepted the report; observing the physical lights still requires the controller.
 
  ## Using the Plugin in XPlane
 

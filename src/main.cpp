@@ -11,8 +11,6 @@
 #include <XPLM/XPLMUtilities.h>
 
 #include <hidapi.h>
-#include <yaml.h>
-
 #include <cstdint>
 #include <memory>
 #include <optional>
@@ -33,8 +31,9 @@ XPluginStart(char * name, char * sig, char * desc) {
     strncpy(sig, "hc.bravo", 256);
     strncpy(desc, "Plugin for HoneyComb Bravo Quadrant", 256);
 
-    logger() << "HCBravo Plugin Starts";
+    debug_logger() << "HCBravo Plugin Starts";
     XPLMEnableFeature("XPLM_USE_NATIVE_PATHS", 1);
+    XPLMEnableFeature("XPLM_WANTS_DATAREF_NOTIFICATIONS", 1);
     auto state = state::init();
     if(state.has_value() == false) {
        logger() << "Failed to initialize Plugin: " << state.error();
@@ -42,15 +41,15 @@ XPluginStart(char * name, char * sig, char * desc) {
     }
     plugin_state.emplace(std::move(state.value()));
 
-    logger() << "HCBravo Initialized";
+    logger() << "Plugin loaded";
     return 1;
 }
 
 PLUGIN_API
 void
 XPluginStop(void) {
-    logger() << "Unloading Plugin";
     plugin_state = std::nullopt;
+    logger() << "Plugin unloaded";
 }
 
 PLUGIN_API
@@ -67,17 +66,21 @@ PLUGIN_API
 void
 XPluginReceiveMessage(XPLMPluginID id, int msg, void * param) 
 {
+    if(id != XPLM_PLUGIN_XPLANE) return;
     auto plane_index = static_cast<int>(reinterpret_cast<intptr_t>(param));
     switch(msg) {
         case XPLM_MSG_PLANE_LOADED:
             if(plane_index != 0) break;
-            logger() << "Loading new aircraft";
-            if(plugin_state.has_value()) plugin_state.value()->load_plane();
+            debug_logger() << "Loading new aircraft";
+            if(plugin_state.has_value()) plugin_state.value()->request_load_plane();
             break;
         case XPLM_MSG_PLANE_UNLOADED:
             if(plane_index != 0) break;
-            logger() << "Unloading current aircraft";
+            debug_logger() << "Unloading current aircraft";
             if(plugin_state.has_value()) plugin_state.value()->unload_plane();
+            break;
+        case XPLM_MSG_DATAREFS_ADDED:
+            if(plugin_state.has_value()) plugin_state.value()->data_refs_added();
             break;
     }
 }

@@ -21,7 +21,6 @@ autopilot:
  modes:
   hdg:
    - key: 'sim/cockpit2/autopilot/heading_mode'
-     type: int
      values:
        - 1
        - 14
@@ -52,12 +51,29 @@ autopilot:
 system:
  volts:
   - key: 'sim/cockpit2/electrical/bus_volts'
-    type: float
     index: 0
 
+
  gear:
-  - key: 'sim/flightmodel2/gear/deploy_ratio'
-    type: float
+  left:
+   safe:
+    - key: 'sim/flightmodel2/gear/deploy_ratio'
+      index: 1
+      values: [1]
+   unsafe: 'sim/cockpit2/annunciators/gear_unsafe'
+  nose:
+   safe:
+    - key: 'sim/flightmodel2/gear/deploy_ratio'
+      index: 0
+      values: [1]
+   unsafe: 'sim/cockpit2/annunciators/gear_unsafe'
+  right:
+   safe:
+    - key: 'sim/flightmodel2/gear/deploy_ratio'
+      index: 2
+      values: [1]
+   unsafe: 'sim/cockpit2/annunciators/gear_unsafe'
+
 
 
 annunciator:
@@ -99,21 +115,16 @@ annunciator:
 
  parking_brake:
   - key: 'sim/cockpit2/controls/parking_brake_ratio'
-    type: float
 
  volt_low:
   - key: 'sim/cockpit2/annunciators/low_voltage'
 
  door_open:
   - key: 'sim/flightmodel2/misc/canopy_open_ratio'
-    type: float
   - key: 'sim/flightmodel2/misc/door_open_ratio'
-    type: float
     index: 0
   - key: 'sim/flightmodel2/misc/door_open_ratio'
-    type: float
     index: 1
   - key: 'sim/flightmodel2/misc/door_open_ratio'
-    type: float
     index: 2
   - key: 'sim/cockpit2/annunciators/cabin_door_open'

@@ -1,10 +1,8 @@
 # Zibo B737-800X profile.
 #
-# 🔴 EVERY DataRef here needs an explicit `type: float`. The Zibo creates its
-# DataRefs from xlua with create_dataref(..., "number"), which publishes a
-# float accessor and NO integer one. The plugin defaults an untyped entry to
-# `bool`, which reads through XPLMGetDatai, and that returns 0 on a float-only
-# DataRef with no error -- so every lamp stays dark and nothing is logged.
+# The Zibo creates float-only DataRefs from xlua with
+# create_dataref(..., "number"). The plugin discovers their numeric types
+# when binding this profile and selects the matching accessor automatically.
 #
 # Every path below was taken from the aircraft itself: create_dataref() calls
 # in plugins/xlua/scripts/, or the strings of the compiled
@@ -63,50 +61,38 @@ autopilot:
   # CMD A or CMD B engaged.
   ap:
    - key: 'laminar/B738/autopilot/cmd_a_status'
-     type: float
    - key: 'laminar/B738/autopilot/cmd_b_status'
-     type: float
 
   hdg:
    - key: 'laminar/B738/autopilot/hdg_sel_status'
-     type: float
 
   # LNAV or VOR/LOC both light the Bravo's single NAV lamp. lnav_status2 is
   # the bit the cockpit MCP lamp uses; lnav_status is kept alongside it
   # because that is what was flight-tested and the two are OR'd anyway.
   nav:
    - key: 'laminar/B738/autopilot/lnav_status'
-     type: float
    - key: 'laminar/B738/autopilot/lnav_status2'
-     type: float
    - key: 'laminar/B738/autopilot/vorloc_status'
-     type: float
 
   apr:
    - key: 'laminar/B738/autopilot/app_status'
-     type: float
 
   # The 737 has no back course, so the Bravo's REV button and lamp are best
   # repurposed to VNAV -- bind it to laminar/B738/autopilot/vnav_press. Use
   # vorloc_status here instead if you would rather REV followed VOR/LOC.
   rev:
    - key: 'laminar/B738/autopilot/vnav_status2'
-     type: float
 
   alt:
    - key: 'laminar/B738/autopilot/alt_hld_status'
-     type: float
 
   vs:
    - key: 'laminar/B738/autopilot/vs_status'
-     type: float
 
   # LVL CHG is the 737's IAS/speed mode; speed_status1 covers MCP SPD.
   ias:
    - key: 'laminar/B738/autopilot/lvl_chg_status'
-     type: float
    - key: 'laminar/B738/autopilot/speed_status1'
-     type: float
 
 
 system:
@@ -115,11 +101,39 @@ system:
  # until this is non-zero.
  volts:
   - key: 'laminar/B738/dc_volt_value'
-    type: float
 
  gear:
-  - key: 'sim/flightmodel2/gear/deploy_ratio'
-    type: float
+  # 0 = fully up, 1 = locked down; intermediate ratios indicate transit.
+  left:
+   safe:
+    - key: 'sim/flightmodel2/gear/deploy_ratio'
+      index: 1
+      values: [1]
+   unsafe:
+    - key: 'sim/flightmodel2/gear/deploy_ratio'
+      index: 1
+      values: [0, 1]
+      invert: true
+  nose:
+   safe:
+    - key: 'sim/flightmodel2/gear/deploy_ratio'
+      index: 0
+      values: [1]
+   unsafe:
+    - key: 'sim/flightmodel2/gear/deploy_ratio'
+      index: 0
+      values: [0, 1]
+      invert: true
+  right:
+   safe:
+    - key: 'sim/flightmodel2/gear/deploy_ratio'
+      index: 2
+      values: [1]
+   unsafe:
+    - key: 'sim/flightmodel2/gear/deploy_ratio'
+      index: 2
+      values: [0, 1]
+      invert: true
 
 
 annunciator:
@@ -127,73 +141,52 @@ annunciator:
  # warning annunciator.
  master_warn:
   - key: 'laminar/B738/annunciator/fire_bell_annun'
-    type: float
 
  master_caution:
   - key: 'laminar/B738/annunciator/master_caution_light'
-    type: float
 
  eng_fire:
   - key: 'laminar/B738/annunciator/engine1_fire'
-    type: float
   - key: 'laminar/B738/annunciator/engine2_fire'
-    type: float
 
  # There is no discrete low-oil-pressure annunciator; the ENG six-pack light
  # is the system-level indicator that covers it.
  oil_low:
   - key: 'laminar/B738/annunciator/six_pack_eng'
-    type: float
 
  fuel_low:
   - key: 'laminar/B738/annunciator/low_fuel_press_l1'
-    type: float
   - key: 'laminar/B738/annunciator/low_fuel_press_l2'
-    type: float
   - key: 'laminar/B738/annunciator/low_fuel_press_r1'
-    type: float
   - key: 'laminar/B738/annunciator/low_fuel_press_r2'
-    type: float
 
  anti_ice:
   - key: 'laminar/B738/ice/eng1_heat_pos'
-    type: float
   - key: 'laminar/B738/ice/eng2_heat_pos'
-    type: float
   - key: 'laminar/B738/ice/wing_heat_pos'
-    type: float
 
  # Starter valve open == starter actually engaged, which is more accurate than
  # the starter switch position (that reads non-zero in CONT and FLT too).
  starter:
   - key: 'laminar/B738/air/engine1/starter_valve'
-    type: float
   - key: 'laminar/B738/air/engine2/starter_valve'
-    type: float
 
  # APU generators on the bus -- the APU is running and supplying power.
  apu:
   - key: 'laminar/B738/electrical/apu_gen1_pos'
-    type: float
   - key: 'laminar/B738/electrical/apu_gen2_pos'
-    type: float
 
  hydro_low:
   - key: 'laminar/B738/annunciator/hyd_press_a'
-    type: float
   - key: 'laminar/B738/annunciator/hyd_press_b'
-    type: float
 
  # Centre tank pumps running == burning from the centre (aux) tank.
  aux_fuel:
   - key: 'laminar/B738/fuel/fuel_tank_pos_ctr1'
-    type: float
   - key: 'laminar/B738/fuel/fuel_tank_pos_ctr2'
-    type: float
 
  parking_brake:
   - key: 'laminar/B738/annunciator/parking_brake'
-    type: float
 
  # ⚠️ EXPECT THIS LAMP ON THE GROUND. The 737 has no low-voltage annunciator --
  # that is a GA concept the Bravo inherited -- so the closest equivalent is
@@ -203,13 +196,10 @@ annunciator:
  # rather the lamp stayed dark on the ramp.
  volt_low:
   - key: 'laminar/B738/annunciator/gen_off_bus1'
-    type: float
   - key: 'laminar/B738/annunciator/gen_off_bus2'
-    type: float
 
  door_open:
   - key: 'laminar/B738/annunciator/six_pack_doors'
-    type: float
 
 # vacuum_low is deliberately absent -- the 737 has no vacuum system, and every
 # annunciator label is optional, so that LED stays dark by design.

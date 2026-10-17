@@ -11,6 +11,8 @@
 #include <XPLM/XPLMUtilities.h>
 
 #include <optional>
+#include <chrono>
+#include <iomanip>
 #include <tuple>
 
 #include <cstdint>
@@ -44,6 +46,16 @@ public:
     void update(const led_id & id, const std::optional<bool> & value) noexcept {
         if(value.has_value()) update(id, value.value());
     }
+
+    std::string describe() const {
+        std::ostringstream output;
+        output << std::hex << std::setfill('0');
+        for(size_t n = 0; n < LED_NR_BANKS; ++n) {
+            if(n != 0) output << ' ';
+            output << std::setw(2) << static_cast<unsigned int>(banks_[n]);
+        }
+        return output.str();
+    }
 };
 
 class led_state {
@@ -63,6 +75,8 @@ protected:
         buffer_type  buffer_;
     } u;
     hid_device_ * hid_;
+    bool synchronized_ = false;
+    std::chrono::steady_clock::time_point next_retry_ {};
 
     friend class state;
 public:
@@ -70,6 +84,8 @@ public:
     led_state(led_state &&) noexcept;
 
 #if !defined(NDEBUG)
+    void dump_state() const noexcept;
+
     inline
     bool
     get_led(const led_id & id) const noexcept {
@@ -77,27 +93,8 @@ public:
     }
 #endif
 
-    inline
-    void
-    update(const led_mask & mask) {
-        if(this->hid_ == nullptr) return;
-
-        size_t n;
-        for(n = 0; n < LED_NR_BANKS; ++n) {
-            if(u.state_.banks_[n] != mask.banks_[n]) break;
-        }
-        if(n == LED_NR_BANKS) return;
-        hid_data next_state;
-        ::memcpy(&next_state, &u.state_, sizeof(next_state));
-        ::memcpy(next_state.banks_, mask.banks_, sizeof(mask.banks_));
-        int ret = hid_send_feature_report(this->hid_,
-            reinterpret_cast<const unsigned char *>(&next_state), sizeof(next_state));
-        if(ret < 0) {
-            logger() << "Failed to update LED state";
-            return;
-        }
-        ::memcpy(&u.state_, &next_state, sizeof(u.state_));
-    }
+    void update(const led_mask & mask);
+    void turn_off();
 
 };
 

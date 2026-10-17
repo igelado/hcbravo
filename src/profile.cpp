@@ -1,363 +1,704 @@
 // SPDX-License-Identifier: LGPL-2.1-only
 //
-// src/profile.cpp
-// XPlane Plugin for HoneyComb Bravo Throttle Controller
-//
-// Copyright (C) 2005 Isaac Gelado
+// Runtime X-Plane dataref bindings built from conf objects.
 
-#include "logger.h"
 #include "profile.h"
+
+#include "conf.h"
+#include "logger.h"
 
 #include <XPLM/XPLMUtilities.h>
 
-#include <exception>
-#include <memory>
-#include <optional>
+#include <string>
+#include <utility>
 
+namespace profile {
 
-static
-std::optional<bool_data_ref::ptr_type>
-make_bool_data_ref(const YAML::Node & node)
+static bool has_type(XPLMDataTypeID type, XPLMDataTypeID expected) noexcept
 {
-    if(!node) return std::nullopt;
-    if(node.IsMap() == false) {
-        auto data = data_ref<bool>::build(node);
-        if(data.has_value() == false) return std::nullopt;
-        return bool_data_ref::ptr_type(new data_ref<bool>(std::move(data.value())));
-    }
-    if(!node["key"]) return std::nullopt;
-    std::string node_type = node["type"] ? node["type"].as<std::string>() : "bool";
-
-    if(node_type == "bool") {
-        auto data = data_ref<bool>::build(node);
-        if(data.has_value() == false) return std::nullopt;
-        return bool_data_ref::ptr_type(new data_ref<bool>(std::move(data.value())));
-    }
-    else if(node_type == "int") {
-        auto data = data_ref<int>::build(node);
-        if(data.has_value() == false) return std::nullopt;
-        return bool_data_ref::ptr_type(new data_ref<int>(std::move(data.value())));
-    }
-    else if(node_type == "float") {
-        auto data = data_ref<float>::build(node);
-        if(data.has_value() == false) return std::nullopt;
-        return bool_data_ref::ptr_type(new data_ref<float>(std::move(data.value())));
-    }
-    return std::nullopt;
+    return (type & expected) != 0;
 }
 
-value_data_ref::value_data_ref(const YAML::Node & node) {
-    if(!node) return;
+base_data_ref::base_data_ref(binding && binding) noexcept :
+    data_ref_(std::move(binding.data_ref)),
+    invert_(binding.invert),
+    index_(binding.index),
+    path_(std::move(binding.path))
+{}
 
-    if(node.IsSequence()) {
-        for(const auto & value : node) {
-            auto data = make_bool_data_ref(value);
-            if(data.has_value()) data_.emplace_back(std::move(data.value()));
+std::expected<base_data_ref::binding, int>
+base_data_ref::bind(const conf::key & key, numeric_type numeric)
+{
+    auto data_ref = XPLMFindDataRef(key.path().c_str());
+    if(data_ref == nullptr) {
+        logger() << "DataRef not found: '" << key.path() << "'";
+        return std::unexpected(0);
+    }
+
+    XPLMDataRefInfo_t info {};
+    info.structSize = sizeof(info);
+    XPLMGetDataRefInfo(data_ref, &info);
+
+    auto index = key.index();
+    const auto select_type = [&](bool array) {
+        const auto integer = array ? xplmType_IntArray : xplmType_Int;
+        const auto floating = array ? xplmType_FloatArray : xplmType_Float;
+        if(numeric == numeric_type::any && has_type(info.type, integer)) return integer;
+        if(has_type(info.type, floating)) return floating;
+        return xplmType_Unknown;
+    };
+    // An explicit index prefers an array; otherwise prefer a supported scalar.
+    // Select the numeric accessor and its shape together so mixed type masks
+    // never result in an unsupported integer-array or float-array read.
+    auto type = select_type(index.has_value());
+    if(type == xplmType_Unknown) type = select_type(!index.has_value());
+    if(type == xplmType_Unknown) {
+        logger() << "DataRef '" << key.path() << "' has no supported "
+                 << (numeric == numeric_type::floating ? "float" : "numeric") << " accessor";
+        return std::unexpected(0);
+    }
+    const bool is_array = type == xplmType_IntArray || type == xplmType_FloatArray;
+    if(is_array && !index) {
+        logger() << "Array DataRef '" << key.path() << "' has no index; using index 0";
+        index = 0;
+    }
+    else if(!is_array && index) {
+        logger() << "Scalar DataRef '" << key.path() << "' ignores index " << *index;
+        index = std::nullopt;
+    }
+
+#if !defined(NDEBUG)
+    if(diagnostics::enabled(diagnostic_category::datarefs)) {
+        debug_logger log;
+        log << "DataRef bound: '" << key.path() << "' type_mask=" << info.type
+            << " accessor_type=" << type
+            << " index=" << (index ? std::to_string(*index) : "scalar")
+            << " invert=" << key.inverted() << " values=[";
+        for(const auto & value : key.values()) log << value << " ";
+        log << "] (empty values means nonzero)";
+    }
+#endif
+
+    return binding { std::move(data_ref), key.inverted(), index, type, key.path() };
+}
+
+bool_data_ref::bool_data_ref(binding && binding, std::vector<int> && values) noexcept :
+    base_data_ref(std::move(binding)),
+    type_(type::integer),
+    integer_values_(std::move(values))
+{}
+
+bool_data_ref::bool_data_ref(binding && binding, std::vector<float> && values) noexcept :
+    base_data_ref(std::move(binding)),
+    type_(type::floating),
+    float_values_(std::move(values))
+{}
+
+std::expected<bool_data_ref::ptr_type, int>
+bool_data_ref::build(const conf::key & key)
+{
+    auto binding = base_data_ref::bind(key);
+    if(!binding) return std::unexpected(binding.error());
+
+    if(has_type(binding->type, xplmType_Int) || has_type(binding->type, xplmType_IntArray)) {
+        std::vector<int> values;
+        try {
+            for(const auto & value : key.values()) {
+                size_t parsed = 0;
+                const int number = std::stoi(value, &parsed);
+                if(parsed != value.size()) throw std::invalid_argument("trailing characters");
+                values.emplace_back(number);
+            }
+        }
+        catch(const std::exception &) {
+            logger() << "DataRef '" << key.path() << "' has a value incompatible with its integer type";
+            return std::unexpected(0);
+        }
+        return ptr_type(new bool_data_ref(std::move(binding.value()), std::move(values)));
+    }
+
+    if(has_type(binding->type, xplmType_Float) || has_type(binding->type, xplmType_FloatArray)) {
+        std::vector<float> values;
+        try {
+            for(const auto & value : key.values()) {
+                size_t parsed = 0;
+                const float number = std::stof(value, &parsed);
+                if(parsed != value.size()) throw std::invalid_argument("trailing characters");
+                values.emplace_back(number);
+            }
+        }
+        catch(const std::exception &) {
+            logger() << "DataRef '" << key.path() << "' has a value incompatible with its float type";
+            return std::unexpected(0);
+        }
+        return ptr_type(new bool_data_ref(std::move(binding.value()), std::move(values)));
+    }
+
+    logger() << "DataRef '" << key.path() << "' has an unsupported type";
+    return std::unexpected(0);
+}
+
+bool
+bool_data_ref::is_set() const noexcept
+{
+    return read().result;
+}
+
+bool_data_ref::sample
+bool_data_ref::read() const noexcept
+{
+    if(type_ == type::integer) {
+        int value = 0;
+        int count = 1;
+        if(index_) count = XPLMGetDatavi(data_ref_, &value, *index_, 1);
+        else value = XPLMGetDatai(data_ref_);
+
+        bool result = value != 0;
+        if(!integer_values_.empty()) {
+            result = false;
+            for(const auto expected : integer_values_) {
+                if(value == expected) {
+                    result = true;
+                    break;
+                }
+            }
+        }
+        result = invert_ ? !result : result;
+        return {static_cast<double>(value), count, result};
+    }
+
+    float value = 0.0f;
+    int count = 1;
+    if(index_) count = XPLMGetDatavf(data_ref_, &value, *index_, 1);
+    else value = XPLMGetDataf(data_ref_);
+
+    bool result = value != 0.0f;
+    if(!float_values_.empty()) {
+        result = false;
+        for(const auto expected : float_values_) {
+            if(value == expected) {
+                result = true;
+                break;
+            }
         }
     }
-    else {
-        auto data = make_bool_data_ref(node);
-        if(data.has_value()) data_.emplace_back(std::move(data.value()));
-    }
+    result = invert_ ? !result : result;
+    return {value, count, result};
 }
 
-airspeed_data_ref::airspeed_data_ref(
-    XPLMDataRef && is_mach, data_ref<float> && value
-) noexcept :
+#if !defined(NDEBUG)
+bool
+bool_data_ref::dump_state() const noexcept
+{
+    const auto value = read();
+    debug_logger log;
+    log << "[DataRef debug] DataRef '" << path_ << "' index="
+             << (index_ ? std::to_string(*index_) : "scalar")
+             << " reader=" << (type_ == type::integer ? "int" : "float")
+             << " raw=" << value.raw << " count=" << value.count
+             << " invert=" << invert_ << " result=" << value.result
+             << (value.count == 1 ? "" : " READ FAILED; using zero-initialized value")
+             << " values=[";
+    if(type_ == type::integer) {
+        for(const auto expected : integer_values_) log << expected << " ";
+    }
+    else {
+        for(const auto expected : float_values_) log << expected << " ";
+    }
+    log << "] (empty values means nonzero)";
+    return value.result;
+}
+#endif
+
+float_data_ref::float_data_ref(binding && binding) noexcept :
+    base_data_ref(std::move(binding))
+{}
+
+std::expected<float_data_ref, int>
+float_data_ref::build(const conf::key & key)
+{
+    auto binding = base_data_ref::bind(key, numeric_type::floating);
+    if(!binding) return std::unexpected(binding.error());
+    if(!has_type(binding->type, xplmType_Float) && !has_type(binding->type, xplmType_FloatArray)) {
+        logger() << "DataRef '" << key.path() << "' is not a float DataRef";
+        return std::unexpected(0);
+    }
+    return float_data_ref(std::move(binding.value()));
+}
+
+float
+float_data_ref::get() const noexcept
+{
+    float value = 0.0f;
+    if(index_) {
+        if(XPLMGetDatavf(data_ref_, &value, *index_, 1) != 1) {
+            logger() << "Failed to read indexed float DataRef at " << *index_;
+        }
+    }
+    else value = XPLMGetDataf(data_ref_);
+#if !defined(NDEBUG)
+    if(diagnostic_scope::enabled(diagnostic_category::datarefs)) {
+        debug_logger() << "[DataRef debug] Float read '" << path_ << "' raw=" << value;
+    }
+#endif
+    return value;
+}
+
+void
+float_data_ref::set(float value) const noexcept
+{
+    if(index_) XPLMSetDatavf(data_ref_, &value, *index_, 1);
+    else XPLMSetDataf(data_ref_, value);
+#if !defined(NDEBUG)
+    if(diagnostic_scope::enabled(diagnostic_category::datarefs)) {
+        debug_logger() << "[DataRef debug] Float write '" << path_ << "' value=" << value;
+    }
+#endif
+}
+
+value_data_ref::value_data_ref(std::vector<bool_data_ref::ptr_type> && data) noexcept :
+    data_(std::move(data))
+{}
+
+std::expected<value_data_ref, int>
+value_data_ref::build(const conf::value & value)
+{
+    std::vector<bool_data_ref::ptr_type> data;
+    for(const auto & key : value.keys()) {
+        auto bound = bool_data_ref::build(key);
+        if(!bound) return std::unexpected(bound.error());
+        data.emplace_back(std::move(bound.value()));
+    }
+    if(data.empty()) {
+        logger() << "DataRef value has no entries";
+        return std::unexpected(0);
+    }
+    return value_data_ref(std::move(data));
+}
+
+bool
+value_data_ref::is_set() const noexcept
+{
+    for(const auto & data : data_) {
+        if(data->is_set()) return true;
+    }
+    return false;
+}
+
+airspeed_data_ref::airspeed_data_ref(bool_data_ref::ptr_type && is_mach,
+                                     float_data_ref && value) noexcept :
     is_mach_(std::move(is_mach)),
     value_(std::move(value))
 {}
 
 std::expected<airspeed_data_ref, int>
-airspeed_data_ref::build(const YAML::Node & node) {
-    if(!node.IsMap()) {
-        logger() << "IAS node has invalid format";
+airspeed_data_ref::build(const conf::airspeed & airspeed)
+{
+    auto is_mach = bool_data_ref::build(airspeed.is_mach());
+    if(!is_mach) return std::unexpected(is_mach.error());
+    if(airspeed.value().keys().size() != 1) {
+        logger() << "IAS value must contain exactly one DataRef";
         return std::unexpected(0);
     }
-    else if(!node["is_mach"]) {
-        logger() << "IAS missing Mach node";
-        return std::unexpected(0);
-    }
-    else if(!node["value"]) {
-        logger() << "IAS missing Value npde";
-        return std::unexpected(0);
-    }
-    
-    auto is_mach = XPLMFindDataRef(node["is_mach"].as<std::string>().c_str());
-    if(is_mach == nullptr) {
-        logger() << "Invalid IAS Mach node";
-        return std::unexpected(0);
-    }
+    auto value = float_data_ref::build(airspeed.value().keys().front());
+    if(!value) return std::unexpected(value.error());
+    return airspeed_data_ref(std::move(is_mach.value()), std::move(value.value()));
+}
 
-    auto value = data_ref<float>::build(node["value"]);
-    if(!value.has_value()) {
-        logger() << "Invalid IAS Value node";
+airspeed_unit
+airspeed_data_ref::unit() const noexcept
+{
+    return is_mach_->is_set() ? airspeed_unit::Mach : airspeed_unit::Knots;
+}
+
+static std::expected<float_data_ref, int>
+build_float_value(const conf::value & value)
+{
+    if(value.keys().size() != 1) {
+        logger() << "Autopilot dial value must contain exactly one DataRef";
         return std::unexpected(0);
     }
+    return float_data_ref::build(value.keys().front());
+}
 
-    return airspeed_data_ref(std::move(is_mach), std::move(value.value())); 
+static std::expected<std::optional<float_data_ref>, int>
+build_optional_float_value(const std::optional<conf::value> & value)
+{
+    if(!value) return std::optional<float_data_ref> {};
+    auto bound = build_float_value(*value);
+    if(!bound) return std::unexpected(bound.error());
+    return std::optional<float_data_ref>(std::move(bound.value()));
 }
 
 template<typename T>
-static inline
-std::optional<data_ref<T>>
-build_optional_data_ref(const YAML::Node & node, const std::string & key)
+static std::expected<std::optional<T>, int>
+build_optional_value(const std::optional<conf::value> & value)
 {
-    logger() << "Checking for '" << key << "'";
-    if(!node.IsMap() or !node[key]) {
-        logger() << "Key '" << key << "' not found in: " << node;
-        return std::nullopt;
-    }
-    auto ret = data_ref<T>::build(node[key]);
-    if(ret.has_value() == false) {
-        logger() << "DataRef in '" << node << "' not found";
-        return std::nullopt;
-    }
-    return std::optional(std::move(ret.value()));
+    if(!value) return std::optional<T> {};
+    auto bound = T::build(*value);
+    if(!bound) return std::unexpected(bound.error());
+    return std::optional<T>(std::move(bound.value()));
 }
 
-template<typename T>
-static inline
-std::optional<data_ref<T>>
-build_optional_data_ref(const YAML::Node & node, const std::string & key,
-        const std::string & alias)
-{
-    auto ret = build_optional_data_ref<T>(node, key);
-    if(ret.has_value()) return ret;
-    return build_optional_data_ref<T>(node, alias);
-}
-
-autopilot_dial_data_ref::autopilot_dial_data_ref(std::optional<airspeed_data_ref> && ias, const YAML::Node & node) :
-    ias_(std::move(ias)),
-    course_(build_optional_data_ref<float>(node, "crs", "course")),
-    heading_(build_optional_data_ref<float>(node, "hdg", "heading")),
-    vs_(build_optional_data_ref<float>(node, "vs")),
-    alt_(build_optional_data_ref<float>(node, "alt"))
+autopilot_dial_data_ref::autopilot_dial_data_ref(
+    std::optional<airspeed_data_ref> && ias, std::optional<float_data_ref> && course,
+    std::optional<float_data_ref> && heading, std::optional<float_data_ref> && vs,
+    std::optional<float_data_ref> && alt
+) noexcept :
+    ias_(std::move(ias)), course_(std::move(course)), heading_(std::move(heading)),
+    vs_(std::move(vs)), alt_(std::move(alt))
 {}
 
 std::expected<autopilot_dial_data_ref, int>
-autopilot_dial_data_ref::build(const YAML::Node & node)
+autopilot_dial_data_ref::build(const conf::autopilot_dial & dials)
 {
-    logger() << "Reading Autopilot Dials";
-    if(node.IsMap() == false) {
-        logger() << "Invalid Autopilot Configuration";
-        return std::unexpected(0);
+    std::optional<airspeed_data_ref> ias;
+    if(dials.ias()) {
+        auto bound = airspeed_data_ref::build(*dials.ias());
+        if(!bound) return std::unexpected(bound.error());
+        ias.emplace(std::move(bound.value()));
     }
 
-    logger() << "Checking if IAS Dial is defined";
-    if(node["ias"]) {
-        auto ias = airspeed_data_ref::build(node["ias"]);
-        if(ias.has_value() == false) {
-            logger() << "Invalid IAS Dial Configuration";
-            return std::unexpected(0);
-        }
-        return autopilot_dial_data_ref(std::move(ias.value()), node);
-    }
-    return autopilot_dial_data_ref(std::nullopt, node);
+    auto course = build_optional_float_value(dials.course());
+    if(!course) return std::unexpected(course.error());
+    auto heading = build_optional_float_value(dials.heading());
+    if(!heading) return std::unexpected(heading.error());
+    auto vs = build_optional_float_value(dials.vs());
+    if(!vs) return std::unexpected(vs.error());
+    auto alt = build_optional_float_value(dials.alt());
+    if(!alt) return std::unexpected(alt.error());
+
+    return autopilot_dial_data_ref(
+        std::move(ias), std::move(course.value()), std::move(heading.value()),
+        std::move(vs.value()), std::move(alt.value())
+    );
 }
 
-autopilot_mode_data_ref::autopilot_mode_data_ref(const YAML::Node & node) :
-    hdg_(node["hdg"] ? std::optional(value_data_ref(node["hdg"])) : std::nullopt),
-    nav_(node["nav"] ? std::optional(value_data_ref(node["nav"])) : std::nullopt),
-    apr_(node["apr"] ? std::optional(value_data_ref(node["apr"])) : std::nullopt),
-    rev_(node["rev"] ? std::optional(value_data_ref(node["rev"])) : std::nullopt),
-    alt_(node["alt"] ? std::optional(value_data_ref(node["alt"])) : std::nullopt),
-    vs_ (node["vs"] ? std::optional(value_data_ref(node["vs"])) : std::nullopt),
-    ias_(node["ias"] ? std::optional(value_data_ref(node["ias"])) : std::nullopt),
-    ap_(node["ap"])
+autopilot_mode_data_ref::autopilot_mode_data_ref(
+    std::optional<value_data_ref> && hdg, std::optional<value_data_ref> && nav,
+    std::optional<value_data_ref> && apr, std::optional<value_data_ref> && rev,
+    std::optional<value_data_ref> && alt, std::optional<value_data_ref> && vs,
+    std::optional<value_data_ref> && ias, value_data_ref && ap
+) noexcept :
+    hdg_(std::move(hdg)), nav_(std::move(nav)), apr_(std::move(apr)), rev_(std::move(rev)),
+    alt_(std::move(alt)), vs_(std::move(vs)), ias_(std::move(ias)), ap_(std::move(ap))
 {}
 
 std::expected<autopilot_mode_data_ref, int>
-autopilot_mode_data_ref::build(const YAML::Node & node)
+autopilot_mode_data_ref::build(const conf::autopilot_mode & modes)
 {
-    logger() << "Reading Autopilot Modes";
-    // Only the AP annunciator is required
-    if(!node["ap"]) return std::unexpected(1);
-    
-    auto ret = autopilot_mode_data_ref(node);
-    if(ret.ap_.empty()) {
-        logger() << "Invalid Autopilot AP DataRef Configuration";
-        return std::unexpected(0);
-    }
-    return ret;
+    auto hdg = build_optional_value<value_data_ref>(modes.hdg());
+    if(!hdg) return std::unexpected(hdg.error());
+    auto nav = build_optional_value<value_data_ref>(modes.nav());
+    if(!nav) return std::unexpected(nav.error());
+    auto apr = build_optional_value<value_data_ref>(modes.apr());
+    if(!apr) return std::unexpected(apr.error());
+    auto rev = build_optional_value<value_data_ref>(modes.rev());
+    if(!rev) return std::unexpected(rev.error());
+    auto alt = build_optional_value<value_data_ref>(modes.alt());
+    if(!alt) return std::unexpected(alt.error());
+    auto vs = build_optional_value<value_data_ref>(modes.vs());
+    if(!vs) return std::unexpected(vs.error());
+    auto ias = build_optional_value<value_data_ref>(modes.ias());
+    if(!ias) return std::unexpected(ias.error());
+    auto ap = value_data_ref::build(modes.ap());
+    if(!ap) return std::unexpected(ap.error());
+
+    return autopilot_mode_data_ref(
+        std::move(hdg.value()), std::move(nav.value()), std::move(apr.value()),
+        std::move(rev.value()), std::move(alt.value()), std::move(vs.value()),
+        std::move(ias.value()), std::move(ap.value())
+    );
 }
 
+std::optional<bool> autopilot_mode_data_ref::hdg() const noexcept { return hdg_.transform(&value_data_ref::is_set); }
+std::optional<bool> autopilot_mode_data_ref::nav() const noexcept { return nav_.transform(&value_data_ref::is_set); }
+std::optional<bool> autopilot_mode_data_ref::apr() const noexcept { return apr_.transform(&value_data_ref::is_set); }
+std::optional<bool> autopilot_mode_data_ref::rev() const noexcept { return rev_.transform(&value_data_ref::is_set); }
+std::optional<bool> autopilot_mode_data_ref::alt() const noexcept { return alt_.transform(&value_data_ref::is_set); }
+std::optional<bool> autopilot_mode_data_ref::vs() const noexcept { return vs_.transform(&value_data_ref::is_set); }
+std::optional<bool> autopilot_mode_data_ref::ias() const noexcept { return ias_.transform(&value_data_ref::is_set); }
 
-autopilot_data_ref::autopilot_data_ref(
-    autopilot_mode_data_ref && mode,
-    std::optional<autopilot_dial_data_ref> && dials
-) noexcept :
-    mode_(std::move(mode)),
-    dials_(std::move(dials))
+autopilot_data_ref::autopilot_data_ref(autopilot_mode_data_ref && mode,
+                                       std::optional<autopilot_dial_data_ref> && dials) noexcept :
+    mode_(std::move(mode)), dials_(std::move(dials))
 {}
 
 std::expected<autopilot_data_ref, int>
-autopilot_data_ref::build(const YAML::Node & node)
+autopilot_data_ref::build(const conf::autopilot & autopilot)
 {
-    if(!node["modes"]) {
-        logger() << "No modes defined for Autopilot";
-        return std::unexpected(0);
+    auto mode = autopilot_mode_data_ref::build(autopilot.mode());
+    if(!mode) return std::unexpected(mode.error());
+    std::optional<autopilot_dial_data_ref> dials;
+    if(autopilot.dials()) {
+        auto bound = autopilot_dial_data_ref::build(*autopilot.dials());
+        if(!bound) return std::unexpected(bound.error());
+        dials.emplace(std::move(bound.value()));
     }
-    auto mode = autopilot_mode_data_ref::build(node["modes"]);
-    if(mode.has_value() == false) {
-        logger() << "Invalid Autopilot Modes Configuration";
-        return std::unexpected(0);
-    }
-
-    if(node["dials"]) {
-        auto dial = autopilot_dial_data_ref::build(node["dials"]);
-        if(dial.has_value() == false) {
-            logger() << "Invalid Autopilot Dials Configuration";
-            return std::unexpected(0);
-        }
-
-        return autopilot_data_ref(std::move(mode.value()), std::move(dial.value()));
-    }
-
-    return autopilot_data_ref(std::move(mode.value()), std::nullopt);
+    return autopilot_data_ref(std::move(mode.value()), std::move(dials));
 }
 
-system_data_ref::system_data_ref(const YAML::Node & node) :
-    volts_(node["volts"]),
-    gear_(node["gear"] ? std::optional(value_data_ref(node["gear"])) : std::nullopt)
+gear_signals_data_ref::gear_signals_data_ref(value_data_ref && safe, value_data_ref && unsafe) noexcept :
+    safe_(std::move(safe)), unsafe_(std::move(unsafe))
+{}
+
+std::expected<gear_signals_data_ref, int>
+gear_signals_data_ref::build(const conf::gear_signals & signals)
+{
+    auto safe = value_data_ref::build(signals.safe());
+    if(!safe) return std::unexpected(safe.error());
+    auto unsafe = value_data_ref::build(signals.unsafe());
+    if(!unsafe) return std::unexpected(unsafe.error());
+    return gear_signals_data_ref(std::move(safe.value()), std::move(unsafe.value()));
+}
+
+gear_state
+gear_signals_data_ref::state() const noexcept
+{
+    if(safe_.is_set()) return gear_state::safe;
+    if(unsafe_.is_set()) return gear_state::unsafe;
+    return gear_state::up;
+}
+
+gear_data_ref::gear_data_ref(gear_signals_data_ref && left, gear_signals_data_ref && nose,
+                             gear_signals_data_ref && right) noexcept :
+    left_(std::move(left)), nose_(std::move(nose)), right_(std::move(right))
+{}
+
+std::expected<gear_data_ref, int>
+gear_data_ref::build(const conf::gear & gear)
+{
+    auto left = gear_signals_data_ref::build(gear.left());
+    if(!left) return std::unexpected(left.error());
+    auto nose = gear_signals_data_ref::build(gear.nose());
+    if(!nose) return std::unexpected(nose.error());
+    auto right = gear_signals_data_ref::build(gear.right());
+    if(!right) return std::unexpected(right.error());
+    return gear_data_ref(std::move(left.value()), std::move(nose.value()), std::move(right.value()));
+}
+
+system_data_ref::system_data_ref(value_data_ref && volts, std::optional<gear_data_ref> && gear) noexcept :
+    volts_(std::move(volts)), gear_(std::move(gear))
 {}
 
 std::expected<system_data_ref, int>
-system_data_ref::build(const YAML::Node & node)
+system_data_ref::build(const conf::system & system)
 {
-    // Only the AP annunciator is required
-    if(!node["volts"]) return std::unexpected(1);
-    auto ret = system_data_ref(node);
-    if(ret.volts_.empty()) {
-        logger() << "Invalid System Volts DataRef Configuration";
-        return std::unexpected(0);
+    auto volts = value_data_ref::build(system.volts());
+    if(!volts) return std::unexpected(volts.error());
+    std::optional<gear_data_ref> gear;
+    if(system.gear()) {
+        auto bound = gear_data_ref::build(*system.gear());
+        if(!bound) return std::unexpected(bound.error());
+        gear.emplace(std::move(bound.value()));
     }
-    return ret;
+    return system_data_ref(std::move(volts.value()), std::move(gear));
 }
 
-
-
-annunciator_data_ref::annunciator_data_ref(const YAML::Node & node) :
-    master_warn_(node["master_warn"] ? std::optional(value_data_ref(node["master_warn"])) : std::nullopt),
-    eng_fire_(node["eng_fire"] ? std::optional(value_data_ref(node["eng_fire"])) : std::nullopt),
-    oil_low_(node["oil_low"] ? std::optional(value_data_ref(node["oil_low"])) : std::nullopt),
-    fuel_low_(node["fuel_low"] ? std::optional(value_data_ref(node["fuel_low"])) : std::nullopt),
-    anti_ice_(node["anti_ice"] ? std::optional(value_data_ref(node["anti_ice"])) : std::nullopt),
-    starter_(node["starter"] ? std::optional(value_data_ref(node["starter"])) : std::nullopt),
-    apu_(node["apu"] ? std::optional(value_data_ref(node["apu"])) : std::nullopt),
-    master_caution_(node["master_caution"] ? std::optional(value_data_ref(node["master_caution"])) : std::nullopt),
-    vacuum_low_(node["vacuum_low"] ? std::optional(value_data_ref(node["vacuum_low"])) : std::nullopt),
-    hydro_low_(node["hydro_low"] ? std::optional(value_data_ref(node["hydro_low"])) : std::nullopt),
-    aux_fuel_(node["aux_fuel"] ? std::optional(value_data_ref(node["aux_fuel"])) : std::nullopt),
-    parking_brake_(node["parking_brake"] ? std::optional(value_data_ref(node["parking_brake"])) : std::nullopt),
-    volt_low_(node["volt_low"] ? std::optional(value_data_ref(node["volt_low"])) : std::nullopt),
-    door_open_(node["door_open"] ? std::optional(value_data_ref(node["door_open"])) : std::nullopt)
+annunciator_data_ref::annunciator_data_ref(
+    std::optional<value_data_ref> && master_warn, std::optional<value_data_ref> && eng_fire,
+    std::optional<value_data_ref> && oil_low, std::optional<value_data_ref> && fuel_low,
+    std::optional<value_data_ref> && anti_ice, std::optional<value_data_ref> && starter,
+    std::optional<value_data_ref> && apu, std::optional<value_data_ref> && master_caution,
+    std::optional<value_data_ref> && vacuum_low, std::optional<value_data_ref> && hydro_low,
+    std::optional<value_data_ref> && aux_fuel, std::optional<value_data_ref> && parking_brake,
+    std::optional<value_data_ref> && volt_low, std::optional<value_data_ref> && door_open
+) noexcept :
+    master_warn_(std::move(master_warn)), eng_fire_(std::move(eng_fire)), oil_low_(std::move(oil_low)),
+    fuel_low_(std::move(fuel_low)), anti_ice_(std::move(anti_ice)), starter_(std::move(starter)),
+    apu_(std::move(apu)), master_caution_(std::move(master_caution)), vacuum_low_(std::move(vacuum_low)),
+    hydro_low_(std::move(hydro_low)), aux_fuel_(std::move(aux_fuel)), parking_brake_(std::move(parking_brake)),
+    volt_low_(std::move(volt_low)), door_open_(std::move(door_open))
 {}
 
 std::expected<annunciator_data_ref, int>
-annunciator_data_ref::build(const YAML::Node & node)
+annunciator_data_ref::build(const conf::annunciator & annunciator)
 {
-    logger() << "Reading Annunciator";
-    return annunciator_data_ref(node);
+    auto master_warn = build_optional_value<value_data_ref>(annunciator.master_warn());
+    auto eng_fire = build_optional_value<value_data_ref>(annunciator.eng_fire());
+    auto oil_low = build_optional_value<value_data_ref>(annunciator.oil_low());
+    auto fuel_low = build_optional_value<value_data_ref>(annunciator.fuel_low());
+    auto anti_ice = build_optional_value<value_data_ref>(annunciator.anti_ice());
+    auto starter = build_optional_value<value_data_ref>(annunciator.starter());
+    auto apu = build_optional_value<value_data_ref>(annunciator.apu());
+    auto master_caution = build_optional_value<value_data_ref>(annunciator.master_caution());
+    auto vacuum_low = build_optional_value<value_data_ref>(annunciator.vacuum_low());
+    auto hydro_low = build_optional_value<value_data_ref>(annunciator.hydro_low());
+    auto aux_fuel = build_optional_value<value_data_ref>(annunciator.aux_fuel());
+    auto parking_brake = build_optional_value<value_data_ref>(annunciator.parking_brake());
+    auto volt_low = build_optional_value<value_data_ref>(annunciator.volt_low());
+    auto door_open = build_optional_value<value_data_ref>(annunciator.door_open());
+    if(!master_warn || !eng_fire || !oil_low || !fuel_low || !anti_ice || !starter || !apu ||
+       !master_caution || !vacuum_low || !hydro_low || !aux_fuel || !parking_brake ||
+       !volt_low || !door_open) {
+        return std::unexpected(0);
+    }
+    return annunciator_data_ref(
+        std::move(master_warn.value()), std::move(eng_fire.value()), std::move(oil_low.value()),
+        std::move(fuel_low.value()), std::move(anti_ice.value()), std::move(starter.value()),
+        std::move(apu.value()), std::move(master_caution.value()), std::move(vacuum_low.value()),
+        std::move(hydro_low.value()), std::move(aux_fuel.value()), std::move(parking_brake.value()),
+        std::move(volt_low.value()), std::move(door_open.value())
+    );
 }
 
+std::optional<bool> annunciator_data_ref::master_warn() const noexcept { return master_warn_.transform(&value_data_ref::is_set); }
+std::optional<bool> annunciator_data_ref::eng_fire() const noexcept { return eng_fire_.transform(&value_data_ref::is_set); }
+std::optional<bool> annunciator_data_ref::oil_low() const noexcept { return oil_low_.transform(&value_data_ref::is_set); }
+std::optional<bool> annunciator_data_ref::fuel_low() const noexcept { return fuel_low_.transform(&value_data_ref::is_set); }
+std::optional<bool> annunciator_data_ref::anti_ice() const noexcept { return anti_ice_.transform(&value_data_ref::is_set); }
+std::optional<bool> annunciator_data_ref::starter() const noexcept { return starter_.transform(&value_data_ref::is_set); }
+std::optional<bool> annunciator_data_ref::apu() const noexcept { return apu_.transform(&value_data_ref::is_set); }
+std::optional<bool> annunciator_data_ref::master_caution() const noexcept { return master_caution_.transform(&value_data_ref::is_set); }
+std::optional<bool> annunciator_data_ref::vacuum_low() const noexcept { return vacuum_low_.transform(&value_data_ref::is_set); }
+std::optional<bool> annunciator_data_ref::hydro_low() const noexcept { return hydro_low_.transform(&value_data_ref::is_set); }
+std::optional<bool> annunciator_data_ref::aux_fuel() const noexcept { return aux_fuel_.transform(&value_data_ref::is_set); }
+std::optional<bool> annunciator_data_ref::parking_brake() const noexcept { return parking_brake_.transform(&value_data_ref::is_set); }
+std::optional<bool> annunciator_data_ref::volt_low() const noexcept { return volt_low_.transform(&value_data_ref::is_set); }
+std::optional<bool> annunciator_data_ref::door_open() const noexcept { return door_open_.transform(&value_data_ref::is_set); }
 
-profile::profile(std::string && name,
-    std::vector<std::string> && aircrafts, std::vector<std::string> && models, 
-    system_data_ref && system, std::optional<autopilot_data_ref> && autopilot,
-    std::optional<annunciator_data_ref> && annunciator
-) noexcept :
-    name_(std::move(name)),
-    aircrafts_(std::move(aircrafts)),
-    models_(std::move(models)),
-    system_(std::move(system)),
-    autopilot_(std::move(autopilot)),
-    annunciator_(std::move(annunciator))
+configuration::configuration(system_data_ref && system, std::optional<autopilot_data_ref> && autopilot,
+                             std::optional<annunciator_data_ref> && annunciator) noexcept :
+    system_(std::move(system)), autopilot_(std::move(autopilot)), annunciator_(std::move(annunciator))
 {}
 
-std::expected<profile::ptr_type, int>
-profile::from_yaml(const std::string & path) noexcept {
-    try {
-        logger() << "Loading YAML File " << path;
-        YAML::Node node = YAML::LoadFile(path);
-
-        if(!node["name"]) {
-            logger() << "Profile does not include a name";
-            return std::unexpected(0);
-        }
-        
-        std::vector<std::string> aircrafts;
-        if(!node["aircrafts"] or node["aircrafts"].IsSequence() == false) {
-            logger() << "Profile does not include supported aircrafts";
-        }
-        else {
-            for(const auto & aircraft : node["aircrafts"]) {
-                if(aircraft.Type() != YAML::NodeType::Scalar) {
-                    logger() << "Invalid Aircraft '" << node << "'";
-                    continue;
-                }
-                aircrafts.emplace_back(aircraft.as<std::string>());
-            }
-        }
-
-        if(!node["models"] or node["models"].IsSequence() == false) {
-            logger() << "Profile does not include supported models";
-            return std::unexpected(0);
-        }
-        std::vector<std::string> models;
-        for(const auto & model : node["models"]) {
-            if(model.Type() != YAML::NodeType::Scalar) {
-                logger() << "Invalid Model '" << node << "'";
-                continue;
-            }
-            models.emplace_back(model.as<std::string>());
-        }
-        if(models.empty()) {
-            logger() << "No models defined for this profile";
-            return std::unexpected(0);
-        }
-
-        logger() << "Reading System Configuration";
-        if(!node["system"]) return std::unexpected(0);
-        auto system = system_data_ref::build(node["system"]);
-        if(system.has_value() == false) return std::unexpected(0);
-
-        logger() << "Reading Autopilot Configuration";
-        std::optional<autopilot_data_ref> autopilot;
-        if(node["autopilot"]) {
-            auto ap_ret = autopilot_data_ref::build(node["autopilot"]);
-            if(ap_ret.has_value() == false) {
-                logger() << "Invalid Autopilot Configuration";
-                return std::unexpected(0);
-            }
-            autopilot = std::move(ap_ret.value());
-        }
-
-        logger() << "Reading Annunciator Configuration";
-        std::optional<annunciator_data_ref> annunciator;
-        if(node["annunciator"]) {
-            auto ann_ret = annunciator_data_ref::build(node["annunciator"]);
-            if(ann_ret.has_value() == false) {
-                logger() << "Invalid Annunciator Configuration";
-                return std::unexpected(0);
-            }
-            annunciator = std::move(ann_ret.value());
-        }
-
-        return profile_ptr(new profile(
-            node["name"].as<std::string>(),
-            std::move(aircrafts),
-            std::move(models),
-            std::move(system.value()),
-            std::move(autopilot),
-            std::move(annunciator)
-        ));
+std::expected<configuration::ptr_type, int>
+configuration::build(const conf::configuration & source)
+{
+    auto system = system_data_ref::build(source.system());
+    if(!system) return std::unexpected(system.error());
+    std::optional<autopilot_data_ref> autopilot;
+    if(source.autopilot()) {
+        auto bound = autopilot_data_ref::build(*source.autopilot());
+        if(!bound) return std::unexpected(bound.error());
+        autopilot.emplace(std::move(bound.value()));
     }
-    catch(const YAML::Exception & ex) {
-        logger() << "Failed to parse YAML file '" << path << "': " << ex.what();
+    std::optional<annunciator_data_ref> annunciator;
+    if(source.annunciator()) {
+        auto bound = annunciator_data_ref::build(*source.annunciator());
+        if(!bound) return std::unexpected(bound.error());
+        annunciator.emplace(std::move(bound.value()));
     }
-    catch(const std::exception & ex) {
-        logger() << "Failed to load YAML file '" << path << "': " << ex.what();
+    return ptr_type(new configuration(
+        std::move(system.value()), std::move(autopilot), std::move(annunciator)
+    ));
+}
+
+#if !defined(NDEBUG)
+bool
+value_data_ref::dump_state(const char * label) const noexcept
+{
+    bool result = false;
+    // Dump every input, including entries skipped by the normal OR evaluation.
+    for(const auto & data : data_) {
+        const bool set = data->dump_state();
+        result = result || set;
     }
-    return std::unexpected(0);
+    debug_logger() << "[State dump] " << label << "=" << result;
+    return result;
+}
+
+void
+float_data_ref::dump_state(const char * label) const noexcept
+{
+    const float value = get();
+    debug_logger() << "[State dump] " << label << "=" << value << " DataRef='" << path_
+        << "' index=" << (index_ ? std::to_string(*index_) : "scalar");
+}
+
+template<typename T>
+static void dump_optional_state(const char * label, const std::optional<T> & value) noexcept
+{
+    if(value) value->dump_state(label);
+    else debug_logger() << "[State dump] " << label << "=unconfigured";
+}
+
+void
+airspeed_data_ref::dump_state() const noexcept
+{
+    const bool mach = is_mach_->dump_state();
+    debug_logger() << "[State dump] autopilot.dials.ias.unit=" << (mach ? "Mach" : "Knots");
+    value_.dump_state("autopilot.dials.ias.value");
+}
+
+void
+autopilot_dial_data_ref::dump_state() const noexcept
+{
+    dump_optional_state("autopilot.dials.course", course_);
+    dump_optional_state("autopilot.dials.heading", heading_);
+    dump_optional_state("autopilot.dials.vs", vs_);
+    dump_optional_state("autopilot.dials.alt", alt_);
+    if(ias_) ias_->dump_state();
+    else debug_logger() << "[State dump] autopilot.dials.ias=unconfigured";
+}
+
+void
+autopilot_mode_data_ref::dump_state() const noexcept
+{
+    ap_.dump_state("autopilot.mode.ap");
+    dump_optional_state("autopilot.mode.hdg", hdg_);
+    dump_optional_state("autopilot.mode.nav", nav_);
+    dump_optional_state("autopilot.mode.apr", apr_);
+    dump_optional_state("autopilot.mode.rev", rev_);
+    dump_optional_state("autopilot.mode.alt", alt_);
+    dump_optional_state("autopilot.mode.vs", vs_);
+    dump_optional_state("autopilot.mode.ias", ias_);
+}
+
+void
+autopilot_data_ref::dump_state() const noexcept
+{
+    mode_.dump_state();
+    if(dials_) dials_->dump_state();
+    else debug_logger() << "[State dump] autopilot.dials=unconfigured";
+}
+
+gear_state
+gear_signals_data_ref::dump_state(const char * label) const noexcept
+{
+    const bool safe = safe_.dump_state((std::string(label) + ".safe").c_str());
+    const bool unsafe = unsafe_.dump_state((std::string(label) + ".unsafe").c_str());
+    const auto result = safe ? gear_state::safe : unsafe ? gear_state::unsafe : gear_state::up;
+    debug_logger() << "[State dump] " << label << "="
+        << (safe ? "green" : unsafe ? "red" : "off") << " (safe takes priority over unsafe)";
+    return result;
+}
+
+void
+gear_data_ref::dump_state() const noexcept
+{
+    left_.dump_state("gear.left");
+    nose_.dump_state("gear.nose");
+    right_.dump_state("gear.right");
+}
+
+void
+system_data_ref::dump_state() const noexcept
+{
+    const bool powered = volts_.dump_state("system.volts");
+    debug_logger() << "[State dump] " << (powered ? "LED power enabled" : "All LEDs off: electrical power gate disabled");
+    if(gear_) gear_->dump_state();
+    else debug_logger() << "[State dump] gear=unconfigured";
+}
+
+void
+annunciator_data_ref::dump_state() const noexcept
+{
+    dump_optional_state("annunciator.master_warn", master_warn_);
+    dump_optional_state("annunciator.eng_fire", eng_fire_);
+    dump_optional_state("annunciator.oil_low", oil_low_);
+    dump_optional_state("annunciator.fuel_low", fuel_low_);
+    dump_optional_state("annunciator.anti_ice", anti_ice_);
+    dump_optional_state("annunciator.starter", starter_);
+    dump_optional_state("annunciator.apu", apu_);
+    dump_optional_state("annunciator.master_caution", master_caution_);
+    dump_optional_state("annunciator.vacuum_low", vacuum_low_);
+    dump_optional_state("annunciator.hydro_low", hydro_low_);
+    dump_optional_state("annunciator.aux_fuel", aux_fuel_);
+    dump_optional_state("annunciator.parking_brake", parking_brake_);
+    dump_optional_state("annunciator.volt_low", volt_low_);
+    dump_optional_state("annunciator.door_open", door_open_);
+}
+#endif
+
 }
