@@ -25,9 +25,15 @@ CPMAddPackage(
     URI "gh:jbeder/yaml-cpp#yaml-cpp-0.9.0"
     OPTIONS "YAML_MSVC_SHARED_RT ON"
 )
+CPMAddPackage(
+    NAME XPlaneSDK
+    VERSION 4.3.0
+    URL "https://developer.x-plane.com/wp-content/plugins/code-sample-generation/sdk_zip_files/XPSDK430.zip"
+    URL_HASH SHA256=b9875ab27b593927b4f9b3e0ddfffe7401ee5dce6d86b50aea0da65f70ff7816
+    DOWNLOAD_ONLY YES
+)
 
 set(hcbravo_SRC ${PROJECT_SOURCE_DIR}/src)
-set(hcbravo_EXT ${PROJECT_SOURCE_DIR}/ext)
 
 add_library(hcbravo-conf STATIC ${hcbravo_SRC}/conf.cpp)
 set_target_properties(hcbravo-conf PROPERTIES POSITION_INDEPENDENT_CODE ON)
@@ -50,26 +56,28 @@ target_sources(hcbravo PRIVATE
 if(WIN32)
     target_compile_definitions(hcbravo PRIVATE IBM)
     target_compile_definitions(hcbravo PRIVATE _CRT_SECURE_NO_WARNINGS)
-    target_link_libraries(hcbravo PRIVATE ${hcbravo_EXT}/XPSDK411/SDK/Libraries/Win/XPLM_64.lib) 
+    target_link_libraries(hcbravo PRIVATE "${XPlaneSDK_SOURCE_DIR}/Libraries/Win/XPLM_64.lib")
     set(hcbravo_os_DIR win_x64)
 elseif(UNIX)
     if(NOT APPLE)
         target_compile_definitions(hcbravo PRIVATE LIN)
-        target_link_libraries(hcbravo PRIVATE ${hcbravo_EXT}/XPSDK411/SDK/Libraries/Lin/XPLM_64.so) 
+        target_link_libraries(hcbravo PRIVATE "${XPlaneSDK_SOURCE_DIR}/Libraries/Lin/XPLM_64.so")
         set(hcbravo_os_DIR lin_x64)
     elseif(APPLE)
         target_compile_definitions(hcbravo PRIVATE APL)
-        find_library(XPLM_LIB
-            NAME XPLM 
-            PATHS ${hcbravo_EXT}/XPSDK411/SDK/Libraries/Mac
+        find_library(XPlaneSDK_XPLM_LIBRARY
+            NAMES XPLM
+            PATHS "${XPlaneSDK_SOURCE_DIR}/Libraries/Mac"
+            NO_DEFAULT_PATH
+            NO_CACHE
             REQUIRED
         )
-        target_link_libraries(hcbravo PRIVATE ${XPLM_LIB})
+        target_link_libraries(hcbravo PRIVATE "${XPlaneSDK_XPLM_LIBRARY}")
         set(hcbravo_os_DIR mac_x64)
     endif()
 endif()
 target_compile_definitions(hcbravo PRIVATE XPLM200 XPLM210 XPLM300 XPLM400 XPLM410)
-target_include_directories(hcbravo PRIVATE ${hcbravo_EXT}/XPSDK411/SDK/CHeaders hidapi::include ${yaml-cpp_SOURCE_DIR}/include/yaml-cpp)
+target_include_directories(hcbravo PRIVATE "${XPlaneSDK_SOURCE_DIR}/CHeaders" hidapi::include ${yaml-cpp_SOURCE_DIR}/include/yaml-cpp)
 target_link_libraries(hcbravo PRIVATE hidapi::hidapi yaml-cpp::yaml-cpp hcbravo-conf)
 set_target_properties(hcbravo PROPERTIES PREFIX "")
 set_target_properties(hcbravo PROPERTIES SUFFIX ".xpl")

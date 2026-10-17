@@ -173,6 +173,8 @@ As in the case of the autopilot modes, all DataRefs are interpreted as boolean v
  ## Compiling from Source
 
  We use CMake to compile the plugin in all supported Operating Systems.
+ CMake downloads X-Plane SDK 4.3.0 and the other build dependencies through CPM
+ during configuration. The SDK archive is verified against a pinned SHA-256 checksum.
  After installing CMake, you only need to configure, build, and pack the project:
  ```
  mkdir build && cd build
