@@ -466,11 +466,16 @@ TEST_F(runtime_test, plugin_loads_without_device_and_keeps_polling_flight_loop) 
     ASSERT_TRUE(start_plugin());
     EXPECT_NE(xplm_test::log.find("Plugin loaded"), std::string::npos);
     EXPECT_NE(xplm_test::log.find("not detected; will retry"), std::string::npos);
-    EXPECT_GE(xplm_test::schedule_count, 1);
     EXPECT_FALSE(xplm_test::commands.empty());
     EXPECT_FALSE(xplm_test::menu_items.empty());
     state::state::hid_reconnect_interval = std::chrono::seconds(5);
-    EXPECT_EQ(xplm_test::tick(), 5.0f); // no plane yet: keep polling for the device
+    EXPECT_EQ(xplm_test::tick(), state::state::powered_interval); // profile bound; loop keeps running
+    EXPECT_GT(hid_test::open_count, 1); // device polled from the flight loop
+    // A plane without a profile still keeps the loop alive to poll for the device.
+    xplm_test::strings["sim/aircraft/view/acf_ui_name"] = "Unknown";
+    xplm_test::strings["sim/aircraft/view/acf_ICAO"] = "ZZZZ";
+    XPluginReceiveMessage(XPLM_PLUGIN_XPLANE, XPLM_MSG_PLANE_LOADED, nullptr);
+    EXPECT_EQ(xplm_test::tick(), 5.0f);
     xplm_test::log.clear();
     for(int n = 0; n < 5; ++n) xplm_test::tick();
     EXPECT_TRUE(xplm_test::log.empty());
@@ -482,7 +487,7 @@ TEST_F(runtime_test, hot_plugged_device_is_acquired_and_leds_resynchronize) {
     ASSERT_TRUE(start_plugin());
     XPluginReceiveMessage(XPLM_PLUGIN_XPLANE, XPLM_MSG_PLANE_LOADED, nullptr);
     xplm_test::data_refs["laminar/n844x/lights/left_gear_down"].value = 1;
-    EXPECT_EQ(xplm_test::tick(), -1);
+    EXPECT_EQ(xplm_test::tick(), state::state::powered_interval);
     EXPECT_TRUE(hid_test::reports.empty());
     const int attempts = hid_test::open_count;
     EXPECT_GT(attempts, 1); // retried from the flight loop
@@ -495,6 +500,23 @@ TEST_F(runtime_test, hot_plugged_device_is_acquired_and_leds_resynchronize) {
     xplm_test::tick();
     EXPECT_EQ(hid_test::reports.size(), written); // synchronized, no further opens
     EXPECT_EQ(hid_test::open_count, attempts + 1);
+}
+
+TEST_F(runtime_test, disabled_plugin_does_not_poll_or_open_the_device) {
+    hid_test::present = false;
+    ASSERT_TRUE(start_plugin());
+    xplm_test::tick();
+    XPluginDisable();
+    const int opens = hid_test::open_count;
+    hid_test::present = true;
+    xplm_test::tick(); // even a stray callback must not touch HID
+    xplm_test::tick();
+    EXPECT_EQ(hid_test::open_count, opens);
+    EXPECT_TRUE(hid_test::reports.empty());
+    XPluginEnable();
+    xplm_test::tick();
+    EXPECT_GT(hid_test::open_count, opens); // polling resumes on enable
+    EXPECT_NE(xplm_test::log.find("Throttle Detected"), std::string::npos);
 }
 
 TEST_F(runtime_test, repeated_write_failures_close_device_and_reconnect_later) {

@@ -292,11 +292,6 @@ state::init() noexcept
         return std::unexpected(error::error::api_loop);
     }
 
-    if(st->hid_ == nullptr) {
-        XPLMScheduleFlightLoop(st->flight_loop_,
-            std::chrono::duration<float>(hid_reconnect_interval).count(), 1);
-    }
-
     return st;
 }
 
@@ -315,7 +310,8 @@ state::try_open_hid() noexcept
 void
 state::poll_hid() noexcept
 {
-    if(!hid_initialized_) return;
+    // Disabled plugins must not touch the device or poll for it.
+    if(!hid_initialized_ || !enabled_) return;
     if(hid_ != nullptr) {
         if(!leds_.connection_lost()) return;
         logger::info() << "HoneyComb Bravo disconnected after repeated write failures; will retry";
