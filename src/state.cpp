@@ -412,9 +412,9 @@ state::reload()
             config_file_path.string().c_str(),  index, files_buffer, FILES_BUFFER_SIZE,
             files_indexes, FILES_INDEX_SIZE, &total_conf_files, &file_count
         );
-        if(directory_status == 0) {
-            logger::info() << "Configuration directory listing was truncated";
-        }
+        // A status of 0 means the listing did not fit in the buffers; the rest is
+        // fetched by advancing 'index'. Never trust the count beyond our own arrays.
+        if(file_count > static_cast<int>(FILES_INDEX_SIZE)) file_count = static_cast<int>(FILES_INDEX_SIZE);
 #if !defined(NDEBUG)
         if(logger::diagnostics::enabled(logger::diagnostic_category::configuration)) logger::debug() << "[Configuration debug] Read " << (index + file_count) << " file(s) from " << total_conf_files << " file(s)";
 #endif
@@ -459,7 +459,8 @@ state::reload()
         }
         if(file_count <= 0) {
             if(index < total_conf_files) {
-                logger::info() << "Stopping configuration reload because directory iteration did not advance";
+                logger::info() << "Stopping configuration reload because a truncated directory listing "
+                          "did not advance (status " << directory_status << ", read " << index << " of " << total_conf_files << " file(s))";
             }
             break;
         }

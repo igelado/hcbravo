@@ -13,6 +13,8 @@
 #include <cstring>
 #include <unordered_map>
 #include <memory>
+#include <vector>
+#include <algorithm>
 
 using XPLMCommandRef = void *;
 enum XPLMCommandPhase { xplm_CommandBegin, xplm_CommandContinue, xplm_CommandEnd };
@@ -21,6 +23,11 @@ using XPLMCommandCallback_f = int (*)(XPLMCommandRef, XPLMCommandPhase, void *);
 namespace xplm_test {
 inline std::string log;
 inline std::unordered_map<std::string, int> features;
+// Directory listing served by XPLMGetDirectoryContents.
+inline std::vector<std::string> directory_files {"evot.yaml"};
+inline int directory_page_limit = 0;   // 0 means only the caller's buffers limit a page
+inline bool directory_stall = false;   // report a truncated listing without returning files
+inline int directory_calls = 0;
 struct command {
     XPLMCommandCallback_f handler = nullptr;
     void * refcon = nullptr;
@@ -59,12 +66,24 @@ static inline char * XPLMExtractFileAndPath(char * path) {
     if(slash) *slash = '\0';
     return slash;
 }
-static inline int XPLMGetDirectoryContents(const char *, int, char * buffer, int,
-    char ** indexes, int, int * total, int * count) {
-    std::strcpy(buffer, "evot.yaml");
-    indexes[0] = buffer;
-    *total = *count = 1;
-    return 1;
+static inline int XPLMGetDirectoryContents(const char *, int first, char * buffer, int buffer_size,
+    char ** indexes, int index_size, int * total, int * count) {
+    ++xplm_test::directory_calls;
+    const int all = static_cast<int>(xplm_test::directory_files.size());
+    *total = all;
+    *count = 0;
+    if(xplm_test::directory_stall) return 0;
+    int limit = index_size;
+    if(xplm_test::directory_page_limit > 0) limit = (std::min)(limit, xplm_test::directory_page_limit);
+    int used = 0;
+    for(int n = first; n < all && *count < limit; ++n) {
+        const auto & name = xplm_test::directory_files[n];
+        if(used + static_cast<int>(name.size()) + 1 > buffer_size) break;
+        std::memcpy(buffer + used, name.c_str(), name.size() + 1);
+        indexes[(*count)++] = buffer + used;
+        used += static_cast<int>(name.size()) + 1;
+    }
+    return first + *count >= all ? 1 : 0;
 }
 
 #endif

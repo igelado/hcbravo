@@ -28,6 +28,10 @@ protected:
             {"sim/aircraft/view/acf_ui_name", "Lancair Evolution"}
         };
         xplm_test::log.clear();
+        xplm_test::directory_files = {"evot.yaml"};
+        xplm_test::directory_page_limit = 0;
+        xplm_test::directory_stall = false;
+        xplm_test::directory_calls = 0;
         xplm_test::schedule_count = 0;
         xplm_test::features.clear();
         xplm_test::menu_items.clear();
@@ -699,6 +703,34 @@ TEST_F(runtime_test, alt_and_vs_dials_are_clamped_to_sane_bounds) {
     vs.set(-9850.0f);
     xplm_test::invoke("HCBravo/Dec", xplm_CommandEnd);
     EXPECT_FLOAT_EQ(vs.get(), -9900.0f);
+}
+
+TEST_F(runtime_test, reload_pages_through_a_truncated_directory_listing) {
+    auto initialized = state::state::init();
+    ASSERT_TRUE(initialized.has_value());
+    xplm_test::directory_files = {"a.txt", "evot.yaml", "b.txt"};
+    xplm_test::directory_page_limit = 1;
+    xplm_test::directory_calls = 0;
+    xplm_test::log.clear();
+    initialized.value()->reload();
+    EXPECT_EQ(xplm_test::directory_calls, 3);
+    EXPECT_EQ(xplm_test::log.find("did not advance"), std::string::npos);
+    // The configuration found on the second page is registered.
+    initialized.value()->request_load_plane();
+    EXPECT_EQ(xplm_test::tick(), -1);
+    EXPECT_TRUE(initialized.value()->active_plane().has_value());
+}
+
+TEST_F(runtime_test, reload_stops_when_a_truncated_listing_makes_no_progress) {
+    auto initialized = state::state::init();
+    ASSERT_TRUE(initialized.has_value());
+    xplm_test::directory_files = {"evot.yaml", "other.yaml"};
+    xplm_test::directory_stall = true;
+    xplm_test::directory_calls = 0;
+    xplm_test::log.clear();
+    initialized.value()->reload();
+    EXPECT_EQ(xplm_test::directory_calls, 1);
+    EXPECT_NE(xplm_test::log.find("did not advance"), std::string::npos);
 }
 
 } // namespace runtime_test
