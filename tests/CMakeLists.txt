@@ -25,6 +25,20 @@ target_include_directories(profile-test PRIVATE ${hcbravo_SRC} ${hcbravo_TEST}/X
 target_link_libraries(profile-test GTest::gtest_main hcbravo-conf)
 gtest_discover_tests(profile-test)
 
+add_executable(runtime-test
+    runtime-test.cpp
+    ${hcbravo_SRC}/main.cpp
+    ${hcbravo_SRC}/knob.cpp
+    ${hcbravo_SRC}/state.cpp
+    ${hcbravo_SRC}/profile.cpp
+    ${hcbravo_SRC}/led.cpp
+    ${hcbravo_SRC}/xplane-logger.cpp
+)
+target_include_directories(runtime-test PRIVATE ${hcbravo_SRC} ${hcbravo_TEST}/XPSDK ${hcbravo_TEST}/HID)
+target_compile_definitions(runtime-test PRIVATE HCBRAVO_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
+target_link_libraries(runtime-test PRIVATE GTest::gtest_main hcbravo-conf)
+gtest_discover_tests(runtime-test)
+
 add_executable(conf-test
     ${hcbravo_TEST}/conf-test.cpp
     ${hcbravo_SRC}/xplane-logger.cpp

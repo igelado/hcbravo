@@ -64,7 +64,7 @@ annunciator:
  master_caution:
   - key: 'sim/cockpit2/annunciators/master_caution'
  aux_fuel:
-  - key: 'sim/cockpit2/fuel/fuel_pump_on'
+  - key: 'sim/cockpit2/engine/actuators/fuel_pump_on'
     index: 0
  parking_brake:
    - key: 'sim/cockpit2/controls/parking_brake_ratio'

@@ -10,6 +10,7 @@
 #include <expected>
 #include <memory>
 #include <optional>
+#include <string>
 #include <vector>
 
 namespace conf {
@@ -37,11 +38,13 @@ protected:
         bool invert;
         std::optional<int> index;
         XPLMDataTypeID type;
+        std::string path;
     };
 
     XPLMDataRef data_ref_;
     bool invert_;
     std::optional<int> index_;
+    std::string path_;
 
     base_data_ref(binding && binding) noexcept;
     static std::expected<binding, int> bind(const conf::key & key);
@@ -61,6 +64,13 @@ class bool_data_ref final : public base_data_ref {
     std::vector<int> integer_values_;
     std::vector<float> float_values_;
 
+    struct sample {
+        double raw;
+        int count;
+        bool result;
+    };
+    sample read() const noexcept;
+
     bool_data_ref(binding && binding, std::vector<int> && values) noexcept;
     bool_data_ref(binding && binding, std::vector<float> && values) noexcept;
 
@@ -69,6 +79,9 @@ public:
 
     static std::expected<ptr_type, int> build(const conf::key & key);
     bool is_set() const noexcept;
+#if !defined(NDEBUG)
+    bool dump_state() const noexcept;
+#endif
 };
 
 class float_data_ref final : public base_data_ref {
@@ -78,6 +91,9 @@ public:
     static std::expected<float_data_ref, int> build(const conf::key & key);
     float get() const noexcept;
     void set(float value) const noexcept;
+#if !defined(NDEBUG)
+    void dump_state(const char * label) const noexcept;
+#endif
 };
 
 class value_data_ref {
@@ -88,6 +104,9 @@ public:
     static std::expected<value_data_ref, int> build(const conf::value & value);
     bool is_set() const noexcept;
     bool empty() const noexcept { return data_.empty(); }
+#if !defined(NDEBUG)
+    bool dump_state(const char * label) const noexcept;
+#endif
 
 #if defined(HCBRAVO_PROFILE_TESTS)
     const std::vector<bool_data_ref::ptr_type> & data() const noexcept { return data_; }
@@ -106,6 +125,9 @@ public:
     airspeed_unit unit() const noexcept;
     float get() const noexcept { return value_.get(); }
     void set(float value) const noexcept { value_.set(value); }
+#if !defined(NDEBUG)
+    void dump_state() const noexcept;
+#endif
 };
 
 class autopilot_dial_data_ref {
@@ -130,6 +152,9 @@ public:
     const std::optional<float_data_ref> & heading() const noexcept { return heading_; }
     const std::optional<float_data_ref> & vs() const noexcept { return vs_; }
     const std::optional<float_data_ref> & alt() const noexcept { return alt_; }
+#if !defined(NDEBUG)
+    void dump_state() const noexcept;
+#endif
 };
 
 class autopilot_mode_data_ref {
@@ -159,6 +184,9 @@ public:
     std::optional<bool> vs() const noexcept;
     std::optional<bool> ias() const noexcept;
     bool ap() const noexcept { return ap_.is_set(); }
+#if !defined(NDEBUG)
+    void dump_state() const noexcept;
+#endif
 };
 
 class autopilot_data_ref {
@@ -171,6 +199,9 @@ public:
     static std::expected<autopilot_data_ref, int> build(const conf::autopilot & autopilot);
     const autopilot_mode_data_ref & mode() const noexcept { return mode_; }
     const std::optional<autopilot_dial_data_ref> & dials() const noexcept { return dials_; }
+#if !defined(NDEBUG)
+    void dump_state() const noexcept;
+#endif
 };
 
 class gear_signals_data_ref {
@@ -181,6 +212,9 @@ class gear_signals_data_ref {
 public:
     static std::expected<gear_signals_data_ref, int> build(const conf::gear_signals & signals);
     gear_state state() const noexcept;
+#if !defined(NDEBUG)
+    gear_state dump_state(const char * label) const noexcept;
+#endif
 };
 
 class gear_data_ref {
@@ -198,6 +232,9 @@ public:
     bool left() const noexcept { return left_state() == gear_state::safe; }
     bool nose() const noexcept { return nose_state() == gear_state::safe; }
     bool right() const noexcept { return right_state() == gear_state::safe; }
+#if !defined(NDEBUG)
+    void dump_state() const noexcept;
+#endif
 };
 
 class system_data_ref {
@@ -209,6 +246,9 @@ public:
     static std::expected<system_data_ref, int> build(const conf::system & system);
     bool volts() const noexcept { return volts_.is_set(); }
     const std::optional<gear_data_ref> & gear() const noexcept { return gear_; }
+#if !defined(NDEBUG)
+    void dump_state() const noexcept;
+#endif
 };
 
 class annunciator_data_ref {
@@ -242,6 +282,9 @@ public:
     std::optional<bool> parking_brake() const noexcept;
     std::optional<bool> volt_low() const noexcept;
     std::optional<bool> door_open() const noexcept;
+#if !defined(NDEBUG)
+    void dump_state() const noexcept;
+#endif
 };
 
 class configuration {

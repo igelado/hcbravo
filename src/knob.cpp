@@ -44,6 +44,13 @@ static const factor factors[] = {
     { 1.0f, 5.0f }      // IAS
 };
 
+#if !defined(NDEBUG)
+static const char * selector_name(selector value) noexcept {
+    static constexpr const char * names[] = {"ALT", "VS", "HDG", "CRS", "IAS"};
+    return names[static_cast<size_t>(value)];
+}
+#endif
+
 static inline
 float
 normalize_heading(float value) noexcept
@@ -77,6 +84,10 @@ commands::ap_knob_select(XPLMCommandRef cmd, XPLMCommandPhase phase, void * ref)
         self->active_ = selector::ias;
     }
     else { return 1; }
+#if !defined(NDEBUG)
+    if(phase == xplm_CommandBegin && diagnostics::enabled(diagnostic_category::knobs))
+        debug_logger() << "[Knob debug] Selected " << selector_name(self->active_);
+#endif
     return 0;
 }
 
@@ -99,22 +110,31 @@ int
 commands::ap_knob_update(void * ref) noexcept
 {
    commands * self = reinterpret_cast<commands *>(ref);
+#if !defined(NDEBUG)
+    diagnostic_scope snapshot(diagnostics::selected() & diagnostic_bit(diagnostic_category::datarefs));
+#endif
 
     // No plane is slected
     if(!self->state_.active_plane()) {
-        logger() << "AP Knob Changed but no plane is active";
+#if !defined(NDEBUG)
+        if(diagnostics::enabled(diagnostic_category::knobs)) debug_logger() << "[Knob debug] No active aircraft; command ignored";
+#endif
         return 0;
     }
     auto plane = self->state_.active_plane().value(); 
 
     // The plane has no autopilot 
     if(!plane->autopilot()) {
-        logger() << "AP Knob Changed but plane has not AutoPilot";
+#if !defined(NDEBUG)
+        if(diagnostics::enabled(diagnostic_category::knobs)) debug_logger() << "[Knob debug] No autopilot; command ignored";
+#endif
         return 0;
     }
     // The plance has no autopilot dials
     if(!plane->autopilot().value().dials()) {
-        logger() << "AP Knob Changed but AutoPilot has not Dials";
+#if !defined(NDEBUG)
+        if(diagnostics::enabled(diagnostic_category::knobs)) debug_logger() << "[Knob debug] No autopilot dials; command ignored";
+#endif
         return 0;
     }
 
@@ -172,6 +192,12 @@ commands::ap_knob_update(void * ref) noexcept
     }
     
     self->last_cmd_ = now;
+#if !defined(NDEBUG)
+    if(diagnostics::enabled(diagnostic_category::knobs)) {
+        debug_logger() << "[Knob debug] Adjusted " << selector_name(self->active_)
+                       << " direction=" << (Dir == dir::inc ? "increase" : "decrease") << " fast=" << fast;
+    }
+#endif
     return 0;
 }
 

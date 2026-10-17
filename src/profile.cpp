@@ -22,7 +22,8 @@ static bool has_type(XPLMDataTypeID type, XPLMDataTypeID expected) noexcept
 base_data_ref::base_data_ref(binding && binding) noexcept :
     data_ref_(std::move(binding.data_ref)),
     invert_(binding.invert),
-    index_(binding.index)
+    index_(binding.index),
+    path_(std::move(binding.path))
 {}
 
 std::expected<base_data_ref::binding, int>
@@ -50,7 +51,18 @@ base_data_ref::bind(const conf::key & key)
         index = std::nullopt;
     }
 
-    return binding { std::move(data_ref), key.inverted(), index, info.type };
+#if !defined(NDEBUG)
+    if(diagnostics::enabled(diagnostic_category::datarefs)) {
+        debug_logger log;
+        log << "DataRef bound: '" << key.path() << "' type_mask=" << info.type
+            << " index=" << (index ? std::to_string(*index) : "scalar")
+            << " invert=" << key.inverted() << " values=[";
+        for(const auto & value : key.values()) log << value << " ";
+        log << "] (empty values means nonzero)";
+    }
+#endif
+
+    return binding { std::move(data_ref), key.inverted(), index, info.type, key.path() };
 }
 
 bool_data_ref::bool_data_ref(binding && binding, std::vector<int> && values) noexcept :
@@ -112,9 +124,16 @@ bool_data_ref::build(const conf::key & key)
 bool
 bool_data_ref::is_set() const noexcept
 {
+    return read().result;
+}
+
+bool_data_ref::sample
+bool_data_ref::read() const noexcept
+{
     if(type_ == type::integer) {
         int value = 0;
-        if(index_) XPLMGetDatavi(data_ref_, &value, *index_, 1);
+        int count = 1;
+        if(index_) count = XPLMGetDatavi(data_ref_, &value, *index_, 1);
         else value = XPLMGetDatai(data_ref_);
 
         bool result = value != 0;
@@ -127,11 +146,13 @@ bool_data_ref::is_set() const noexcept
                 }
             }
         }
-        return invert_ ? !result : result;
+        result = invert_ ? !result : result;
+        return {static_cast<double>(value), count, result};
     }
 
     float value = 0.0f;
-    if(index_) XPLMGetDatavf(data_ref_, &value, *index_, 1);
+    int count = 1;
+    if(index_) count = XPLMGetDatavf(data_ref_, &value, *index_, 1);
     else value = XPLMGetDataf(data_ref_);
 
     bool result = value != 0.0f;
@@ -144,8 +165,33 @@ bool_data_ref::is_set() const noexcept
             }
         }
     }
-    return invert_ ? !result : result;
+    result = invert_ ? !result : result;
+    return {value, count, result};
 }
+
+#if !defined(NDEBUG)
+bool
+bool_data_ref::dump_state() const noexcept
+{
+    const auto value = read();
+    debug_logger log;
+    log << "[DataRef debug] DataRef '" << path_ << "' index="
+             << (index_ ? std::to_string(*index_) : "scalar")
+             << " reader=" << (type_ == type::integer ? "int" : "float")
+             << " raw=" << value.raw << " count=" << value.count
+             << " invert=" << invert_ << " result=" << value.result
+             << (value.count == 1 ? "" : " READ FAILED; using zero-initialized value")
+             << " values=[";
+    if(type_ == type::integer) {
+        for(const auto expected : integer_values_) log << expected << " ";
+    }
+    else {
+        for(const auto expected : float_values_) log << expected << " ";
+    }
+    log << "] (empty values means nonzero)";
+    return value.result;
+}
+#endif
 
 float_data_ref::float_data_ref(binding && binding) noexcept :
     base_data_ref(std::move(binding))
@@ -166,14 +212,19 @@ float_data_ref::build(const conf::key & key)
 float
 float_data_ref::get() const noexcept
 {
+    float value = 0.0f;
     if(index_) {
-        float value = 0.0f;
         if(XPLMGetDatavf(data_ref_, &value, *index_, 1) != 1) {
             logger() << "Failed to read indexed float DataRef at " << *index_;
         }
-        return value;
     }
-    return XPLMGetDataf(data_ref_);
+    else value = XPLMGetDataf(data_ref_);
+#if !defined(NDEBUG)
+    if(diagnostic_scope::enabled(diagnostic_category::datarefs)) {
+        debug_logger() << "[DataRef debug] Float read '" << path_ << "' raw=" << value;
+    }
+#endif
+    return value;
 }
 
 void
@@ -181,6 +232,11 @@ float_data_ref::set(float value) const noexcept
 {
     if(index_) XPLMSetDatavf(data_ref_, &value, *index_, 1);
     else XPLMSetDataf(data_ref_, value);
+#if !defined(NDEBUG)
+    if(diagnostic_scope::enabled(diagnostic_category::datarefs)) {
+        debug_logger() << "[DataRef debug] Float write '" << path_ << "' value=" << value;
+    }
+#endif
 }
 
 value_data_ref::value_data_ref(std::vector<bool_data_ref::ptr_type> && data) noexcept :
@@ -510,5 +566,122 @@ configuration::build(const conf::configuration & source)
         std::move(system.value()), std::move(autopilot), std::move(annunciator)
     ));
 }
+
+#if !defined(NDEBUG)
+bool
+value_data_ref::dump_state(const char * label) const noexcept
+{
+    bool result = false;
+    // Dump every input, including entries skipped by the normal OR evaluation.
+    for(const auto & data : data_) {
+        const bool set = data->dump_state();
+        result = result || set;
+    }
+    debug_logger() << "[State dump] " << label << "=" << result;
+    return result;
+}
+
+void
+float_data_ref::dump_state(const char * label) const noexcept
+{
+    const float value = get();
+    debug_logger() << "[State dump] " << label << "=" << value << " DataRef='" << path_
+        << "' index=" << (index_ ? std::to_string(*index_) : "scalar");
+}
+
+template<typename T>
+static void dump_optional_state(const char * label, const std::optional<T> & value) noexcept
+{
+    if(value) value->dump_state(label);
+    else debug_logger() << "[State dump] " << label << "=unconfigured";
+}
+
+void
+airspeed_data_ref::dump_state() const noexcept
+{
+    const bool mach = is_mach_->dump_state();
+    debug_logger() << "[State dump] autopilot.dials.ias.unit=" << (mach ? "Mach" : "Knots");
+    value_.dump_state("autopilot.dials.ias.value");
+}
+
+void
+autopilot_dial_data_ref::dump_state() const noexcept
+{
+    dump_optional_state("autopilot.dials.course", course_);
+    dump_optional_state("autopilot.dials.heading", heading_);
+    dump_optional_state("autopilot.dials.vs", vs_);
+    dump_optional_state("autopilot.dials.alt", alt_);
+    if(ias_) ias_->dump_state();
+    else debug_logger() << "[State dump] autopilot.dials.ias=unconfigured";
+}
+
+void
+autopilot_mode_data_ref::dump_state() const noexcept
+{
+    ap_.dump_state("autopilot.mode.ap");
+    dump_optional_state("autopilot.mode.hdg", hdg_);
+    dump_optional_state("autopilot.mode.nav", nav_);
+    dump_optional_state("autopilot.mode.apr", apr_);
+    dump_optional_state("autopilot.mode.rev", rev_);
+    dump_optional_state("autopilot.mode.alt", alt_);
+    dump_optional_state("autopilot.mode.vs", vs_);
+    dump_optional_state("autopilot.mode.ias", ias_);
+}
+
+void
+autopilot_data_ref::dump_state() const noexcept
+{
+    mode_.dump_state();
+    if(dials_) dials_->dump_state();
+    else debug_logger() << "[State dump] autopilot.dials=unconfigured";
+}
+
+gear_state
+gear_signals_data_ref::dump_state(const char * label) const noexcept
+{
+    const bool safe = safe_.dump_state((std::string(label) + ".safe").c_str());
+    const bool unsafe = unsafe_.dump_state((std::string(label) + ".unsafe").c_str());
+    const auto result = safe ? gear_state::safe : unsafe ? gear_state::unsafe : gear_state::up;
+    debug_logger() << "[State dump] " << label << "="
+        << (safe ? "green" : unsafe ? "red" : "off") << " (safe takes priority over unsafe)";
+    return result;
+}
+
+void
+gear_data_ref::dump_state() const noexcept
+{
+    left_.dump_state("gear.left");
+    nose_.dump_state("gear.nose");
+    right_.dump_state("gear.right");
+}
+
+void
+system_data_ref::dump_state() const noexcept
+{
+    const bool powered = volts_.dump_state("system.volts");
+    debug_logger() << "[State dump] " << (powered ? "LED power enabled" : "All LEDs off: electrical power gate disabled");
+    if(gear_) gear_->dump_state();
+    else debug_logger() << "[State dump] gear=unconfigured";
+}
+
+void
+annunciator_data_ref::dump_state() const noexcept
+{
+    dump_optional_state("annunciator.master_warn", master_warn_);
+    dump_optional_state("annunciator.eng_fire", eng_fire_);
+    dump_optional_state("annunciator.oil_low", oil_low_);
+    dump_optional_state("annunciator.fuel_low", fuel_low_);
+    dump_optional_state("annunciator.anti_ice", anti_ice_);
+    dump_optional_state("annunciator.starter", starter_);
+    dump_optional_state("annunciator.apu", apu_);
+    dump_optional_state("annunciator.master_caution", master_caution_);
+    dump_optional_state("annunciator.vacuum_low", vacuum_low_);
+    dump_optional_state("annunciator.hydro_low", hydro_low_);
+    dump_optional_state("annunciator.aux_fuel", aux_fuel_);
+    dump_optional_state("annunciator.parking_brake", parking_brake_);
+    dump_optional_state("annunciator.volt_low", volt_low_);
+    dump_optional_state("annunciator.door_open", door_open_);
+}
+#endif
 
 }

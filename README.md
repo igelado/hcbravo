@@ -204,6 +204,71 @@ are supplied. Parser diagnostics are written to stderr. Validation checks YAML
 structure and DataRef descriptors; DataRef availability and numeric type
 compatibility are checked when an aircraft is loaded in X-Plane.
 
+## Diagnosing LED Problems
+
+HCBravo writes diagnostics to `Log.txt` in the X-Plane installation directory,
+prefixed with `[HCBravo]`. After an aircraft loads, HCBravo binds the profile on
+the first flight-loop callback. This follows the SDK's
+[deferred initialization guidance](https://developer.x-plane.com/article/deferredinitialization/).
+If binding fails, it logs the missing or incompatible DataRef and stops the flight
+loop until a
+[DataRefs-added notification](https://developer.x-plane.com/sdk/XPLM_MSG_DATAREFS_ADDED/)
+schedules another load on the next flight-loop callback. There are no timed
+profile retries; repeated notifications are coalesced while a load is pending.
+Notifications do not reload an active profile. Unloading the aircraft cancels
+pending binding and notification recovery.
+This waits for HCBravo's required DataRefs; it does not guarantee that every
+plugin has finished asynchronous initialization. Use
+`Plugins > HoneyComb Bravo > Reload Aircraft Profiles` to retry after correcting
+a configuration.
+
+Diagnostic categories, runtime checks, and detailed log bodies are compiled only
+in Debug builds (`NDEBUG` is not defined). All builds log plugin load/unload and
+aircraft enable/disable transitions, including the aircraft name and the selected
+profile when enabled. Release builds retain errors and configuration warnings;
+the Release menu contains only `Reload Aircraft Profiles`.
+
+Debug builds add `Reload All Plugins` and two actions under
+`Plugins > HoneyComb Bravo`:
+
+- `Dump LED State`: reads power, gear, autopilot LED modes, and annunciator inputs,
+  then logs the cached HID banks and synchronization status.
+- `Dump Autopilot State`: reads the configured modes and dial values, including
+  airspeed units and unconfigured entries.
+
+Each selection writes one dump immediately. Dumps include raw DataRef values,
+array read counts, accepted values, inversion, and resulting boolean states.
+They read all configured inputs, including those normally skipped by boolean
+short-circuiting or the electrical power gate. Dumping does not change DataRefs,
+send HID reports, bind a profile, or schedule flight-loop work. Re-select an action
+to inspect the latest state. There is no periodic diagnostic sampling or timer.
+
+Three independent checkable entries control event-based diagnostics; all start
+disabled:
+
+- `Knob Diagnostics`: selector changes, rotation direction, acceleration, and ignored commands.
+- `DataRef Diagnostics`: binding metadata and knob dial reads/writes.
+- `Configuration Diagnostics`: YAML parsing and configuration/profile registration.
+
+Select an entry to enable or disable it; its check mark shows the current setting.
+Knob actions and dial reads/writes log when the command runs. Enable Configuration or DataRef
+diagnostics and select `Reload Aircraft Profiles` to inspect parsing or binding.
+Profile reloads preserve the settings; a plugin restart resets them.
+
+`diagnostic_scope` exists only in Debug builds. Knob callbacks set the DataRef
+category while processing an opted-in command. The destructor restores the
+previous mask when the callback returns. LED and autopilot dumps have dedicated
+functions; regular LED updates and boolean DataRef reads contain no diagnostic
+checks or logging.
+Binding logs show accepted `values` and type masks (1 = int, 2 = float,
+8 = float array, 16 = int array). LED banks are hexadecimal bytes in this order:
+autopilot; gear/master warning/engine fire; annunciators through hydraulic;
+auxiliary fuel/parking brake/low voltage/door.
+
+Failed or incomplete HID writes log the returned byte count and HID error text,
+and are retried after five seconds. A successful write confirms that the HID API
+accepted the report; observing the physical lights still requires the controller.
+
  ## Using the Plugin in XPlane
 
  After installing the plugin, you need to configure HoneyComb Bravo to use the plugin commands for the Autopilot knobs:

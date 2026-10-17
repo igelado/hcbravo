@@ -13,6 +13,7 @@
 #include <XPLM/XPLMProcessing.h>
 
 #include <optional>
+#include <array>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -40,6 +41,15 @@ class state {
     XPLMDataRef plane_icao_data_ref_;
     XPLMDataRef plane_name_data_ref_;
     std::optional<profile::configuration::ptr_type> plane_;
+    std::string active_aircraft_name_;
+    bool load_pending_ = false;
+    bool waiting_for_data_refs_ = false;
+#if !defined(NDEBUG)
+    std::array<int, 3> diagnostics_menu_items_ {};
+
+    void dump_led_state() const noexcept;
+    void dump_autopilot_state() const noexcept;
+#endif
 
     XPLMFlightLoopID flight_loop_;
 
@@ -73,6 +83,12 @@ public:
 
     bool
     load_plane() noexcept;
+
+    void
+    request_load_plane() noexcept;
+
+    void
+    data_refs_added() noexcept;
 
     void
     unload_plane() noexcept;

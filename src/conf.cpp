@@ -214,7 +214,10 @@ static inline
 std::expected<T, int>
 build(const YAML::Node & node, const std::string & key)
 {
-    logger() << "Checking for required '" << key << "'";
+#if !defined(NDEBUG)
+    if(diagnostics::enabled(diagnostic_category::configuration))
+        debug_logger() << "[Configuration debug] Checking for required '" << key << "'";
+#endif
     if(!node.IsMap() or !node[key]) {
         logger() << "Key '" << key << "' not found" << yaml_location(node) << ": " << node;
         return std::unexpected(0);
@@ -507,7 +510,10 @@ std::expected<configuration, int>
 configuration::read(const std::string & path)
 {
     try {
-        logger() << "Loading YAML File " << path;
+#if !defined(NDEBUG)
+        if(diagnostics::enabled(diagnostic_category::configuration))
+            debug_logger() << "[Configuration debug] Loading YAML File " << path;
+#endif
         YAML::Node node = YAML::LoadFile(path);
 
         if(!validate_map_keys(node, "Configuration '" + path + "'", {
@@ -534,15 +540,24 @@ configuration::read(const std::string & path)
         auto models = build_required_string_list(node, "models");
         if(!models.has_value()) return std::unexpected(models.error());
 
-        logger() << "Reading System Configuration";
+#if !defined(NDEBUG)
+        if(diagnostics::enabled(diagnostic_category::configuration))
+            debug_logger() << "[Configuration debug] Reading System Configuration";
+#endif
         auto system = conf::build<conf::system>(node, "system");
         if(system.has_value() == false) return std::unexpected(system.error());
 
-        logger() << "Reading Autopilot Configuration";
+#if !defined(NDEBUG)
+        if(diagnostics::enabled(diagnostic_category::configuration))
+            debug_logger() << "[Configuration debug] Reading Autopilot Configuration";
+#endif
         auto autopilot = conf::build_optional<conf::autopilot>(node, "autopilot");
         if(autopilot.has_value() == false) return std::unexpected(autopilot.error());
 
-        logger() << "Reading Annunciator Configuration";
+#if !defined(NDEBUG)
+        if(diagnostics::enabled(diagnostic_category::configuration))
+            debug_logger() << "[Configuration debug] Reading Annunciator Configuration";
+#endif
         auto annunciator = conf::build_optional<conf::annunciator>(node, "annunciator");
         if(annunciator.has_value() == false) return std::unexpected(annunciator.error());   
 

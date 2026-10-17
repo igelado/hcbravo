@@ -24,6 +24,14 @@
 #include "logger.h"
 #include "state.h"
 
+#if !defined(NDEBUG)
+static constexpr std::array diagnostic_menu_entries {
+    std::pair {"Knob Diagnostics", diagnostic_category::knobs},
+    std::pair {"DataRef Diagnostics", diagnostic_category::datarefs},
+    std::pair {"Configuration Diagnostics", diagnostic_category::configuration}
+};
+#endif
+
 void
 state::error_handler(const char * msg) noexcept
 {
@@ -35,6 +43,17 @@ state::menu_handler(void * _this, void * item) noexcept
 {
     state * self = reinterpret_cast<state *>(_this);
     size_t id = reinterpret_cast<size_t>(item);
+#if !defined(NDEBUG)
+    if(id >= 4 && id < 4 + diagnostic_menu_entries.size()) {
+        const auto index = id - 4;
+        const auto & entry = diagnostic_menu_entries[index];
+        const bool enabled = diagnostics::toggle(entry.second);
+        XPLMCheckMenuItem(self->menu_, self->diagnostics_menu_items_[index],
+                         enabled ? xplm_Menu_Checked : xplm_Menu_Unchecked);
+        debug_logger() << entry.first << (enabled ? " enabled" : " disabled");
+        return;
+    }
+#endif
     switch(id) {
         case 0:
             logger() << "Reloading Aircraft Profiles";
@@ -49,14 +68,21 @@ state::menu_handler(void * _this, void * item) noexcept
                 logger() << "Failed to reload Aircraft Profiles";
                 break;
             }
-            self->plane_ = std::nullopt;
-            logger() << "Setting Active Plane";
-            self->load_plane();
+            debug_logger() << "Setting Active Plane";
+            self->request_load_plane();
             break;
+#if !defined(NDEBUG)
         case 1:
             logger() << "Reloading All Plugins";
             XPLMReloadPlugins();
             break;
+        case 2:
+            self->dump_led_state();
+            break;
+        case 3:
+            self->dump_autopilot_state();
+            break;
+#endif
         default:
             logger() << "Unknown Menu ID #" << id;
             break;
@@ -67,29 +93,39 @@ float
 state::flight_iteration(float call, float iter, int counter, void * _this) noexcept
 {
     state * self = reinterpret_cast<state *>(_this);
-    if(self == nullptr or self->plane_.has_value() == false) {
-        logger() << "No active plane detected. Stopping Flight Loop Refresh";
+    if(self == nullptr) return 0;
+    if(self->load_pending_) {
+        self->load_pending_ = false;
+        self->waiting_for_data_refs_ = !self->load_plane();
+        if(self->waiting_for_data_refs_) {
+            logger() << "Profile binding failed; LEDs inactive. Waiting for new DataRefs or HoneyComb Bravo > Reload Aircraft Profiles";
+        }
+    }
+    if(self->plane_.has_value() == false) {
         return 0;
     }
     const auto plane = self->plane_.value();
-
     led_mask mask;
     const auto & system = plane->system();
-    if(system.volts() == false) {
+    const bool powered = system.volts();
+    if(powered == false) {
         self->leds_.update(mask);
         return -1.0;
     }
 
     if(plane->autopilot().has_value()) {
         const auto & ap = plane->autopilot().value().mode();
-        mask.update(LED_AP_HDG, ap.hdg());
-        mask.update(LED_AP_NAV, ap.nav());
-        mask.update(LED_AP_APR, ap.apr());
-        mask.update(LED_AP_REV, ap.rev());
-        mask.update(LED_AP_ALT, ap.alt());
-        mask.update(LED_AP_VS, ap.vs());
-        mask.update(LED_AP_IAS, ap.ias());
-        mask.update(LED_AP, ap.ap());
+        const auto hdg = ap.hdg(), nav = ap.nav(), apr = ap.apr(), rev = ap.rev();
+        const auto alt = ap.alt(), vs = ap.vs(), ias = ap.ias();
+        const bool enabled = ap.ap();
+        mask.update(LED_AP_HDG, hdg);
+        mask.update(LED_AP_NAV, nav);
+        mask.update(LED_AP_APR, apr);
+        mask.update(LED_AP_REV, rev);
+        mask.update(LED_AP_ALT, alt);
+        mask.update(LED_AP_VS, vs);
+        mask.update(LED_AP_IAS, ias);
+        mask.update(LED_AP, enabled);
     }
 
     if(system.gear().has_value()) {
@@ -127,6 +163,38 @@ state::flight_iteration(float call, float iter, int counter, void * _this) noexc
     return -1.0;
 }
 
+#if !defined(NDEBUG)
+void
+state::dump_led_state() const noexcept
+{
+    debug_logger() << "[LED dump] Aircraft '" << active_aircraft_name_ << "'";
+    if(plane_) {
+        const auto & plane = *plane_.value();
+        plane.system().dump_state();
+        if(plane.autopilot()) plane.autopilot()->mode().dump_state();
+        else debug_logger() << "[State dump] autopilot=unconfigured";
+        if(plane.annunciator()) plane.annunciator()->dump_state();
+        else debug_logger() << "[State dump] annunciator=unconfigured";
+    }
+    else debug_logger() << "[LED dump] No active aircraft profile";
+    leds_.dump_state();
+}
+
+void
+state::dump_autopilot_state() const noexcept
+{
+    debug_logger() << "[Autopilot dump] Aircraft '" << active_aircraft_name_ << "'";
+    if(!plane_) {
+        debug_logger() << "[Autopilot dump] No active aircraft profile";
+        return;
+    }
+    const auto & plane = *plane_.value();
+    debug_logger() << "[Autopilot dump] LED power enabled=" << plane.system().volts();
+    if(plane.autopilot()) plane.autopilot()->dump_state();
+    else debug_logger() << "[Autopilot dump] No autopilot configured";
+}
+#endif
+
 result_type<state::ptr_type>
 state::init() noexcept
 {
@@ -143,7 +211,7 @@ state::init() noexcept
         return std::unexpected(error::configuration);
     }
 
-    logger() << "Initializing HID";
+    debug_logger() << "Initializing HID";
     int res = hid_init();
     if(res < 0) {
         logger() << "Failed to initialize HID";
@@ -166,11 +234,11 @@ state::init() noexcept
     st->cmds_ = std::move(commands.value());
 
 #if !defined(NDEBUG)
-    logger() << "Registering Error Handler";
+    debug_logger() << "Registering Error Handler";
     XPLMSetErrorCallback(&state::error_handler);
 #endif
 
-    logger() << "Creating Menu Entries";
+    debug_logger() << "Creating Menu Entries";
     auto plugins_menu = XPLMFindPluginsMenu();
     int item = XPLMAppendMenuItem(plugins_menu, "HoneyComb Bravo", nullptr, 1);
     if(item < 0) {
@@ -187,12 +255,29 @@ state::init() noexcept
         logger() << "Failed to Create HoneyComb Bravo Menu (Reload Aircraft Profiles)";
         return std::unexpected(error::api_menu);
     }
+#if !defined(NDEBUG)
     if(XPLMAppendMenuItem(st->menu_, "Reload All Plugins", reinterpret_cast<void *>(1), 0) < 0) {
         logger() << "Failed to Create HoneyComb Bravo Menu (Reload All Plugins)";
         return std::unexpected(error::api_menu);
     }
+    if(XPLMAppendMenuItem(st->menu_, "Dump LED State", reinterpret_cast<void *>(2), 0) < 0 ||
+       XPLMAppendMenuItem(st->menu_, "Dump Autopilot State", reinterpret_cast<void *>(3), 0) < 0) {
+        logger() << "Failed to Create HoneyComb Bravo State Dump Menu Entries";
+        return std::unexpected(error::api_menu);
+    }
+    for(size_t index = 0; index < diagnostic_menu_entries.size(); ++index) {
+        const auto & entry = diagnostic_menu_entries[index];
+        const int menu_index = XPLMAppendMenuItem(st->menu_, entry.first, reinterpret_cast<void *>(index + 4), 0);
+        if(menu_index < 0) {
+            logger() << "Failed to Create HoneyComb Bravo Menu (" << entry.first << ")";
+            return std::unexpected(error::api_menu);
+        }
+        st->diagnostics_menu_items_[index] = menu_index;
+        XPLMCheckMenuItem(st->menu_, menu_index, xplm_Menu_Unchecked);
+    }
+#endif
 
-    logger() << "Creating Flight Loop Logic";
+    debug_logger() << "Creating Flight Loop Logic";
     XPLMCreateFlightLoop_t fl_params = {
         .structSize = sizeof(XPLMCreateFlightLoop_t),
         .phase = xplm_FlightLoop_Phase_BeforeFlightModel,
@@ -255,6 +340,9 @@ state::state() :
     plane_(std::nullopt),
     flight_loop_(nullptr)
 {
+#if !defined(NDEBUG)
+    diagnostics::reset();
+#endif
     this->reload();
 }
 
@@ -297,7 +385,9 @@ state::reload()
     configuration_map_type aircraft_configurations;
     configuration_map_type model_configurations;
 
-    logger() << "Reading Plugin Configuration Files";
+#if !defined(NDEBUG)
+    if(diagnostics::enabled(diagnostic_category::configuration)) debug_logger() << "[Configuration debug] Reading Plugin Configuration Files";
+#endif
     auto id = XPLMGetMyID();
     static char path[256];
     path[0] = '\0';
@@ -309,7 +399,9 @@ state::reload()
     }
     XPLMExtractFileAndPath(path);
     auto config_file_path = std::filesystem::absolute(std::string(path) + "/../conf");
-    logger() << "Reading Configurations from " << config_file_path;
+#if !defined(NDEBUG)
+    if(diagnostics::enabled(diagnostic_category::configuration)) debug_logger() << "[Configuration debug] Reading Configurations from " << config_file_path;
+#endif
     int index = 0;
     int total_conf_files = 0;
     do {
@@ -321,13 +413,19 @@ state::reload()
         if(directory_status == 0) {
             logger() << "Configuration directory listing was truncated";
         }
-        logger() << "Read " << (index + file_count) << " file(s) from " << total_conf_files << " file(s)";
+#if !defined(NDEBUG)
+        if(diagnostics::enabled(diagnostic_category::configuration)) debug_logger() << "[Configuration debug] Read " << (index + file_count) << " file(s) from " << total_conf_files << " file(s)";
+#endif
         for(auto n = 0; n < file_count; ++n) {
             if(files_indexes[n] == nullptr) continue;
             auto config_file = config_file_path / std::string(files_indexes[n]);
-            logger() << "Found " << config_file << " in configuration file ( " << config_file.extension() << ")";
+#if !defined(NDEBUG)
+            if(diagnostics::enabled(diagnostic_category::configuration)) debug_logger() << "[Configuration debug] Found " << config_file << " in configuration file ( " << config_file.extension() << ")";
+#endif
             if(config_file.extension() != ".yaml") continue;
-            logger() << "Reading " << config_file;
+#if !defined(NDEBUG)
+            if(diagnostics::enabled(diagnostic_category::configuration)) debug_logger() << "[Configuration debug] Reading " << config_file;
+#endif
             auto parsed = conf::configuration::read(config_file.string());
             if(parsed.has_value()) {
                 auto configuration = std::make_shared<conf::configuration>(std::move(parsed.value()));
@@ -338,7 +436,9 @@ state::reload()
                                  << "' because another configuration already exists";
                     }
                     else {
-                        logger() << "Using '" << configuration->name() << "' for '" << aircraft << "'";
+#if !defined(NDEBUG)
+                        if(diagnostics::enabled(diagnostic_category::configuration)) debug_logger() << "[Configuration debug] Using '" << configuration->name() << "' for '" << aircraft << "'";
+#endif
                     }
                 }
                 for(const auto &model : configuration->models()) {
@@ -348,7 +448,9 @@ state::reload()
                                  << "' because another configuration already exists";
                     }
                     else {
-                        logger() << "Using '" << configuration->name() << "' for ICAO '" << model << "'";
+#if !defined(NDEBUG)
+                        if(diagnostics::enabled(diagnostic_category::configuration)) debug_logger() << "[Configuration debug] Using '" << configuration->name() << "' for ICAO '" << model << "'";
+#endif
                     }
                 }
             }
@@ -363,7 +465,9 @@ state::reload()
     } while(index < total_conf_files);
     configuration_aircraft_map_.swap(aircraft_configurations);
     configuration_model_map_.swap(model_configurations);
-    logger() << "Done loading plugin configuration";
+#if !defined(NDEBUG)
+    if(diagnostics::enabled(diagnostic_category::configuration)) debug_logger() << "[Configuration debug] Done loading plugin configuration";
+#endif
 }
 
 bool
@@ -373,7 +477,7 @@ state::load_plane() noexcept
     static char ui_name[256];
     read_data_ref_string(plane_icao_data_ref_, icao_name, sizeof(icao_name), plane_icao_label_);
     read_data_ref_string(plane_name_data_ref_, ui_name, sizeof(ui_name), plane_name_label_);
-    logger() << "Aircraft '" << ui_name << "' (" << icao_name << ")";
+    debug_logger() << "Aircraft '" << ui_name << "' (" << icao_name << ")";
 
     // First try to get a match for the specific Aircraft
     auto configuration = configuration_aircraft_map_.find(ui_name);
@@ -383,13 +487,14 @@ state::load_plane() noexcept
             logger() << "Failed to build profile for '" << ui_name << "'";
             return false;
         }
-        logger() << "Enabling profile '" << configuration->second->name() << "' for '" << ui_name << "'";
         plane_.emplace(std::move(profile.value()));
-        XPLMScheduleFlightLoop(this->flight_loop_, -1.0, 1);
+        active_aircraft_name_ = ui_name;
+        logger() << "Aircraft enabled: '" << ui_name << "' (" << icao_name
+                 << ") using profile '" << configuration->second->name() << "'";
         return true;
     }
 
-    logger() << "Cannot find a profile for '" << ui_name 
+    debug_logger() << "Cannot find a profile for '" << ui_name
              << "'. Falling back to profile for ICAO '" << icao_name << "'";
     configuration = configuration_model_map_.find(icao_name);
     if(configuration != configuration_model_map_.end()) {
@@ -398,9 +503,10 @@ state::load_plane() noexcept
             logger() << "Failed to build profile for ICAO '" << icao_name << "'";
             return false;
         }
-        logger() << "Enabling profile '" << configuration->second->name() << "' for ICAO '" << icao_name << "'";
         plane_.emplace(std::move(profile.value()));
-        XPLMScheduleFlightLoop(this->flight_loop_, -1.0, 1);
+        active_aircraft_name_ = ui_name;
+        logger() << "Aircraft enabled: '" << ui_name << "' (" << icao_name
+                 << ") using profile '" << configuration->second->name() << "'";
         return true;
     }
 
@@ -408,11 +514,37 @@ state::load_plane() noexcept
     return false;
 }
 
+void
+state::request_load_plane() noexcept
+{
+    unload_plane();
+    load_pending_ = true;
+    debug_logger() << "Deferring profile binding until the first flight-loop callback";
+    XPLMScheduleFlightLoop(flight_loop_, -1.0f, 1);
+}
+
+void
+state::data_refs_added() noexcept
+{
+    // Coalesce notifications while a load is already pending, and never
+    // rebuild an active profile or revive an unloaded aircraft.
+    if(!waiting_for_data_refs_ || load_pending_) return;
+    load_pending_ = true;
+    debug_logger() << "New DataRefs registered after a failed load; scheduling profile binding on the next flight-loop callback";
+    XPLMScheduleFlightLoop(flight_loop_, -1.0f, 1);
+}
+
 
 void
 state::unload_plane() noexcept
 {
+    if(plane_.has_value()) {
+        logger() << "Aircraft disabled: '" << active_aircraft_name_ << "'";
+    }
     this->plane_ = std::nullopt;
+    active_aircraft_name_.clear();
+    load_pending_ = false;
+    waiting_for_data_refs_ = false;
 
     // Turn off all lights
     led_mask mask;
