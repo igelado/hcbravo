@@ -9,6 +9,8 @@
 
 #include <XPLM/XPLMUtilities.h>
 
+#include <algorithm>
+#include <cmath>
 #include <string>
 #include <utility>
 
@@ -17,6 +19,17 @@ namespace profile {
 static bool has_type(XPLMDataTypeID type, XPLMDataTypeID expected) noexcept
 {
     return (type & expected) != 0;
+}
+
+// X-Plane floats are single precision and are often produced by arithmetic
+// (ratios, unit conversions), so a configured value such as 0.3 rarely equals
+// the stored float bit-for-bit. Match within 1e-4, absolute near zero and
+// relative for larger magnitudes.
+static bool float_matches(float value, float expected) noexcept
+{
+    constexpr float tolerance = 1e-4f;
+    const float scale = (std::max)(1.0f, (std::max)(std::fabs(value), std::fabs(expected)));
+    return std::fabs(value - expected) <= tolerance * scale;
 }
 
 base_data_ref::base_data_ref(binding && binding) noexcept :
@@ -178,7 +191,7 @@ bool_data_ref::read() const noexcept
     if(!float_values_.empty()) {
         result = false;
         for(const auto expected : float_values_) {
-            if(value == expected) {
+            if(float_matches(value, expected)) {
                 result = true;
                 break;
             }

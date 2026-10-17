@@ -199,4 +199,21 @@ TEST(profile_test, float_bindings_ignore_integer_bits_and_use_supported_read_and
     EXPECT_FALSE(profile::float_data_ref::build(key.value()).has_value());
 }
 
+TEST(profile_test, float_values_match_within_tolerance)
+{
+    const std::string path = "sim/test/float_values";
+    const auto key = conf::key::build(YAML::Load("{key: sim/test/float_values, values: [0.3, 1000]}"));
+    ASSERT_TRUE(key.has_value());
+    const struct { double value; bool set; } cases[] = {
+        {0.3, true}, {0.30004, true}, {0.3002, false}, {1000.05, true}, {1000.5, false}, {0.0, false}
+    };
+    for(const auto & entry : cases) {
+        SCOPED_TRACE(entry.value);
+        xplm_test::data_refs[path] = {xplmType_Float, true, 1, entry.value};
+        const auto bound = profile::bool_data_ref::build(key.value());
+        ASSERT_TRUE(bound.has_value());
+        EXPECT_EQ(bound.value()->is_set(), entry.set);
+    }
+}
+
 } // namespace profile_test
