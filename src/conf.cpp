@@ -7,7 +7,13 @@
 
 #include "conf.h"
 
+#include <yaml-cpp/eventhandler.h>
+#include <yaml-cpp/parser.h>
+
+#include <filesystem>
+#include <fstream>
 #include <initializer_list>
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <unordered_set>
@@ -37,6 +43,23 @@ yaml_location(const YAML::Node & node)
     return yaml_location(node.Mark());
 }
 
+// Bounds how much of a YAML node is echoed into an error message so a large
+// or hostile file cannot flood the X-Plane log.
+static
+std::string
+excerpt(const YAML::Node & node)
+{
+    constexpr size_t max_length = 200;
+    std::ostringstream out;
+    out << node;
+    auto text = out.str();
+    if(text.size() > max_length) {
+        text.resize(max_length);
+        text += "... (truncated)";
+    }
+    return text;
+}
+
 static
 std::expected<void, int>
 validate_map_keys(const YAML::Node & node, const std::string & description,
@@ -44,7 +67,7 @@ validate_map_keys(const YAML::Node & node, const std::string & description,
 {
     if(!node.IsMap()) {
         logger::info() << description << " must be a map" << yaml_location(node)
-                 << ": '" << node << "'";
+                 << ": '" << excerpt(node) << "'";
         return std::unexpected(0);
     }
 
@@ -53,7 +76,7 @@ validate_map_keys(const YAML::Node & node, const std::string & description,
         for(const auto & entry : node) {
             if(!entry.first.IsScalar()) {
                 logger::info() << description << " has a non-scalar key"
-                         << yaml_location(entry.first) << ": '" << node << "'";
+                         << yaml_location(entry.first) << ": '" << excerpt(node) << "'";
                 return std::unexpected(0);
             }
 
@@ -72,13 +95,13 @@ validate_map_keys(const YAML::Node & node, const std::string & description,
             }
             if(!allowed) {
                 logger::info() << "Unexpected " << description << " key '" << key
-                         << "'" << yaml_location(entry.first) << " in node '" << node << "'";
+                         << "'" << yaml_location(entry.first) << " in node '" << excerpt(node) << "'";
                 return std::unexpected(0);
             }
         }
     }
     catch(const YAML::Exception & ex) {
-        logger::info() << "Invalid " << description << " node" << yaml_location(node) << " '" << node
+        logger::info() << "Invalid " << description << " node" << yaml_location(node) << " '" << excerpt(node)
                  << "': " << ex.what();
         return std::unexpected(0);
     }
@@ -100,7 +123,7 @@ key::build(const YAML::Node & node)
         }
         catch(const YAML::Exception & ex) {
             logger::info() << "Invalid scalar DataRef node" << yaml_location(node)
-                     << " '" << node << "': " << ex.what();
+                     << " '" << excerpt(node) << "': " << ex.what();
             return std::unexpected(0);
         }
     }
@@ -112,7 +135,7 @@ key::build(const YAML::Node & node)
     const auto key_node = node["key"];
     if(!key_node || !key_node.IsScalar()) {
         logger::info() << "DataRef map is missing a scalar 'key'" << yaml_location(node)
-                 << ": '" << node << "'";
+                 << ": '" << excerpt(node) << "'";
         return std::unexpected(0);
     }
 
@@ -129,7 +152,7 @@ key::build(const YAML::Node & node)
             const int parsed_index = node["index"].as<int>();
             if(parsed_index < 0) {
                 logger::info() << "Invalid negative index" << yaml_location(node["index"])
-                         << " in DataRef node '" << node << "'";
+                         << " in DataRef node '" << excerpt(node) << "'";
                 return std::unexpected(0);
             }
             index = parsed_index;
@@ -140,13 +163,13 @@ key::build(const YAML::Node & node)
             const auto values_node = node["values"];
             if(!values_node.IsSequence() || values_node.size() == 0) {
                 logger::info() << "DataRef values must be a non-empty sequence"
-                         << yaml_location(values_node) << " in node '" << node << "'";
+                         << yaml_location(values_node) << " in node '" << excerpt(node) << "'";
                 return std::unexpected(0);
             }
             for(const auto & value : values_node) {
                 if(!value.IsScalar()) {
                     logger::info() << "DataRef values must contain only scalars"
-                             << yaml_location(value) << " in node '" << node << "'";
+                             << yaml_location(value) << " in node '" << excerpt(node) << "'";
                     return std::unexpected(0);
                 }
                 values.emplace_back(value.as<std::string>());
@@ -156,7 +179,7 @@ key::build(const YAML::Node & node)
     }
     catch(const YAML::Exception & ex) {
         logger::info() << "Invalid DataRef map" << yaml_location(node)
-                 << " '" << node << "': " << ex.what();
+                 << " '" << excerpt(node) << "': " << ex.what();
         return std::unexpected(0);
     }
 }
@@ -240,7 +263,7 @@ build(const YAML::Node & node, const std::string & key)
         logger::debug() << "[Configuration debug] Checking for required '" << key << "'";
 #endif
     if(!node.IsMap() or !node[key]) {
-        logger::info() << "Key '" << key << "' not found" << yaml_location(node) << ": " << node;
+        logger::info() << "Key '" << key << "' not found" << yaml_location(node) << ": " << excerpt(node);
         return std::unexpected(0);
     }
     auto ret = T::build(node[key]);
@@ -527,6 +550,35 @@ annunciator::build(const YAML::Node & node)
     );
 }
 
+// Largest accepted configuration file; the bundled ones are a few KiB.
+static constexpr std::uintmax_t max_configuration_size = 1024 * 1024;
+
+// Records whether a document uses anchors or aliases. Aliases let a tiny file
+// expand into an enormous tree ("billion laughs"), and no bundled configuration
+// needs them, so they are rejected before the real parse.
+namespace {
+class anchor_detector final : public YAML::EventHandler {
+public:
+    bool found = false;
+    YAML::Mark where;
+    void OnDocumentStart(const YAML::Mark &) override {}
+    void OnDocumentEnd() override {}
+    void OnNull(const YAML::Mark & mark, YAML::anchor_t anchor) override { note(mark, anchor); }
+    void OnAlias(const YAML::Mark & mark, YAML::anchor_t) override { note(mark, 1); }
+    void OnScalar(const YAML::Mark & mark, const std::string &, YAML::anchor_t anchor, const std::string &) override { note(mark, anchor); }
+    void OnSequenceStart(const YAML::Mark & mark, const std::string &, YAML::anchor_t anchor, YAML::EmitterStyle::value) override { note(mark, anchor); }
+    void OnSequenceEnd() override {}
+    void OnMapStart(const YAML::Mark & mark, const std::string &, YAML::anchor_t anchor, YAML::EmitterStyle::value) override { note(mark, anchor); }
+    void OnMapEnd() override {}
+private:
+    void note(const YAML::Mark & mark, YAML::anchor_t anchor) {
+        if(anchor == 0 || found) return;
+        found = true;
+        where = mark;
+    }
+};
+}
+
 std::expected<configuration, int>
 configuration::read(const std::string & path)
 {
@@ -535,7 +587,39 @@ configuration::read(const std::string & path)
         if(logger::diagnostics::enabled(logger::diagnostic_category::configuration))
             logger::debug() << "[Configuration debug] Loading YAML File " << path;
 #endif
-        YAML::Node node = YAML::LoadFile(path);
+        std::error_code size_error;
+        const auto size = std::filesystem::file_size(path, size_error);
+        if(size_error) {
+            logger::info() << "Cannot read configuration file '" << path << "': " << size_error.message();
+            return std::unexpected(0);
+        }
+        if(size > max_configuration_size) {
+            logger::info() << "Configuration file '" << path << "' is " << size
+                     << " bytes, larger than the " << max_configuration_size << " byte limit";
+            return std::unexpected(0);
+        }
+        std::ifstream file(path, std::ios::binary);
+        if(!file) {
+            logger::info() << "Cannot open configuration file '" << path << "'";
+            return std::unexpected(0);
+        }
+        std::ostringstream contents;
+        contents << file.rdbuf();
+        const auto text = contents.str();
+
+        {
+            std::istringstream scan(text);
+            YAML::Parser parser(scan);
+            anchor_detector detector;
+            while(!detector.found && parser.HandleNextDocument(detector)) {}
+            if(detector.found) {
+                logger::info() << "Configuration '" << path << "' uses YAML anchors or aliases"
+                         << yaml_location(detector.where) << ", which are not supported";
+                return std::unexpected(0);
+            }
+        }
+
+        YAML::Node node = YAML::Load(text);
 
         if(!validate_map_keys(node, "Configuration '" + path + "'", {
             "name", "aircrafts", "models", "system", "autopilot", "annunciator"
