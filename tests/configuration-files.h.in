@@ -1,0 +1,13 @@
+// SPDX-License-Identifier: LGPL-2.1-only
+// Generated from conf/*.yaml by CMake; do not edit.
+#pragma once
+#include <string>
+#include <vector>
+
+struct configuration_case {
+    std::string name;
+    std::string path;
+};
+
+inline const std::vector<configuration_case> configuration_files = {
+@configuration_parameters@};

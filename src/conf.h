@@ -9,8 +9,9 @@
 #define CONF_H_
 
 #include "logger.h"
+#include "conf-validation.h"
 
-#include <yaml.h>
+#include <yaml-cpp/yaml.h>
 
 #include <optional>
 #include <expected>

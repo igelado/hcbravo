@@ -8,9 +8,10 @@
 #ifndef LOGGER_H_
 #define LOGGER_H_
 
-#include <XPLM/XPLMUtilities.h>
-
 #include <sstream>
+
+// Supplied by the host: X-Plane for the plugin, stderr for offline tools.
+void hcbravo_log(const char * message) noexcept;
 
 class logger {
 protected:
@@ -28,7 +29,7 @@ public:
     ~logger() noexcept {
         output_ << std::endl;
         std::string output = "[HCBravo] : " + output_.str();
-        XPLMDebugString(output.c_str());
+        hcbravo_log(output.c_str());
     }
 };
 

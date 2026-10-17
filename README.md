@@ -98,6 +98,27 @@ voltage, and thus it can start lighting the Bravo throttle annunciators.
 The `system` map also has an optional `gear` field to define the DataRef used to know the state of the landing gear.
 Obviously, if a given aircraft has fixed gear, this field is not required and the landing gear LEDs will remain off.
 
+The `gear` map requires `left`, `nose`, and `right` entries. Each gear requires
+`safe` and `unsafe` DataRef entries, using the short or long form described above.
+Its LED is green when `safe` is true, red when `safe` is false and `unsafe` is true,
+and off when both are false. Safe takes priority when both are true.
+
+For the Lancair Evolution, each gear has its own locked-down indicator and shares
+the aircraft's transit indicator:
+
+```yaml
+ gear:
+  left:
+   safe: 'laminar/n844x/lights/left_gear_down'
+   unsafe: 'laminar/n844x/lights/any_gear_in_transit'
+  nose:
+   safe: 'laminar/n844x/lights/nose_gear_down'
+   unsafe: 'laminar/n844x/lights/any_gear_in_transit'
+  right:
+   safe: 'laminar/n844x/lights/right_gear_down'
+   unsafe: 'laminar/n844x/lights/any_gear_in_transit'
+```
+
 #### Autopilot Configuration
 
 The autopilot configuration is map with two entries: `dials` and `modes`.
@@ -159,6 +180,29 @@ As in the case of the autopilot modes, all DataRefs are interpreted as boolean v
  After running those commands, there should a `hcbravo.zip` file that contains the plugin, configuration files, and joystick profiles.
  You can unzip that archive into the top-level X-Plane 12 installation directory.
 
+
+ ## Testing Configuration Files
+
+CMake discovers `conf/*.yaml` and registers a separate parameterized GoogleTest
+for each file. Adding or removing a file updates the test list on the next build.
+Editing an existing file only requires rerunning its test.
+
+```powershell
+ctest --test-dir build -C Release -L configuration --output-on-failure
+ctest --test-dir build -C Release -R '^conf.evot$' --output-on-failure
+```
+
+The `hcbravo-validate` executable uses the same `conf::validate_file` function
+as these tests, backed by the configuration parser used by the plugin:
+
+```powershell
+.\build\Release\hcbravo-validate.exe conf\evot.yaml conf\b58.yaml
+```
+
+It returns 0 when all files are valid, 1 when any file fails, and 2 when no files
+are supplied. Parser diagnostics are written to stderr. Validation checks YAML
+structure and DataRef descriptors; DataRef availability and numeric type
+compatibility are checked when an aircraft is loaded in X-Plane.
 
  ## Using the Plugin in XPlane
 

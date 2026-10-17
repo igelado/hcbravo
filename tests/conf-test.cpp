@@ -340,22 +340,6 @@ right:
     EXPECT_EQ(gear->right().unsafe().keys().front().path(), "sim/test/right-unsafe");
 }
 
-TEST(conf_test, bundled_configurations_parse)
-{
-    const auto conf_dir = std::filesystem::path(HCBRAVO_SOURCE_DIR) / "conf";
-    size_t configuration_count = 0;
-
-    for(const auto & entry : std::filesystem::directory_iterator(conf_dir)) {
-        if(entry.path().extension() != ".yaml") continue;
-
-        const auto configuration = conf::configuration::read(entry.path().string());
-        ASSERT_TRUE(configuration.has_value()) << entry.path();
-        ++configuration_count;
-    }
-
-    EXPECT_GT(configuration_count, 0);
-}
-
 TEST(conf_test, configuration_requires_valid_top_level_identity)
 {
     const auto valid = read_configuration(R"(

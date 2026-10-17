@@ -93,18 +93,16 @@ state::flight_iteration(float call, float iter, int counter, void * _this) noexc
     }
 
     if(system.gear().has_value()) {
-        bool left = system.gear().value().left();
-        bool nose = system.gear().value().nose();
-        bool right = system.gear().value().right();
-
-        mask.update(LED_LDG_L_GREEN, left);
-        mask.update(LED_LDG_L_RED, !left);
-
-        mask.update(LED_LDG_N_GREEN, nose);
-        mask.update(LED_LDG_N_RED, !nose);
-    
-        mask.update(LED_LDG_R_GREEN, right);
-        mask.update(LED_LDG_R_RED, !right);
+        const auto & gear = system.gear().value();
+        const auto left = gear.left_state();
+        const auto nose = gear.nose_state();
+        const auto right = gear.right_state();
+        mask.update(LED_LDG_L_GREEN, left == profile::gear_state::safe);
+        mask.update(LED_LDG_L_RED, left == profile::gear_state::unsafe);
+        mask.update(LED_LDG_N_GREEN, nose == profile::gear_state::safe);
+        mask.update(LED_LDG_N_RED, nose == profile::gear_state::unsafe);
+        mask.update(LED_LDG_R_GREEN, right == profile::gear_state::safe);
+        mask.update(LED_LDG_R_RED, right == profile::gear_state::unsafe);
     }
 
     if(plane->annunciator().has_value()) {

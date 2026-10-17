@@ -53,6 +53,29 @@ system:
   - key: 'sim/cockpit2/electrical/bus_volts'
     index: 0
 
+
+ gear:
+  left:
+   safe:
+    - key: 'sim/flightmodel2/gear/deploy_ratio'
+      index: 1
+      values: [1]
+   unsafe: 'sim/cockpit2/annunciators/gear_unsafe'
+  nose:
+   safe:
+    - key: 'sim/flightmodel2/gear/deploy_ratio'
+      index: 0
+      values: [1]
+   unsafe: 'sim/cockpit2/annunciators/gear_unsafe'
+  right:
+   safe:
+    - key: 'sim/flightmodel2/gear/deploy_ratio'
+      index: 2
+      values: [1]
+   unsafe: 'sim/cockpit2/annunciators/gear_unsafe'
+
+
+
 annunciator:
  master_warn:
   - key: 'sim/cockpit2/annunciators/master_warning'

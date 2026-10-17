@@ -8,7 +8,11 @@
 #ifndef XPLMUTILITIES_H_
 #define XPLMUTILITIES_H_
 
+#include <cstdio>
+
 static inline
-void XPLMDebugString(const char *) noexcept {}
+void XPLMDebugString(const char * message) noexcept {
+    std::fputs(message, stderr);
+}
 
 #endif

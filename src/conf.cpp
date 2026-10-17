@@ -10,6 +10,7 @@
 #include <initializer_list>
 #include <string>
 #include <string_view>
+#include <unordered_set>
 
 namespace conf {
 
@@ -42,6 +43,7 @@ validate_map_keys(const YAML::Node & node, const std::string & description,
     }
 
     try {
+        std::unordered_set<std::string> seen;
         for(const auto & entry : node) {
             if(!entry.first.IsScalar()) {
                 logger() << description << " has a non-scalar key"
@@ -50,6 +52,11 @@ validate_map_keys(const YAML::Node & node, const std::string & description,
             }
 
             const auto key = entry.first.as<std::string>();
+            if(!seen.insert(key).second) {
+                logger() << "Duplicate " << description << " key '" << key
+                         << "'" << yaml_location(entry.first);
+                return std::unexpected(0);
+            }
             bool allowed = false;
             for(const auto allowed_key : allowed_keys) {
                 if(key == allowed_key) {
