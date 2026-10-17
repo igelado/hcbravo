@@ -46,6 +46,7 @@ class state {
     std::string active_aircraft_name_;
     bool load_pending_ = false;
     bool waiting_for_data_refs_ = false;
+    bool enabled_ = true;
 #if !defined(NDEBUG)
     std::array<int, 3> diagnostics_menu_items_ {};
 
@@ -99,6 +100,15 @@ public:
 
     void
     unload_plane() noexcept;
+
+    // Plugin Admin disable/enable: disable darkens the LEDs and stops the
+    // flight loop; enable rebinds the current aircraft, which X-Plane will
+    // not announce again.
+    void
+    disable() noexcept;
+
+    void
+    enable() noexcept;
 
     inline
     const std::optional<profile::configuration::ptr_type> &

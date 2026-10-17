@@ -56,11 +56,14 @@ XPluginStop(void) {
 
 PLUGIN_API
 void
-XPluginDisable(void) {}
+XPluginDisable(void) {
+    if(plugin_state.has_value()) plugin_state.value()->disable();
+}
 
 PLUGIN_API
 int
 XPluginEnable(void) {
+    if(plugin_state.has_value()) plugin_state.value()->enable();
     return 1;
 }
 

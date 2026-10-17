@@ -519,6 +519,7 @@ state::load_plane() noexcept
 void
 state::request_load_plane() noexcept
 {
+    if(!enabled_) return;
     unload_plane();
     load_pending_ = true;
     logger::debug() << "Deferring profile binding until the first flight-loop callback";
@@ -530,12 +531,29 @@ state::data_refs_added() noexcept
 {
     // Coalesce notifications while a load is already pending, and never
     // rebuild an active profile or revive an unloaded aircraft.
-    if(!waiting_for_data_refs_ || load_pending_) return;
+    if(!enabled_ || !waiting_for_data_refs_ || load_pending_) return;
     load_pending_ = true;
     logger::debug() << "New DataRefs registered after a failed load; scheduling profile binding on the next flight-loop callback";
     XPLMScheduleFlightLoop(flight_loop_, -1.0f, 1);
 }
 
+void
+state::disable() noexcept
+{
+    if(!enabled_) return;
+    enabled_ = false;
+    unload_plane();
+    // An interval of zero deactivates the flight loop.
+    XPLMScheduleFlightLoop(flight_loop_, 0.0f, 1);
+}
+
+void
+state::enable() noexcept
+{
+    if(enabled_) return;
+    enabled_ = true;
+    request_load_plane();
+}
 
 void
 state::unload_plane() noexcept
