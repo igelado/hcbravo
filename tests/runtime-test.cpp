@@ -472,6 +472,21 @@ TEST_F(runtime_test, logs_raw_values_and_applies_value_filters_before_inversion)
     EXPECT_TRUE(xplm_test::log.empty());
 }
 
+TEST_F(runtime_test, failed_indexed_read_is_never_set_even_when_inverted) {
+    xplm_test::data_refs["sim/test/array"] = {xplmType_FloatArray, true, 1, 0};
+    xplm_test::data_refs["sim/test/array"].array_read_count = 0;
+    for(const char * node : {
+        "{key: sim/test/array, index: 0, invert: true}",
+        "{key: sim/test/array, index: 0}"
+    }) {
+        auto key = conf::key::build(YAML::Load(node));
+        ASSERT_TRUE(key.has_value());
+        auto value = profile::bool_data_ref::build(key.value());
+        ASSERT_TRUE(value.has_value());
+        EXPECT_FALSE(value.value()->is_set()) << node;
+    }
+}
+
 TEST_F(runtime_test, explicit_dump_reads_all_inputs_and_normal_updates_keep_short_circuiting) {
     xplm_test::data_refs["sim/test/first"].value = 1;
     auto source = conf::value::build(YAML::Load("[sim/test/first, sim/test/second]"));
