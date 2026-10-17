@@ -681,7 +681,7 @@ TEST_F(runtime_test, alt_and_vs_dials_are_clamped_to_sane_bounds) {
     auto initialized = state::state::init();
     ASSERT_TRUE(initialized.has_value());
     initialized.value()->request_load_plane();
-    ASSERT_EQ(xplm_test::tick(), -1);
+    ASSERT_EQ(xplm_test::tick(), state::state::powered_interval);
     const auto & dials = initialized.value()->active_plane().value()->autopilot()->dials().value();
     const auto & alt = dials.alt().value();
     const auto & vs = dials.vs().value();
@@ -717,7 +717,7 @@ TEST_F(runtime_test, reload_pages_through_a_truncated_directory_listing) {
     EXPECT_EQ(xplm_test::log.find("did not advance"), std::string::npos);
     // The configuration found on the second page is registered.
     initialized.value()->request_load_plane();
-    EXPECT_EQ(xplm_test::tick(), -1);
+    EXPECT_EQ(xplm_test::tick(), state::state::powered_interval);
     EXPECT_TRUE(initialized.value()->active_plane().has_value());
 }
 
