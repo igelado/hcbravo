@@ -163,7 +163,9 @@ bool_data_ref::read() const noexcept
                 }
             }
         }
-        result = invert_ ? !result : result;
+        // A failed indexed read has no value to invert; never report it as set.
+        if(count != 1) result = false;
+        else result = invert_ ? !result : result;
         return {static_cast<double>(value), count, result};
     }
 
@@ -182,7 +184,9 @@ bool_data_ref::read() const noexcept
             }
         }
     }
-    result = invert_ ? !result : result;
+    // A failed indexed read has no value to invert; never report it as set.
+    if(count != 1) result = false;
+    else result = invert_ ? !result : result;
     return {value, count, result};
 }
 
