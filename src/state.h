@@ -78,7 +78,11 @@ public:
     static constexpr float powered_interval = 0.1f;
     static constexpr float unpowered_interval = 0.25f;
 
-    inline state(state &&) noexcept = default;
+    // Menu, command and flight-loop callbacks hold pointers to this object.
+    state(const state &) = delete;
+    state & operator=(const state &) = delete;
+    state(state &&) = delete;
+    state & operator=(state &&) = delete;
 
     ~state() noexcept;
 
