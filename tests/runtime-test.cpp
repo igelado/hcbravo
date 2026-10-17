@@ -75,8 +75,8 @@ protected:
 };
 
 TEST_F(runtime_test, logger_retains_errors_and_gates_debug_messages_by_build_configuration) {
-    logger::logger() << "Runtime error example";
-    logger::debug_logger() << "Debug message example";
+    logger::info() << "Runtime error example";
+    logger::debug() << "Debug message example";
     EXPECT_NE(xplm_test::log.find("Runtime error example"), std::string::npos);
     expect_debug_message("Debug message example");
 #if !defined(NDEBUG)
