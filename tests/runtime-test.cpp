@@ -69,6 +69,7 @@ protected:
         if(plugin_started_) XPluginStop();
         state::state::hid_reconnect_interval = std::chrono::seconds(5);
         led::led_state::retry_interval = std::chrono::seconds(5);
+        led::led_state::probe_interval = std::chrono::seconds(5);
     }
 
     bool start_plugin() {
@@ -516,6 +517,27 @@ TEST_F(runtime_test, repeated_write_failures_close_device_and_reconnect_later) {
     hid_test::result = 65;
     xplm_test::tick();
     EXPECT_GT(hid_test::reports.size(), base + led::led_state::max_consecutive_failures);
+    EXPECT_NE(xplm_test::log.find("Throttle Detected"), std::string::npos);
+}
+
+TEST_F(runtime_test, unplug_with_steady_leds_is_detected_by_periodic_probe) {
+    led::led_state::retry_interval = std::chrono::seconds(0);
+    led::led_state::probe_interval = std::chrono::seconds(0);
+    ASSERT_TRUE(start_plugin());
+    XPluginReceiveMessage(XPLM_PLUGIN_XPLANE, XPLM_MSG_PLANE_LOADED, nullptr);
+    xplm_test::tick();
+    xplm_test::tick(); // unchanged mask: resent as a probe
+    hid_test::result = -1;
+    hid_test::present = false;
+    xplm_test::log.clear();
+    for(int n = 0; n < 10; ++n) xplm_test::tick();
+    EXPECT_EQ(hid_test::close_count, 1);
+    EXPECT_NE(xplm_test::log.find("disconnected"), std::string::npos);
+    EXPECT_EQ(xplm_test::log.find("disconnected"), xplm_test::log.rfind("disconnected"));
+    hid_test::present = true;
+    hid_test::result = 65;
+    xplm_test::log.clear();
+    xplm_test::tick();
     EXPECT_NE(xplm_test::log.find("Throttle Detected"), std::string::npos);
 }
 

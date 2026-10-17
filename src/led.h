@@ -83,6 +83,7 @@ protected:
     hid_device_ * hid_;
     bool synchronized_ = false;
     unsigned int consecutive_failures_ = 0;
+    std::chrono::steady_clock::time_point next_probe_ {};
     std::chrono::steady_clock::time_point next_retry_ {};
 
     friend class state::state;
@@ -91,6 +92,10 @@ public:
     static constexpr unsigned int max_consecutive_failures = 3;
     // Delay before retrying a failed write (adjustable for tests).
     static inline std::chrono::steady_clock::duration retry_interval = std::chrono::seconds(5);
+
+    // While steady, resend the unchanged report this often so an unplugged
+    // device is noticed through the normal write-failure path.
+    static inline std::chrono::steady_clock::duration probe_interval = std::chrono::seconds(5);
 
     // Adopt a freshly opened handle and force the next update to resend.
     void attach(hid_device_ * hid) noexcept;
