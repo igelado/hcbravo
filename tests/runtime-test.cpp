@@ -277,7 +277,7 @@ TEST_F(runtime_test, first_enable_binds_an_aircraft_that_was_already_loaded) {
     EXPECT_EQ(xplm_test::schedule_count, 0);
     EXPECT_EQ(XPluginEnable(), 1);
     EXPECT_EQ(xplm_test::schedule_count, 1);
-    EXPECT_EQ(xplm_test::tick(), -1);
+    EXPECT_EQ(xplm_test::tick(), state::state::powered_interval);
     EXPECT_NE(xplm_test::log.find("Aircraft enabled: 'Lancair Evolution'"), std::string::npos);
 }
 
