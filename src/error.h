@@ -13,6 +13,8 @@
 #include <expected>
 #include <iostream>
 
+namespace error {
+
 enum class error {
     not_detected,
     hid_error,
@@ -51,5 +53,7 @@ operator<<(std::ostream & os, const error & e) noexcept {
     }
     return os;
 }
+
+} // namespace error
 
 #endif

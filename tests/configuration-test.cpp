@@ -7,7 +7,9 @@
 #include <filesystem>
 #include <fstream>
 
-class ConfigurationTest : public ::testing::TestWithParam<configuration_case> {};
+namespace configuration_test {
+
+class ConfigurationTest : public ::testing::TestWithParam<configuration_files::configuration_case> {};
 
 TEST_P(ConfigurationTest, Valid) {
     const auto result = conf::validate_file(GetParam().path);
@@ -15,8 +17,8 @@ TEST_P(ConfigurationTest, Valid) {
 }
 
 INSTANTIATE_TEST_SUITE_P(Bundled, ConfigurationTest,
-    ::testing::ValuesIn(configuration_files),
-    [](const ::testing::TestParamInfo<configuration_case> & info) { return info.param.name; });
+    ::testing::ValuesIn(configuration_files::configuration_files),
+    [](const ::testing::TestParamInfo<configuration_files::configuration_case> & info) { return info.param.name; });
 
 TEST(ValidationTest, MissingFile) {
     const auto result = conf::validate_file("hcbravo-nonexistent-profile.yaml");
@@ -75,3 +77,5 @@ TEST(ValidationTest, RejectsMultipleDialDataRefs) {
 TEST(ValidationTest, RejectsMalformedYaml) {
     EXPECT_FALSE(validate_contents("name: [unterminated").has_value());
 }
+
+} // namespace configuration_test

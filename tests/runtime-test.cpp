@@ -11,6 +11,8 @@ int XPluginStart(char *, char *, char *);
 void XPluginStop();
 void XPluginReceiveMessage(XPLMPluginID, int, void *);
 
+namespace runtime_test {
+
 class runtime_test : public testing::Test {
 protected:
     bool plugin_started_ = false;
@@ -30,7 +32,7 @@ protected:
         xplm_test::menu_checks.clear();
         xplm_test::commands.clear();
 #if !defined(NDEBUG)
-        diagnostics::reset();
+        logger::diagnostics::reset();
 #endif
         hid_test::reports.clear();
         hid_test::result = 65;
@@ -73,23 +75,23 @@ protected:
 };
 
 TEST_F(runtime_test, logger_retains_errors_and_gates_debug_messages_by_build_configuration) {
-    logger() << "Runtime error example";
-    debug_logger() << "Debug message example";
+    logger::logger() << "Runtime error example";
+    logger::debug_logger() << "Debug message example";
     EXPECT_NE(xplm_test::log.find("Runtime error example"), std::string::npos);
     expect_debug_message("Debug message example");
 #if !defined(NDEBUG)
     {
-        diagnostic_scope snapshot(diagnostic_category::datarefs);
-        EXPECT_TRUE(diagnostic_scope::enabled(diagnostic_category::datarefs));
-        EXPECT_FALSE(diagnostic_scope::enabled(diagnostic_category::configuration));
+        logger::diagnostic_scope snapshot(logger::diagnostic_category::datarefs);
+        EXPECT_TRUE(logger::diagnostic_scope::enabled(logger::diagnostic_category::datarefs));
+        EXPECT_FALSE(logger::diagnostic_scope::enabled(logger::diagnostic_category::configuration));
         {
-            diagnostic_scope nested(diagnostic_category::configuration);
-            EXPECT_TRUE(diagnostic_scope::enabled(diagnostic_category::configuration));
-            EXPECT_FALSE(diagnostic_scope::enabled(diagnostic_category::datarefs));
+            logger::diagnostic_scope nested(logger::diagnostic_category::configuration);
+            EXPECT_TRUE(logger::diagnostic_scope::enabled(logger::diagnostic_category::configuration));
+            EXPECT_FALSE(logger::diagnostic_scope::enabled(logger::diagnostic_category::datarefs));
         }
-        EXPECT_TRUE(diagnostic_scope::enabled(diagnostic_category::datarefs));
+        EXPECT_TRUE(logger::diagnostic_scope::enabled(logger::diagnostic_category::datarefs));
     }
-    EXPECT_FALSE(diagnostic_scope::enabled(diagnostic_category::datarefs));
+    EXPECT_FALSE(logger::diagnostic_scope::enabled(logger::diagnostic_category::datarefs));
 #endif
 }
 
@@ -117,7 +119,7 @@ TEST_F(runtime_test, defers_binding_and_dumps_raw_values_gear_decisions_and_cach
     xplm_test::data_refs["laminar/n844x/lights/left_gear_down"].value = 1;
     xplm_test::data_refs["laminar/n844x/lights/any_gear_in_transit"].value = 1;
     xplm_test::data_refs["sim/cockpit2/engine/actuators/fuel_pump_on"].value = 1;
-    auto initialized = state::init();
+    auto initialized = state::state::init();
     ASSERT_TRUE(initialized.has_value());
     auto & runtime = *initialized.value();
 #if !defined(NDEBUG)
@@ -154,7 +156,7 @@ TEST_F(runtime_test, defers_binding_and_dumps_raw_values_gear_decisions_and_cach
 TEST_F(runtime_test, evolution_uses_parking_brake_and_float_door_inputs_for_annunciators) {
     xplm_test::data_refs["sim/cockpit2/controls/parking_brake_ratio"].value = 0.5;
     xplm_test::data_refs["sim/flightmodel2/misc/door_open_ratio"].value = 0.25;
-    auto initialized = state::init();
+    auto initialized = state::state::init();
     ASSERT_TRUE(initialized.has_value());
     initialized.value()->request_load_plane();
     ASSERT_EQ(xplm_test::tick(), -1);
@@ -167,7 +169,7 @@ TEST_F(runtime_test, evolution_uses_parking_brake_and_float_door_inputs_for_annu
 TEST_F(runtime_test, loads_again_only_when_datarefs_are_added_after_a_failed_load) {
     auto & gear = xplm_test::data_refs["laminar/n844x/lights/left_gear_down"];
     gear.available = false;
-    auto initialized = state::init();
+    auto initialized = state::state::init();
     ASSERT_TRUE(initialized.has_value());
     initialized.value()->request_load_plane();
     EXPECT_EQ(xplm_test::tick(), 0);
@@ -187,7 +189,7 @@ TEST_F(runtime_test, loads_again_only_when_datarefs_are_added_after_a_failed_loa
 
 TEST_F(runtime_test, failed_binding_stops_without_scheduling_a_retry) {
     xplm_test::data_refs["laminar/n844x/lights/left_gear_down"].available = false;
-    auto initialized = state::init();
+    auto initialized = state::state::init();
     ASSERT_TRUE(initialized.has_value());
     initialized.value()->request_load_plane();
     EXPECT_EQ(xplm_test::tick(), 0);
@@ -199,7 +201,7 @@ TEST_F(runtime_test, failed_binding_stops_without_scheduling_a_retry) {
 TEST_F(runtime_test, dataref_notifications_coalesce_and_allow_loading_after_another_failure) {
     auto & gear = xplm_test::data_refs["laminar/n844x/lights/left_gear_down"];
     gear.available = false;
-    auto initialized = state::init();
+    auto initialized = state::state::init();
     ASSERT_TRUE(initialized.has_value());
     auto & runtime = *initialized.value();
     runtime.request_load_plane();
@@ -222,7 +224,7 @@ TEST_F(runtime_test, dataref_notifications_coalesce_and_allow_loading_after_anot
 }
 
 TEST_F(runtime_test, unloading_cancels_pending_binding) {
-    auto initialized = state::init();
+    auto initialized = state::state::init();
     ASSERT_TRUE(initialized.has_value());
     initialized.value()->request_load_plane();
     initialized.value()->unload_plane();
@@ -268,7 +270,7 @@ TEST_F(runtime_test, simulator_dataref_notification_wakes_failed_binding_but_not
 }
 
 TEST_F(runtime_test, state_dump_menu_actions_are_immediate_repeatable_and_do_not_write_hid) {
-    auto initialized = state::init();
+    auto initialized = state::state::init();
     ASSERT_TRUE(initialized.has_value());
     std::vector<std::string> expected_menu_items {"HoneyComb Bravo", "Reload Aircraft Profiles"};
 #if !defined(NDEBUG)
@@ -291,7 +293,7 @@ TEST_F(runtime_test, state_dump_menu_actions_are_immediate_repeatable_and_do_not
     for(size_t id : {2, 3, 2, 3}) {
         xplm_test::menu_handler(xplm_test::menu_refcon, reinterpret_cast<void *>(id));
         expect_debug_message(id == 2 ? "[LED dump]" : "[Autopilot dump]");
-        EXPECT_EQ(diagnostics::selected(), 0);
+        EXPECT_EQ(logger::diagnostics::selected(), 0);
         EXPECT_EQ(xplm_test::log.find(id == 2 ? "[Autopilot dump]" : "[LED dump]"), std::string::npos);
         xplm_test::log.clear();
         EXPECT_EQ(xplm_test::tick(), -1);
@@ -312,7 +314,7 @@ TEST_F(runtime_test, autopilot_dump_reads_current_dials_and_modes_even_without_l
     xplm_test::data_refs["sim/cockpit2/autopilot/servos_on"].value = 1;
     xplm_test::data_refs["sim/cockpit2/autopilot/heading_mode"].value = 14;
     xplm_test::data_refs["sim/cockpit2/autopilot/airspeed_is_mach"].value = 1;
-    auto initialized = state::init();
+    auto initialized = state::state::init();
     ASSERT_TRUE(initialized.has_value());
     initialized.value()->request_load_plane();
     ASSERT_EQ(xplm_test::tick(), -1);
@@ -335,7 +337,7 @@ TEST_F(runtime_test, autopilot_dump_reads_current_dials_and_modes_even_without_l
 }
 
 TEST_F(runtime_test, dumps_without_a_profile_do_not_load_retry_or_read_stale_datarefs) {
-    auto initialized = state::init();
+    auto initialized = state::state::init();
     ASSERT_TRUE(initialized.has_value());
     auto & runtime = *initialized.value();
     // Exercise initial state, a pending load, a failed load, and an unloaded aircraft.
@@ -364,7 +366,7 @@ TEST_F(runtime_test, dumps_without_a_profile_do_not_load_retry_or_read_stale_dat
 
 TEST_F(runtime_test, power_gate_keeps_all_leds_off_and_dump_reports_array_read_failures) {
     xplm_test::data_refs["sim/cockpit2/electrical/bus_volts"].array_read_count = 0;
-    auto initialized = state::init();
+    auto initialized = state::state::init();
     ASSERT_TRUE(initialized.has_value());
 #if !defined(NDEBUG)
     xplm_test::menu_handler(xplm_test::menu_refcon, reinterpret_cast<void *>(5));
@@ -381,7 +383,7 @@ TEST_F(runtime_test, power_gate_keeps_all_leds_off_and_dump_reports_array_read_f
     for(const auto byte : hid_test::reports[0]) EXPECT_EQ(byte, 0);
 }
 
-class test_led_state : public led_state {
+class test_led_state : public led::led_state {
 public:
     test_led_state() { hid_ = &hid_test::device; }
     void allow_retry() { next_retry_ = {}; }
@@ -389,8 +391,8 @@ public:
 
 TEST_F(runtime_test, failed_hid_write_is_logged_throttled_and_retried) {
     test_led_state leds;
-    led_mask mask;
-    mask.update(LED_LDG_L_GREEN, true);
+    led::led_mask mask;
+    mask.update(led::LED_LDG_L_GREEN, true);
     hid_test::result = -1;
     leds.update(mask);
     EXPECT_NE(xplm_test::log.find("bytes=-1/65 error=test HID failure"), std::string::npos);
@@ -406,7 +408,7 @@ TEST_F(runtime_test, failed_hid_write_is_logged_throttled_and_retried) {
 
 TEST_F(runtime_test, short_hid_write_does_not_mark_output_as_synchronized) {
     test_led_state leds;
-    led_mask mask;
+    led::led_mask mask;
     hid_test::result = 4;
     leds.update(mask);
     EXPECT_NE(xplm_test::log.find("bytes=4/65"), std::string::npos);
@@ -418,11 +420,11 @@ TEST_F(runtime_test, short_hid_write_does_not_mark_output_as_synchronized) {
 
 TEST_F(runtime_test, turning_off_leds_bypasses_cooldown_after_a_failed_nonzero_write) {
     test_led_state leds;
-    led_mask green;
-    green.update(LED_LDG_L_GREEN, true);
+    led::led_mask green;
+    green.update(led::LED_LDG_L_GREEN, true);
     leds.update(green);
-    led_mask red;
-    red.update(LED_LDG_L_RED, true);
+    led::led_mask red;
+    red.update(led::LED_LDG_L_RED, true);
     hid_test::result = -1;
     leds.update(red);
     ASSERT_EQ(hid_test::reports.size(), 2);
@@ -451,7 +453,7 @@ TEST_F(runtime_test, plugin_stop_attempts_all_off_even_when_led_writes_are_in_co
 
 TEST_F(runtime_test, logs_raw_values_and_applies_value_filters_before_inversion) {
 #if !defined(NDEBUG)
-    diagnostics::toggle(diagnostic_category::datarefs);
+    logger::diagnostics::toggle(logger::diagnostic_category::datarefs);
 #endif
     xplm_test::data_refs["sim/test/mode"].value = 2;
     auto key = conf::key::build(YAML::Load("{key: sim/test/mode, values: [1, 14], invert: true}"));
@@ -512,12 +514,12 @@ TEST_F(runtime_test, gear_dump_reads_unsafe_input_while_normal_updates_prioritiz
 }
 
 TEST_F(runtime_test, diagnostic_toggles_do_not_produce_flight_loop_output) {
-    auto initialized = state::init();
+    auto initialized = state::state::init();
     ASSERT_TRUE(initialized.has_value());
     initialized.value()->request_load_plane();
     ASSERT_EQ(xplm_test::tick(), -1);
 #if !defined(NDEBUG)
-    EXPECT_EQ(diagnostics::selected(), 0);
+    EXPECT_EQ(logger::diagnostics::selected(), 0);
     for(const auto & entry : xplm_test::menu_checks) EXPECT_EQ(entry.second, xplm_Menu_Unchecked);
     for(size_t id : {4, 5, 6}) {
         xplm_test::menu_handler(xplm_test::menu_refcon, reinterpret_cast<void *>(id));
@@ -541,7 +543,7 @@ TEST_F(runtime_test, diagnostic_toggles_do_not_produce_flight_loop_output) {
 }
 
 TEST_F(runtime_test, knob_diagnostics_are_event_driven_and_do_not_enable_other_categories) {
-    auto initialized = state::init();
+    auto initialized = state::state::init();
     ASSERT_TRUE(initialized.has_value());
     initialized.value()->request_load_plane();
     ASSERT_EQ(xplm_test::tick(), -1);
@@ -574,7 +576,7 @@ TEST_F(runtime_test, knob_diagnostics_are_event_driven_and_do_not_enable_other_c
 }
 
 TEST_F(runtime_test, configuration_diagnostics_are_opt_in_and_independent_from_datarefs) {
-    auto initialized = state::init();
+    auto initialized = state::state::init();
     ASSERT_TRUE(initialized.has_value());
     EXPECT_EQ(xplm_test::log.find("[Configuration debug]"), std::string::npos);
 #if !defined(NDEBUG)
@@ -588,3 +590,5 @@ TEST_F(runtime_test, configuration_diagnostics_are_opt_in_and_independent_from_d
     EXPECT_EQ(xplm_test::tick(), -1);
     EXPECT_EQ(xplm_test::log.find("DataRef bound:"), std::string::npos);
 }
+
+} // namespace runtime_test

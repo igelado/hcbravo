@@ -10,6 +10,8 @@
 #include <cstring>
 #include <cwchar>
 
+namespace led {
+
 led_state::led_state() noexcept :
     hid_(nullptr)
 {
@@ -52,7 +54,7 @@ led_state::update(const led_mask & mask)
         if(error == nullptr || std::wcsrtombs(error_text, &error, sizeof(error_text) - 1, &conversion) == static_cast<size_t>(-1)) {
             ::strcpy(error_text, "no readable HID error text");
         }
-        logger() << "HID LED write failed: report_id=" << static_cast<unsigned int>(next_state.id_)
+        logger::logger() << "HID LED write failed: report_id=" << static_cast<unsigned int>(next_state.id_)
                  << " banks=[" << mask.describe() << "] bytes=" << ret << "/" << sizeof(next_state)
                  << " error=" << error_text << "; retrying in 5 seconds";
         synchronized_ = false;
@@ -78,8 +80,10 @@ led_state::dump_state() const noexcept
 {
     led_mask cached;
     ::memcpy(cached.banks_, u.state_.banks_, sizeof(cached.banks_));
-    debug_logger() << "[LED dump] HID available=" << (hid_ != nullptr)
+    logger::debug_logger() << "[LED dump] HID available=" << (hid_ != nullptr)
         << " synchronized=" << synchronized_ << " report_id=" << static_cast<unsigned int>(u.state_.id_)
         << " cached banks=[" << cached.describe() << "] bytes=" << sizeof(u.state_);
 }
 #endif
+
+} // namespace led

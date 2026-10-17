@@ -22,6 +22,12 @@
 
 #include "logger.h"
 
+namespace state {
+class state;
+}
+
+namespace led {
+
 static const size_t LED_NR_BANKS = 4;
 static const size_t LED_NR_BITS = 8;
 using led_id = std::tuple<uint8_t, uint8_t>;
@@ -78,7 +84,7 @@ protected:
     bool synchronized_ = false;
     std::chrono::steady_clock::time_point next_retry_ {};
 
-    friend class state;
+    friend class state::state;
 public:
     led_state() noexcept;
     led_state(led_state &&) noexcept;
@@ -134,5 +140,7 @@ static const led_id LED_ANC_VOLTS     = { 3, 2 };
 static const led_id LED_ANC_DOOR      = { 3, 3 };
 
 
+
+} // namespace led
 
 #endif

@@ -2,6 +2,10 @@
 #include "logger.h"
 #include <XPLM/XPLMUtilities.h>
 
+namespace logger {
+
 void hcbravo_log(const char * message) noexcept {
     XPLMDebugString(message);
 }
+
+} // namespace logger

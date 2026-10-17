@@ -10,6 +10,8 @@
 
 #include <sstream>
 
+namespace logger {
+
 // Supplied by the host: X-Plane for the plugin, stderr for offline tools.
 void hcbravo_log(const char * message) noexcept;
 
@@ -79,5 +81,7 @@ public:
     debug_logger & operator<<(const T &) noexcept { return *this; }
 };
 #endif
+
+} // namespace logger
 
 #endif

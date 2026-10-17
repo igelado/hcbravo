@@ -11,6 +11,8 @@
 #include <filesystem>
 #include <fstream>
 
+namespace profile_test {
+
 static std::expected<conf::configuration, int>
 read_configuration(const std::string & contents)
 {
@@ -196,3 +198,5 @@ TEST(profile_test, float_bindings_ignore_integer_bits_and_use_supported_read_and
     ASSERT_TRUE(key.has_value());
     EXPECT_FALSE(profile::float_data_ref::build(key.value()).has_value());
 }
+
+} // namespace profile_test

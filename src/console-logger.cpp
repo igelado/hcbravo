@@ -2,6 +2,10 @@
 #include "logger.h"
 #include <cstdio>
 
+namespace logger {
+
 void hcbravo_log(const char * message) noexcept {
     std::fputs(message, stderr);
 }
+
+} // namespace logger

@@ -9,6 +9,8 @@
 #include <filesystem>
 #include <fstream>
 
+namespace conf_test {
+
 static
 std::expected<conf::configuration, int>
 read_configuration(const std::string & contents)
@@ -419,3 +421,5 @@ system:
     EXPECT_FALSE(empty_models.has_value());
     EXPECT_FALSE(invalid_model.has_value());
 }
+
+} // namespace conf_test
