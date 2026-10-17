@@ -40,10 +40,33 @@ CPMAddPackage(
 
 set(hcbravo_SRC ${PROJECT_SOURCE_DIR}/src)
 
+# Warnings and hardening for code shipped in the plugin: the plugin target and the
+# configuration library it links (which parses untrusted YAML). Dependencies,
+# tests and the validator keep their defaults.
+function(hcbravo_harden target)
+    if(MSVC)
+        target_compile_options(${target} PRIVATE /W4 /GS /guard:cf)
+        get_target_property(target_type ${target} TYPE)
+        if(NOT target_type STREQUAL "STATIC_LIBRARY")
+            target_link_options(${target} PRIVATE /guard:cf /DYNAMICBASE)
+        endif()
+    else()
+        target_compile_options(${target} PRIVATE
+            -Wall -Wextra
+            # Only the SDK's PLUGIN_API entry points are exported.
+            -fvisibility=hidden -fvisibility-inlines-hidden
+            $<$<CONFIG:Release>:-fstack-protector-strong>
+            $<$<CONFIG:Release>:-U_FORTIFY_SOURCE>
+            $<$<CONFIG:Release>:-D_FORTIFY_SOURCE=2>
+        )
+    endif()
+endfunction()
+
 add_library(hcbravo-conf STATIC ${hcbravo_SRC}/conf.cpp)
 set_target_properties(hcbravo-conf PROPERTIES POSITION_INDEPENDENT_CODE ON)
 target_include_directories(hcbravo-conf PUBLIC ${hcbravo_SRC})
 target_link_libraries(hcbravo-conf PUBLIC yaml-cpp::yaml-cpp)
+hcbravo_harden(hcbravo-conf)
 
 add_executable(hcbravo-validate ${hcbravo_SRC}/conf-validator.cpp ${hcbravo_SRC}/console-logger.cpp)
 target_link_libraries(hcbravo-validate PRIVATE hcbravo-conf)
@@ -86,21 +109,8 @@ target_include_directories(hcbravo PRIVATE "${XPlaneSDK_SOURCE_DIR}/CHeaders" hi
 target_link_libraries(hcbravo PRIVATE hidapi::hidapi yaml-cpp::yaml-cpp hcbravo-conf)
 set_target_properties(hcbravo PROPERTIES PREFIX "")
 set_target_properties(hcbravo PROPERTIES SUFFIX ".xpl")
+hcbravo_harden(hcbravo)
 
-# Warnings and hardening for the plugin itself (dependencies and tests keep their defaults).
-if(MSVC)
-    target_compile_options(hcbravo PRIVATE /W4 /GS /guard:cf)
-    target_link_options(hcbravo PRIVATE /guard:cf /DYNAMICBASE)
-else()
-    target_compile_options(hcbravo PRIVATE
-        -Wall -Wextra
-        # Only the SDK's PLUGIN_API entry points are exported.
-        -fvisibility=hidden -fvisibility-inlines-hidden
-        $<$<CONFIG:Release>:-fstack-protector-strong>
-        $<$<CONFIG:Release>:-U_FORTIFY_SOURCE>
-        $<$<CONFIG:Release>:-D_FORTIFY_SOURCE=2>
-    )
-endif()
 
 enable_testing()
 # Keep tests registered from the project root for CI path filters.
