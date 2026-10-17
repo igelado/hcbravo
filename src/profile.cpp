@@ -240,6 +240,12 @@ float_data_ref::build(const conf::key & key)
         logger::info() << "DataRef '" << key.path() << "' is not a float DataRef";
         return std::unexpected(0);
     }
+    // Float DataRefs are bound for the knob dials, which write them. A read-only
+    // DataRef would make knob turns silently do nothing, so say so at bind time.
+    if(!XPLMCanWriteDataRef(binding->data_ref)) {
+        logger::info() << "Dial DataRef '" << key.path()
+                       << "' is read-only; knob adjustments to it will have no effect";
+    }
     return float_data_ref(std::move(binding.value()));
 }
 

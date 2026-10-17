@@ -7,6 +7,7 @@
 #define HCBRAVO_PROFILE_TESTS
 #include <conf.h>
 #include <profile.h>
+#include <XPLM/XPLMUtilities.h>
 
 #include <filesystem>
 #include <fstream>
@@ -214,6 +215,21 @@ TEST(profile_test, float_values_match_within_tolerance)
         ASSERT_TRUE(bound.has_value());
         EXPECT_EQ(bound.value()->is_set(), entry.set);
     }
+}
+
+TEST(profile_test, warns_when_a_dial_dataref_is_read_only)
+{
+    const auto key = conf::key::build(YAML::Load("sim/test/readonly_dial"));
+    ASSERT_TRUE(key.has_value());
+    xplm_test::data_refs["sim/test/readonly_dial"] = {xplmType_Float, true, 1, 0, true};
+    xplm_test::log.clear();
+    ASSERT_TRUE(profile::float_data_ref::build(key.value()).has_value());
+    EXPECT_EQ(xplm_test::log.find("read-only"), std::string::npos);
+
+    xplm_test::data_refs["sim/test/readonly_dial"].writable = false;
+    xplm_test::log.clear();
+    EXPECT_TRUE(profile::float_data_ref::build(key.value()).has_value());
+    EXPECT_NE(xplm_test::log.find("Dial DataRef 'sim/test/readonly_dial' is read-only"), std::string::npos);
 }
 
 } // namespace profile_test

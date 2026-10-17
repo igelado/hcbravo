@@ -673,4 +673,32 @@ TEST_F(runtime_test, configuration_diagnostics_are_opt_in_and_independent_from_d
     EXPECT_EQ(xplm_test::log.find("DataRef bound:"), std::string::npos);
 }
 
+TEST_F(runtime_test, alt_and_vs_dials_are_clamped_to_sane_bounds) {
+    auto initialized = state::state::init();
+    ASSERT_TRUE(initialized.has_value());
+    initialized.value()->request_load_plane();
+    ASSERT_EQ(xplm_test::tick(), -1);
+    const auto & dials = initialized.value()->active_plane().value()->autopilot()->dials().value();
+    const auto & alt = dials.alt().value();
+    const auto & vs = dials.vs().value();
+
+    alt.set(99950.0f);
+    xplm_test::invoke("HCBravo/ALT", xplm_CommandBegin);
+    xplm_test::invoke("HCBravo/Inc", xplm_CommandEnd);
+    EXPECT_FLOAT_EQ(alt.get(), 100000.0f);
+    xplm_test::invoke("HCBravo/Inc", xplm_CommandEnd);
+    EXPECT_FLOAT_EQ(alt.get(), 100000.0f);
+    alt.set(50.0f);
+    xplm_test::invoke("HCBravo/Dec", xplm_CommandEnd);
+    EXPECT_FLOAT_EQ(alt.get(), 0.0f);
+
+    vs.set(9850.0f);
+    xplm_test::invoke("HCBravo/VS", xplm_CommandBegin);
+    xplm_test::invoke("HCBravo/Inc", xplm_CommandEnd);
+    EXPECT_FLOAT_EQ(vs.get(), 9900.0f);
+    vs.set(-9850.0f);
+    xplm_test::invoke("HCBravo/Dec", xplm_CommandEnd);
+    EXPECT_FLOAT_EQ(vs.get(), -9900.0f);
+}
+
 } // namespace runtime_test
