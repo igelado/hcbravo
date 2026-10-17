@@ -53,10 +53,26 @@ jobs:
       working-directory: ${{ steps.strings.outputs.build-output-dir }}
       run: ctest --build-config ${{ inputs.build-type }}
 
+    - name: Prepare plugin artifact
+      if: ${{ inputs.upload == true }}
+      shell: bash
+      env:
+        BUILD_OUTPUT_DIR: ${{ steps.strings.outputs.build-output-dir }}
+        BUILD_CONFIG: ${{ inputs.build-type }}
+      run: |
+        artifact_dir="$BUILD_OUTPUT_DIR/artifact"
+        if [[ "$RUNNER_OS" == "Windows" ]]; then
+          mkdir -p "$artifact_dir/$BUILD_CONFIG"
+          cp "$BUILD_OUTPUT_DIR/$BUILD_CONFIG/hcbravo.xpl" "$artifact_dir/$BUILD_CONFIG/hcbravo.xpl"
+        else
+          mkdir -p "$artifact_dir"
+          cp "$BUILD_OUTPUT_DIR/hcbravo.xpl" "$artifact_dir/hcbravo.xpl"
+        fi
+
     - name: Upload
       if: ${{ inputs.upload == true }}
       uses: actions/upload-artifact@v4
       with:
         name: output-${{ inputs.os }}
-        path: ${{ steps.strings.outputs.build-output-dir }}
+        path: ${{ steps.strings.outputs.build-output-dir }}/artifact
         retention-days: ${{ inputs.artifact-retention-days }}
