@@ -11,6 +11,10 @@ on:
       - 'src/**'
       - 'tests/**'
 
+permissions:
+  actions: read
+  contents: read
+
 jobs:
   build:
     strategy:
@@ -23,6 +27,26 @@ jobs:
       os: ${{ matrix.os }}
       upload: true
       artifact-retention-days: 3
+
+  debug:
+    name: debug (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+
+    uses: ./.github/workflows/build.yml
+    with:
+      os: ${{ matrix.os }}
+      build-type: Debug
+
+  sanitizers:
+    name: asan+ubsan
+    uses: ./.github/workflows/build.yml
+    with:
+      os: ubuntu-latest
+      build-type: Debug
+      sanitizers: true
 
   package:
     runs-on: ubuntu-latest

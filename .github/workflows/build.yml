@@ -19,7 +19,14 @@ on:
         description: "Number of days to keep uploaded build artifacts"
         default: 7
         type: number
-   
+      sanitizers:
+        description: "Build with AddressSanitizer and UndefinedBehaviorSanitizer (Linux/macOS only)"
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ${{ inputs.os }}
@@ -41,17 +48,21 @@ jobs:
         sudo apt-get install -y libudev-dev libusb-1.0-0-dev
 
     - name: Configure CMake
-      run: >
-        cmake -B ${{ steps.strings.outputs.build-output-dir }}
-        -DCMAKE_BUILD_TYPE=${{ inputs.build-type }}
-        -S ${{ github.workspace }}
+      shell: bash
+      env:
+        SANITIZER_FLAGS: ${{ inputs.sanitizers && '-fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer' || '' }}
+      run: |
+        cmake -B "${{ steps.strings.outputs.build-output-dir }}"           -DCMAKE_BUILD_TYPE=${{ inputs.build-type }}           ${SANITIZER_FLAGS:+-DCMAKE_C_FLAGS="$SANITIZER_FLAGS"}           ${SANITIZER_FLAGS:+-DCMAKE_CXX_FLAGS="$SANITIZER_FLAGS"}           ${SANITIZER_FLAGS:+-DCMAKE_EXE_LINKER_FLAGS="$SANITIZER_FLAGS"}           ${SANITIZER_FLAGS:+-DCMAKE_SHARED_LINKER_FLAGS="$SANITIZER_FLAGS"}           -S "${{ github.workspace }}"
 
     - name: Build
       run: cmake --build ${{ steps.strings.outputs.build-output-dir }} --config ${{ inputs.build-type }}
 
     - name: Test
       working-directory: ${{ steps.strings.outputs.build-output-dir }}
-      run: ctest --build-config ${{ inputs.build-type }}
+      env:
+        ASAN_OPTIONS: detect_leaks=1:strict_string_checks=1:abort_on_error=0
+        UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
+      run: ctest --build-config ${{ inputs.build-type }} --output-on-failure
 
     - name: Prepare plugin artifact
       if: ${{ inputs.upload == true }}
