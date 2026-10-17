@@ -41,6 +41,7 @@ XPluginStart(char * name, char * sig, char * desc) {
        logger::info() << "Failed to initialize Plugin: " << state.error();
        return 0;
     }
+    state.value()->start_disabled();
     plugin_state.emplace(std::move(state.value()));
 
     logger::info() << "Plugin loaded";
@@ -56,11 +57,14 @@ XPluginStop(void) {
 
 PLUGIN_API
 void
-XPluginDisable(void) {}
+XPluginDisable(void) {
+    if(plugin_state.has_value()) plugin_state.value()->disable();
+}
 
 PLUGIN_API
 int
 XPluginEnable(void) {
+    if(plugin_state.has_value()) plugin_state.value()->enable();
     return 1;
 }
 
