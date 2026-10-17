@@ -43,7 +43,7 @@ validate_map_keys(const YAML::Node & node, const std::string & description,
                   std::initializer_list<std::string_view> allowed_keys)
 {
     if(!node.IsMap()) {
-        logger() << description << " must be a map" << yaml_location(node)
+        logger::info() << description << " must be a map" << yaml_location(node)
                  << ": '" << node << "'";
         return std::unexpected(0);
     }
@@ -52,14 +52,14 @@ validate_map_keys(const YAML::Node & node, const std::string & description,
         std::unordered_set<std::string> seen;
         for(const auto & entry : node) {
             if(!entry.first.IsScalar()) {
-                logger() << description << " has a non-scalar key"
+                logger::info() << description << " has a non-scalar key"
                          << yaml_location(entry.first) << ": '" << node << "'";
                 return std::unexpected(0);
             }
 
             const auto key = entry.first.as<std::string>();
             if(!seen.insert(key).second) {
-                logger() << "Duplicate " << description << " key '" << key
+                logger::info() << "Duplicate " << description << " key '" << key
                          << "'" << yaml_location(entry.first);
                 return std::unexpected(0);
             }
@@ -71,14 +71,14 @@ validate_map_keys(const YAML::Node & node, const std::string & description,
                 }
             }
             if(!allowed) {
-                logger() << "Unexpected " << description << " key '" << key
+                logger::info() << "Unexpected " << description << " key '" << key
                          << "'" << yaml_location(entry.first) << " in node '" << node << "'";
                 return std::unexpected(0);
             }
         }
     }
     catch(const YAML::Exception & ex) {
-        logger() << "Invalid " << description << " node" << yaml_location(node) << " '" << node
+        logger::info() << "Invalid " << description << " node" << yaml_location(node) << " '" << node
                  << "': " << ex.what();
         return std::unexpected(0);
     }
@@ -93,13 +93,13 @@ key::build(const YAML::Node & node)
         try {
             auto data_ref = node.as<std::string>();
             if(data_ref.empty()) {
-                logger() << "DataRef key cannot be empty" << yaml_location(node);
+                logger::info() << "DataRef key cannot be empty" << yaml_location(node);
                 return std::unexpected(0);
             }
             return key(std::move(data_ref), false, std::nullopt, {});
         }
         catch(const YAML::Exception & ex) {
-            logger() << "Invalid scalar DataRef node" << yaml_location(node)
+            logger::info() << "Invalid scalar DataRef node" << yaml_location(node)
                      << " '" << node << "': " << ex.what();
             return std::unexpected(0);
         }
@@ -111,7 +111,7 @@ key::build(const YAML::Node & node)
 
     const auto key_node = node["key"];
     if(!key_node || !key_node.IsScalar()) {
-        logger() << "DataRef map is missing a scalar 'key'" << yaml_location(node)
+        logger::info() << "DataRef map is missing a scalar 'key'" << yaml_location(node)
                  << ": '" << node << "'";
         return std::unexpected(0);
     }
@@ -119,7 +119,7 @@ key::build(const YAML::Node & node)
     try {
         auto data_ref = key_node.as<std::string>();
         if(data_ref.empty()) {
-            logger() << "DataRef key cannot be empty" << yaml_location(key_node);
+            logger::info() << "DataRef key cannot be empty" << yaml_location(key_node);
             return std::unexpected(0);
         }
 
@@ -128,7 +128,7 @@ key::build(const YAML::Node & node)
         if(node["index"]) {
             const int parsed_index = node["index"].as<int>();
             if(parsed_index < 0) {
-                logger() << "Invalid negative index" << yaml_location(node["index"])
+                logger::info() << "Invalid negative index" << yaml_location(node["index"])
                          << " in DataRef node '" << node << "'";
                 return std::unexpected(0);
             }
@@ -139,13 +139,13 @@ key::build(const YAML::Node & node)
         if(node["values"]) {
             const auto values_node = node["values"];
             if(!values_node.IsSequence() || values_node.size() == 0) {
-                logger() << "DataRef values must be a non-empty sequence"
+                logger::info() << "DataRef values must be a non-empty sequence"
                          << yaml_location(values_node) << " in node '" << node << "'";
                 return std::unexpected(0);
             }
             for(const auto & value : values_node) {
                 if(!value.IsScalar()) {
-                    logger() << "DataRef values must contain only scalars"
+                    logger::info() << "DataRef values must contain only scalars"
                              << yaml_location(value) << " in node '" << node << "'";
                     return std::unexpected(0);
                 }
@@ -155,7 +155,7 @@ key::build(const YAML::Node & node)
         return key(std::move(data_ref), invert, index, std::move(values));
     }
     catch(const YAML::Exception & ex) {
-        logger() << "Invalid DataRef map" << yaml_location(node)
+        logger::info() << "Invalid DataRef map" << yaml_location(node)
                  << " '" << node << "': " << ex.what();
         return std::unexpected(0);
     }
@@ -170,7 +170,7 @@ value::build(const YAML::Node & node)
 
     if(node.IsSequence()) {
         if(node.size() == 0) {
-            logger() << "DataRef value cannot be an empty sequence" << yaml_location(node);
+            logger::info() << "DataRef value cannot be an empty sequence" << yaml_location(node);
             return std::unexpected(0);
         }
         for(const auto & value : node) {
@@ -193,7 +193,7 @@ build_dial_value(const YAML::Node & node)
     auto result = value::build(node);
     if(!result) return std::unexpected(result.error());
     if(result->keys().size() != 1) {
-        logger() << "Autopilot dial must contain exactly one DataRef" << yaml_location(node);
+        logger::info() << "Autopilot dial must contain exactly one DataRef" << yaml_location(node);
         return std::unexpected(0);
     }
     return result;
@@ -215,11 +215,11 @@ airspeed::build(const YAML::Node & node)
         return std::unexpected(0);
     }
     else if(!node["is_mach"]) {
-        logger() << "IAS missing Mach node" << yaml_location(node);
+        logger::info() << "IAS missing Mach node" << yaml_location(node);
         return std::unexpected(0);
     }
     else if(!node["value"]) {
-        logger() << "IAS missing Value node" << yaml_location(node);
+        logger::info() << "IAS missing Value node" << yaml_location(node);
         return std::unexpected(0);
     }
     
@@ -236,11 +236,11 @@ std::expected<T, int>
 build(const YAML::Node & node, const std::string & key)
 {
 #if !defined(NDEBUG)
-    if(diagnostics::enabled(diagnostic_category::configuration))
-        debug_logger() << "[Configuration debug] Checking for required '" << key << "'";
+    if(logger::diagnostics::enabled(logger::diagnostic_category::configuration))
+        logger::debug() << "[Configuration debug] Checking for required '" << key << "'";
 #endif
     if(!node.IsMap() or !node[key]) {
-        logger() << "Key '" << key << "' not found" << yaml_location(node) << ": " << node;
+        logger::info() << "Key '" << key << "' not found" << yaml_location(node) << ": " << node;
         return std::unexpected(0);
     }
     auto ret = T::build(node[key]);
@@ -256,7 +256,7 @@ build_required_string_list(const YAML::Node & node, const std::string & key)
 {
     const auto values = node[key];
     if(!values || !values.IsSequence() || values.size() == 0) {
-        logger() << "Configuration requires a non-empty '" << key << "' sequence"
+        logger::info() << "Configuration requires a non-empty '" << key << "' sequence"
                  << yaml_location(node);
         return std::unexpected(0);
     }
@@ -264,13 +264,13 @@ build_required_string_list(const YAML::Node & node, const std::string & key)
     std::vector<std::string> result;
     for(const auto & value : values) {
         if(!value.IsScalar()) {
-            logger() << "Configuration '" << key << "' entries must be scalars"
+            logger::info() << "Configuration '" << key << "' entries must be scalars"
                      << yaml_location(value);
             return std::unexpected(0);
         }
         auto string_value = value.as<std::string>();
         if(string_value.empty()) {
-            logger() << "Configuration '" << key << "' entries cannot be empty"
+            logger::info() << "Configuration '" << key << "' entries cannot be empty"
                      << yaml_location(value);
             return std::unexpected(0);
         }
@@ -325,12 +325,12 @@ autopilot_dial::build(const YAML::Node & node)
         return std::unexpected(0);
     }
     if(node["crs"] && node["course"]) {
-        logger() << "Autopilot dials cannot define both 'crs' and 'course'"
+        logger::info() << "Autopilot dials cannot define both 'crs' and 'course'"
                  << yaml_location(node);
         return std::unexpected(0);
     }
     if(node["hdg"] && node["heading"]) {
-        logger() << "Autopilot dials cannot define both 'hdg' and 'heading'"
+        logger::info() << "Autopilot dials cannot define both 'hdg' and 'heading'"
                  << yaml_location(node);
         return std::unexpected(0);
     }
@@ -423,7 +423,7 @@ autopilot::build(const YAML::Node & node)
         return std::unexpected(0);
     }
     if(!node["modes"]) {
-        logger() << "Autopilot node missing modes" << yaml_location(node);
+        logger::info() << "Autopilot node missing modes" << yaml_location(node);
         return std::unexpected(0);
     }
     auto mode = autopilot_mode::build(node["modes"]);
@@ -532,8 +532,8 @@ configuration::read(const std::string & path)
 {
     try {
 #if !defined(NDEBUG)
-        if(diagnostics::enabled(diagnostic_category::configuration))
-            debug_logger() << "[Configuration debug] Loading YAML File " << path;
+        if(logger::diagnostics::enabled(logger::diagnostic_category::configuration))
+            logger::debug() << "[Configuration debug] Loading YAML File " << path;
 #endif
         YAML::Node node = YAML::LoadFile(path);
 
@@ -545,13 +545,13 @@ configuration::read(const std::string & path)
 
         const auto name_node = node["name"];
         if(!name_node || !name_node.IsScalar()) {
-            logger() << "Configuration '" << path << "' requires a scalar name"
+            logger::info() << "Configuration '" << path << "' requires a scalar name"
                      << yaml_location(node);
             return std::unexpected(0);
         }
         auto name = name_node.as<std::string>();
         if(name.empty()) {
-            logger() << "Configuration '" << path << "' name cannot be empty"
+            logger::info() << "Configuration '" << path << "' name cannot be empty"
                      << yaml_location(name_node);
             return std::unexpected(0);
         }
@@ -562,22 +562,22 @@ configuration::read(const std::string & path)
         if(!models.has_value()) return std::unexpected(models.error());
 
 #if !defined(NDEBUG)
-        if(diagnostics::enabled(diagnostic_category::configuration))
-            debug_logger() << "[Configuration debug] Reading System Configuration";
+        if(logger::diagnostics::enabled(logger::diagnostic_category::configuration))
+            logger::debug() << "[Configuration debug] Reading System Configuration";
 #endif
         auto system = conf::build<conf::system>(node, "system");
         if(system.has_value() == false) return std::unexpected(system.error());
 
 #if !defined(NDEBUG)
-        if(diagnostics::enabled(diagnostic_category::configuration))
-            debug_logger() << "[Configuration debug] Reading Autopilot Configuration";
+        if(logger::diagnostics::enabled(logger::diagnostic_category::configuration))
+            logger::debug() << "[Configuration debug] Reading Autopilot Configuration";
 #endif
         auto autopilot = conf::build_optional<conf::autopilot>(node, "autopilot");
         if(autopilot.has_value() == false) return std::unexpected(autopilot.error());
 
 #if !defined(NDEBUG)
-        if(diagnostics::enabled(diagnostic_category::configuration))
-            debug_logger() << "[Configuration debug] Reading Annunciator Configuration";
+        if(logger::diagnostics::enabled(logger::diagnostic_category::configuration))
+            logger::debug() << "[Configuration debug] Reading Annunciator Configuration";
 #endif
         auto annunciator = conf::build_optional<conf::annunciator>(node, "annunciator");
         if(annunciator.has_value() == false) return std::unexpected(annunciator.error());   
@@ -589,13 +589,13 @@ configuration::read(const std::string & path)
         );
     }
     catch(const YAML::Exception & ex) {
-        logger() << "Failed to parse YAML file '" << path << "'"
+        logger::info() << "Failed to parse YAML file '" << path << "'"
                  << yaml_location(ex.mark) << ": " << ex.what();
     }
     catch(const std::exception & ex) {
-        logger() << "Failed to load YAML file '" << path << "': " << ex.what();
+        logger::info() << "Failed to load YAML file '" << path << "': " << ex.what();
     }
     return std::unexpected(0);
 }
     
-}
+} // namespace conf

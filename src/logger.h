@@ -10,6 +10,8 @@
 
 #include <sstream>
 
+namespace logger {
+
 // Supplied by the host: X-Plane for the plugin, stderr for offline tools.
 void hcbravo_log(const char * message) noexcept;
 
@@ -50,20 +52,20 @@ public:
 };
 #endif
 
-class logger {
+class info {
 protected:
     std::stringstream output_;
 
 public:
     template<typename T>
     inline
-    logger & operator<<(T const & buffer) noexcept {
+    info & operator<<(T const & buffer) noexcept {
         output_ << buffer;
         return *this;
     }
 
     inline
-    ~logger() noexcept {
+    ~info() noexcept {
         output_ << std::endl;
         std::string output = "[HCBravo] : " + output_.str();
         hcbravo_log(output.c_str());
@@ -71,13 +73,15 @@ public:
 };
 
 #if !defined(NDEBUG)
-using debug_logger = logger;
+using debug = info;
 #else
-class debug_logger {
+class debug {
 public:
     template<typename T>
-    debug_logger & operator<<(const T &) noexcept { return *this; }
+    debug & operator<<(const T &) noexcept { return *this; }
 };
 #endif
+
+} // namespace logger
 
 #endif

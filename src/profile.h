@@ -303,6 +303,6 @@ public:
     const std::optional<annunciator_data_ref> & annunciator() const noexcept { return annunciator_; }
 };
 
-}
+} // namespace profile
 
 #endif

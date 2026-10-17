@@ -261,7 +261,7 @@ Knob actions and dial reads/writes log when the command runs. Enable Configurati
 diagnostics and select `Reload Aircraft Profiles` to inspect parsing or binding.
 Profile reloads preserve the settings; a plugin restart resets them.
 
-`diagnostic_scope` exists only in Debug builds. Knob callbacks set the DataRef
+`logger::diagnostic_scope` exists only in Debug builds. Knob callbacks set the DataRef
 category while processing an opted-in command. The destructor restores the
 previous mask when the callback returns. LED and autopilot dumps have dedicated
 functions; regular LED updates and boolean DataRef reads contain no diagnostic

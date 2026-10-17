@@ -17,6 +17,12 @@
 
 #include "error.h"
 
+namespace state {
+class state;
+}
+
+namespace knob {
+
 enum class selector : size_t {
     alt = 0,
     vs = 1,
@@ -26,8 +32,6 @@ enum class selector : size_t {
 };
 
 struct descriptor;
-
-class state;
 
 class commands {
 public:
@@ -51,7 +55,7 @@ private:
     ap_knob_down(XPLMCommandRef cmd, XPLMCommandPhase phase, void * ref) noexcept;
 
 
-    const state & state_;
+    const state::state & state_;
 
     XPLMCommandRef sel_alt_;
     XPLMCommandRef sel_vs_;
@@ -65,7 +69,7 @@ private:
     std::chrono::steady_clock::time_point   last_cmd_;
 
     inline
-    commands(const state & state) :
+    commands(const state::state & state) :
         state_(state),
         sel_alt_(nullptr),
         sel_vs_(nullptr),
@@ -82,8 +86,8 @@ public:
     ~commands() noexcept;
 
     static
-    result_type<ptr_type>
-    init(const state & state) noexcept;
+    error::result_type<ptr_type>
+    init(const state::state & state) noexcept;
 
     inline
     const selector &
@@ -91,5 +95,7 @@ public:
 };
 
 
+
+} // namespace knob
 
 #endif

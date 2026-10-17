@@ -4,6 +4,8 @@
 #include <string>
 #include <vector>
 
+namespace configuration_files {
+
 struct configuration_case {
     std::string name;
     std::string path;
@@ -11,3 +13,5 @@ struct configuration_case {
 
 inline const std::vector<configuration_case> configuration_files = {
 @configuration_parameters@};
+
+} // namespace configuration_files

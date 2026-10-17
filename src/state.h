@@ -26,13 +26,15 @@
 #include "led.h"
 #include "profile.h"
 
+namespace state {
+
 class state {
     hid_device * hid_;
     bool hid_initialized_;
-    led_state leds_;
+    led::led_state leds_;
     XPLMMenuID menu_;
     int menu_item_;
-    commands::ptr_type cmds_;
+    knob::commands::ptr_type cmds_;
 
     using configuration_ptr = std::shared_ptr<conf::configuration>;
     using configuration_map_type = std::unordered_map<std::string, configuration_ptr>;
@@ -75,7 +77,7 @@ public:
     ~state() noexcept;
 
     static
-    result_type<state::ptr_type>
+    error::result_type<state::ptr_type>
     init() noexcept;
 
     void
@@ -102,5 +104,7 @@ public:
 };
 
 
+
+} // namespace state
 
 #endif

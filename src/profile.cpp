@@ -31,7 +31,7 @@ base_data_ref::bind(const conf::key & key, numeric_type numeric)
 {
     auto data_ref = XPLMFindDataRef(key.path().c_str());
     if(data_ref == nullptr) {
-        logger() << "DataRef not found: '" << key.path() << "'";
+        logger::info() << "DataRef not found: '" << key.path() << "'";
         return std::unexpected(0);
     }
 
@@ -53,23 +53,23 @@ base_data_ref::bind(const conf::key & key, numeric_type numeric)
     auto type = select_type(index.has_value());
     if(type == xplmType_Unknown) type = select_type(!index.has_value());
     if(type == xplmType_Unknown) {
-        logger() << "DataRef '" << key.path() << "' has no supported "
+        logger::info() << "DataRef '" << key.path() << "' has no supported "
                  << (numeric == numeric_type::floating ? "float" : "numeric") << " accessor";
         return std::unexpected(0);
     }
     const bool is_array = type == xplmType_IntArray || type == xplmType_FloatArray;
     if(is_array && !index) {
-        logger() << "Array DataRef '" << key.path() << "' has no index; using index 0";
+        logger::info() << "Array DataRef '" << key.path() << "' has no index; using index 0";
         index = 0;
     }
     else if(!is_array && index) {
-        logger() << "Scalar DataRef '" << key.path() << "' ignores index " << *index;
+        logger::info() << "Scalar DataRef '" << key.path() << "' ignores index " << *index;
         index = std::nullopt;
     }
 
 #if !defined(NDEBUG)
-    if(diagnostics::enabled(diagnostic_category::datarefs)) {
-        debug_logger log;
+    if(logger::diagnostics::enabled(logger::diagnostic_category::datarefs)) {
+        logger::debug log;
         log << "DataRef bound: '" << key.path() << "' type_mask=" << info.type
             << " accessor_type=" << type
             << " index=" << (index ? std::to_string(*index) : "scalar")
@@ -111,7 +111,7 @@ bool_data_ref::build(const conf::key & key)
             }
         }
         catch(const std::exception &) {
-            logger() << "DataRef '" << key.path() << "' has a value incompatible with its integer type";
+            logger::info() << "DataRef '" << key.path() << "' has a value incompatible with its integer type";
             return std::unexpected(0);
         }
         return ptr_type(new bool_data_ref(std::move(binding.value()), std::move(values)));
@@ -128,13 +128,13 @@ bool_data_ref::build(const conf::key & key)
             }
         }
         catch(const std::exception &) {
-            logger() << "DataRef '" << key.path() << "' has a value incompatible with its float type";
+            logger::info() << "DataRef '" << key.path() << "' has a value incompatible with its float type";
             return std::unexpected(0);
         }
         return ptr_type(new bool_data_ref(std::move(binding.value()), std::move(values)));
     }
 
-    logger() << "DataRef '" << key.path() << "' has an unsupported type";
+    logger::info() << "DataRef '" << key.path() << "' has an unsupported type";
     return std::unexpected(0);
 }
 
@@ -191,7 +191,7 @@ bool
 bool_data_ref::dump_state() const noexcept
 {
     const auto value = read();
-    debug_logger log;
+    logger::debug log;
     log << "[DataRef debug] DataRef '" << path_ << "' index="
              << (index_ ? std::to_string(*index_) : "scalar")
              << " reader=" << (type_ == type::integer ? "int" : "float")
@@ -220,7 +220,7 @@ float_data_ref::build(const conf::key & key)
     auto binding = base_data_ref::bind(key, numeric_type::floating);
     if(!binding) return std::unexpected(binding.error());
     if(!has_type(binding->type, xplmType_Float) && !has_type(binding->type, xplmType_FloatArray)) {
-        logger() << "DataRef '" << key.path() << "' is not a float DataRef";
+        logger::info() << "DataRef '" << key.path() << "' is not a float DataRef";
         return std::unexpected(0);
     }
     return float_data_ref(std::move(binding.value()));
@@ -232,13 +232,13 @@ float_data_ref::get() const noexcept
     float value = 0.0f;
     if(index_) {
         if(XPLMGetDatavf(data_ref_, &value, *index_, 1) != 1) {
-            logger() << "Failed to read indexed float DataRef at " << *index_;
+            logger::info() << "Failed to read indexed float DataRef at " << *index_;
         }
     }
     else value = XPLMGetDataf(data_ref_);
 #if !defined(NDEBUG)
-    if(diagnostic_scope::enabled(diagnostic_category::datarefs)) {
-        debug_logger() << "[DataRef debug] Float read '" << path_ << "' raw=" << value;
+    if(logger::diagnostic_scope::enabled(logger::diagnostic_category::datarefs)) {
+        logger::debug() << "[DataRef debug] Float read '" << path_ << "' raw=" << value;
     }
 #endif
     return value;
@@ -250,8 +250,8 @@ float_data_ref::set(float value) const noexcept
     if(index_) XPLMSetDatavf(data_ref_, &value, *index_, 1);
     else XPLMSetDataf(data_ref_, value);
 #if !defined(NDEBUG)
-    if(diagnostic_scope::enabled(diagnostic_category::datarefs)) {
-        debug_logger() << "[DataRef debug] Float write '" << path_ << "' value=" << value;
+    if(logger::diagnostic_scope::enabled(logger::diagnostic_category::datarefs)) {
+        logger::debug() << "[DataRef debug] Float write '" << path_ << "' value=" << value;
     }
 #endif
 }
@@ -270,7 +270,7 @@ value_data_ref::build(const conf::value & value)
         data.emplace_back(std::move(bound.value()));
     }
     if(data.empty()) {
-        logger() << "DataRef value has no entries";
+        logger::info() << "DataRef value has no entries";
         return std::unexpected(0);
     }
     return value_data_ref(std::move(data));
@@ -297,7 +297,7 @@ airspeed_data_ref::build(const conf::airspeed & airspeed)
     auto is_mach = bool_data_ref::build(airspeed.is_mach());
     if(!is_mach) return std::unexpected(is_mach.error());
     if(airspeed.value().keys().size() != 1) {
-        logger() << "IAS value must contain exactly one DataRef";
+        logger::info() << "IAS value must contain exactly one DataRef";
         return std::unexpected(0);
     }
     auto value = float_data_ref::build(airspeed.value().keys().front());
@@ -315,7 +315,7 @@ static std::expected<float_data_ref, int>
 build_float_value(const conf::value & value)
 {
     if(value.keys().size() != 1) {
-        logger() << "Autopilot dial value must contain exactly one DataRef";
+        logger::info() << "Autopilot dial value must contain exactly one DataRef";
         return std::unexpected(0);
     }
     return float_data_ref::build(value.keys().front());
@@ -594,7 +594,7 @@ value_data_ref::dump_state(const char * label) const noexcept
         const bool set = data->dump_state();
         result = result || set;
     }
-    debug_logger() << "[State dump] " << label << "=" << result;
+    logger::debug() << "[State dump] " << label << "=" << result;
     return result;
 }
 
@@ -602,7 +602,7 @@ void
 float_data_ref::dump_state(const char * label) const noexcept
 {
     const float value = get();
-    debug_logger() << "[State dump] " << label << "=" << value << " DataRef='" << path_
+    logger::debug() << "[State dump] " << label << "=" << value << " DataRef='" << path_
         << "' index=" << (index_ ? std::to_string(*index_) : "scalar");
 }
 
@@ -610,14 +610,14 @@ template<typename T>
 static void dump_optional_state(const char * label, const std::optional<T> & value) noexcept
 {
     if(value) value->dump_state(label);
-    else debug_logger() << "[State dump] " << label << "=unconfigured";
+    else logger::debug() << "[State dump] " << label << "=unconfigured";
 }
 
 void
 airspeed_data_ref::dump_state() const noexcept
 {
     const bool mach = is_mach_->dump_state();
-    debug_logger() << "[State dump] autopilot.dials.ias.unit=" << (mach ? "Mach" : "Knots");
+    logger::debug() << "[State dump] autopilot.dials.ias.unit=" << (mach ? "Mach" : "Knots");
     value_.dump_state("autopilot.dials.ias.value");
 }
 
@@ -629,7 +629,7 @@ autopilot_dial_data_ref::dump_state() const noexcept
     dump_optional_state("autopilot.dials.vs", vs_);
     dump_optional_state("autopilot.dials.alt", alt_);
     if(ias_) ias_->dump_state();
-    else debug_logger() << "[State dump] autopilot.dials.ias=unconfigured";
+    else logger::debug() << "[State dump] autopilot.dials.ias=unconfigured";
 }
 
 void
@@ -650,7 +650,7 @@ autopilot_data_ref::dump_state() const noexcept
 {
     mode_.dump_state();
     if(dials_) dials_->dump_state();
-    else debug_logger() << "[State dump] autopilot.dials=unconfigured";
+    else logger::debug() << "[State dump] autopilot.dials=unconfigured";
 }
 
 gear_state
@@ -659,7 +659,7 @@ gear_signals_data_ref::dump_state(const char * label) const noexcept
     const bool safe = safe_.dump_state((std::string(label) + ".safe").c_str());
     const bool unsafe = unsafe_.dump_state((std::string(label) + ".unsafe").c_str());
     const auto result = safe ? gear_state::safe : unsafe ? gear_state::unsafe : gear_state::up;
-    debug_logger() << "[State dump] " << label << "="
+    logger::debug() << "[State dump] " << label << "="
         << (safe ? "green" : unsafe ? "red" : "off") << " (safe takes priority over unsafe)";
     return result;
 }
@@ -676,9 +676,9 @@ void
 system_data_ref::dump_state() const noexcept
 {
     const bool powered = volts_.dump_state("system.volts");
-    debug_logger() << "[State dump] " << (powered ? "LED power enabled" : "All LEDs off: electrical power gate disabled");
+    logger::debug() << "[State dump] " << (powered ? "LED power enabled" : "All LEDs off: electrical power gate disabled");
     if(gear_) gear_->dump_state();
-    else debug_logger() << "[State dump] gear=unconfigured";
+    else logger::debug() << "[State dump] gear=unconfigured";
 }
 
 void
@@ -701,4 +701,4 @@ annunciator_data_ref::dump_state() const noexcept
 }
 #endif
 
-}
+} // namespace profile

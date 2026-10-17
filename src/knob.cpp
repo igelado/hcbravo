@@ -7,6 +7,7 @@
 
 
 #include "knob.h"
+#include "logger.h"
 #include "state.h"
 
 #include <XPLM/XPLMUtilities.h>
@@ -16,6 +17,8 @@
 #include <expected>
 
 #undef max
+
+namespace knob {
 
 struct descriptor {
     const char * path;
@@ -85,8 +88,8 @@ commands::ap_knob_select(XPLMCommandRef cmd, XPLMCommandPhase phase, void * ref)
     }
     else { return 1; }
 #if !defined(NDEBUG)
-    if(phase == xplm_CommandBegin && diagnostics::enabled(diagnostic_category::knobs))
-        debug_logger() << "[Knob debug] Selected " << selector_name(self->active_);
+    if(phase == xplm_CommandBegin && logger::diagnostics::enabled(logger::diagnostic_category::knobs))
+        logger::debug() << "[Knob debug] Selected " << selector_name(self->active_);
 #endif
     return 0;
 }
@@ -111,13 +114,13 @@ commands::ap_knob_update(void * ref) noexcept
 {
    commands * self = reinterpret_cast<commands *>(ref);
 #if !defined(NDEBUG)
-    diagnostic_scope snapshot(diagnostics::selected() & diagnostic_bit(diagnostic_category::datarefs));
+    logger::diagnostic_scope snapshot(logger::diagnostics::selected() & logger::diagnostic_bit(logger::diagnostic_category::datarefs));
 #endif
 
     // No plane is slected
     if(!self->state_.active_plane()) {
 #if !defined(NDEBUG)
-        if(diagnostics::enabled(diagnostic_category::knobs)) debug_logger() << "[Knob debug] No active aircraft; command ignored";
+        if(logger::diagnostics::enabled(logger::diagnostic_category::knobs)) logger::debug() << "[Knob debug] No active aircraft; command ignored";
 #endif
         return 0;
     }
@@ -126,14 +129,14 @@ commands::ap_knob_update(void * ref) noexcept
     // The plane has no autopilot 
     if(!plane->autopilot()) {
 #if !defined(NDEBUG)
-        if(diagnostics::enabled(diagnostic_category::knobs)) debug_logger() << "[Knob debug] No autopilot; command ignored";
+        if(logger::diagnostics::enabled(logger::diagnostic_category::knobs)) logger::debug() << "[Knob debug] No autopilot; command ignored";
 #endif
         return 0;
     }
     // The plance has no autopilot dials
     if(!plane->autopilot().value().dials()) {
 #if !defined(NDEBUG)
-        if(diagnostics::enabled(diagnostic_category::knobs)) debug_logger() << "[Knob debug] No autopilot dials; command ignored";
+        if(logger::diagnostics::enabled(logger::diagnostic_category::knobs)) logger::debug() << "[Knob debug] No autopilot dials; command ignored";
 #endif
         return 0;
     }
@@ -193,8 +196,8 @@ commands::ap_knob_update(void * ref) noexcept
     
     self->last_cmd_ = now;
 #if !defined(NDEBUG)
-    if(diagnostics::enabled(diagnostic_category::knobs)) {
-        debug_logger() << "[Knob debug] Adjusted " << selector_name(self->active_)
+    if(logger::diagnostics::enabled(logger::diagnostic_category::knobs)) {
+        logger::debug() << "[Knob debug] Adjusted " << selector_name(self->active_)
                        << " direction=" << (Dir == dir::inc ? "increase" : "decrease") << " fast=" << fast;
     }
 #endif
@@ -218,27 +221,27 @@ commands::ap_knob_down(XPLMCommandRef cmd, XPLMCommandPhase phase, void * ref) n
 
 
 
-result_type<commands::ptr_type>
-commands::init(const state & state) noexcept
+error::result_type<commands::ptr_type>
+commands::init(const state::state & state) noexcept
 {
     ptr_type ret(new commands(state));
     for(const auto & desc  : descriptors) {
         ret.get()->*desc.cmd = XPLMCreateCommand(desc.path, desc.desc);
         if(ret.get()->*desc.cmd == nullptr) {
-            logger() << "Failed to register Selection Command";
-            return std::unexpected(error::api_command);
+            logger::info() << "Failed to register Selection Command";
+            return std::unexpected(error::error::api_command);
         }
         XPLMRegisterCommandHandler(ret.get()->*desc.cmd, ap_knob_select, 1, reinterpret_cast<void *>(ret.get()));
     }
     ret->inc_ = XPLMCreateCommand("HCBravo/Inc", "Autopilot Knob Up");
     if(ret->inc_ == nullptr) {
-        logger() << "Failed to register Inc Command";
-        return std::unexpected(error::api_command);
+        logger::info() << "Failed to register Inc Command";
+        return std::unexpected(error::error::api_command);
     }
     ret->dec_ = XPLMCreateCommand("HCBravo/Dec", "Autopilot Knob Down");
     if(ret->dec_ == nullptr) {
-        logger() << "Failed to register Dec Command";
-        return std::unexpected(error::api_command);
+        logger::info() << "Failed to register Dec Command";
+        return std::unexpected(error::error::api_command);
     }
 
     XPLMRegisterCommandHandler(ret->inc_, ap_knob_up, 1, reinterpret_cast<void *>(ret.get()));
@@ -255,3 +258,5 @@ commands::~commands() noexcept {
         if(this->*desc.cmd != nullptr) XPLMUnregisterCommandHandler(this->*desc.cmd, ap_knob_select, 1, this);
     }
 }
+
+} // namespace knob

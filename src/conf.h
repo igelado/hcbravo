@@ -507,6 +507,6 @@ public:
     annunciator() const noexcept { return this->annunciator_; }
 };
 
-}
+} // namespace conf
 
 #endif
