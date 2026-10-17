@@ -103,7 +103,11 @@ public:
 
     // Plugin Admin disable/enable: disable darkens the LEDs and stops the
     // flight loop; enable rebinds the current aircraft, which X-Plane will
-    // not announce again.
+    // not announce again. X-Plane loads plugins disabled, so XPluginStart
+    // calls start_disabled() and the first XPluginEnable performs the bind.
+    void
+    start_disabled() noexcept { enabled_ = false; }
+
     void
     disable() noexcept;
 

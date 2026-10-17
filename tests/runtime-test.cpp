@@ -64,6 +64,11 @@ protected:
     bool start_plugin() {
         char name[256] {}, signature[256] {}, description[256] {};
         plugin_started_ = XPluginStart(name, signature, description) != 0;
+        // X-Plane enables the plugin right after starting it.
+        if(plugin_started_) {
+            XPluginEnable();
+            xplm_test::schedule_count = 0;
+        }
         return plugin_started_;
     }
 
@@ -261,6 +266,19 @@ TEST_F(runtime_test, disabling_the_plugin_darkens_leds_and_stops_the_flight_loop
     EXPECT_EQ(xplm_test::tick(), state::state::powered_interval);
     const auto & relit = hid_test::reports.back();
     EXPECT_TRUE(std::any_of(relit.begin() + 1, relit.end(), [](auto byte) { return byte != 0; }));
+}
+
+TEST_F(runtime_test, first_enable_binds_an_aircraft_that_was_already_loaded) {
+    char name[256] {}, signature[256] {}, description[256] {};
+    plugin_started_ = XPluginStart(name, signature, description) != 0;
+    ASSERT_TRUE(plugin_started_);
+    // The plugin starts disabled; X-Plane will not replay PLANE_LOADED for it.
+    XPluginReceiveMessage(XPLM_PLUGIN_XPLANE, XPLM_MSG_PLANE_LOADED, nullptr);
+    EXPECT_EQ(xplm_test::schedule_count, 0);
+    EXPECT_EQ(XPluginEnable(), 1);
+    EXPECT_EQ(xplm_test::schedule_count, 1);
+    EXPECT_EQ(xplm_test::tick(), -1);
+    EXPECT_NE(xplm_test::log.find("Aircraft enabled: 'Lancair Evolution'"), std::string::npos);
 }
 
 TEST_F(runtime_test, enabling_an_already_enabled_plugin_does_not_reload_the_aircraft) {
