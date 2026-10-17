@@ -112,7 +112,7 @@ state::flight_iteration(float call, float iter, int counter, void * _this) noexc
     const bool powered = system.volts();
     if(powered == false) {
         self->leds_.update(mask);
-        return -1.0;
+        return unpowered_interval;
     }
 
     if(plane->autopilot().has_value()) {
@@ -162,7 +162,7 @@ state::flight_iteration(float call, float iter, int counter, void * _this) noexc
     }
     self->leds_.update(mask);
 
-    return -1.0;
+    return powered_interval;
 }
 
 #if !defined(NDEBUG)

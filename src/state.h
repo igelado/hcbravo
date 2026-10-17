@@ -72,6 +72,11 @@ class state {
 public:
     using ptr_type = std::unique_ptr<state>;
 
+    // Seconds between LED refreshes. Annunciators do not need per-frame
+    // polling; the unpowered interval only has to notice power coming back.
+    static constexpr float powered_interval = 0.1f;
+    static constexpr float unpowered_interval = 0.25f;
+
     inline state(state &&) noexcept = default;
 
     ~state() noexcept;

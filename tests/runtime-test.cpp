@@ -99,12 +99,12 @@ TEST_F(runtime_test, logs_plugin_and_aircraft_lifecycle_without_per_frame_messag
     ASSERT_TRUE(start_plugin());
     EXPECT_NE(xplm_test::log.find("Plugin loaded"), std::string::npos);
     XPluginReceiveMessage(XPLM_PLUGIN_XPLANE, XPLM_MSG_PLANE_LOADED, nullptr);
-    ASSERT_EQ(xplm_test::tick(), -1);
+    ASSERT_EQ(xplm_test::tick(), state::state::powered_interval);
     EXPECT_NE(xplm_test::log.find("Aircraft enabled: 'Lancair Evolution' (EVOT) using profile 'Lancair Evolution'"), std::string::npos);
 
     xplm_test::log.clear();
-    EXPECT_EQ(xplm_test::tick(), -1);
-    EXPECT_EQ(xplm_test::tick(), -1);
+    EXPECT_EQ(xplm_test::tick(), state::state::powered_interval);
+    EXPECT_EQ(xplm_test::tick(), state::state::powered_interval);
     EXPECT_TRUE(xplm_test::log.empty());
     XPluginStop();
     plugin_started_ = false;
@@ -132,7 +132,7 @@ TEST_F(runtime_test, defers_binding_and_dumps_raw_values_gear_decisions_and_cach
     EXPECT_EQ(xplm_test::scheduled_interval, -1);
     EXPECT_EQ(xplm_test::log.find("DataRef bound:"), std::string::npos);
 
-    EXPECT_EQ(xplm_test::tick(), -1);
+    EXPECT_EQ(xplm_test::tick(), state::state::powered_interval);
     EXPECT_TRUE(runtime.active_plane().has_value());
     EXPECT_EQ(xplm_test::log.find("[DataRef debug]"), std::string::npos);
 #if !defined(NDEBUG)
@@ -159,7 +159,7 @@ TEST_F(runtime_test, evolution_uses_parking_brake_and_float_door_inputs_for_annu
     auto initialized = state::state::init();
     ASSERT_TRUE(initialized.has_value());
     initialized.value()->request_load_plane();
-    ASSERT_EQ(xplm_test::tick(), -1);
+    ASSERT_EQ(xplm_test::tick(), state::state::powered_interval);
     ASSERT_TRUE(initialized.value()->active_plane().has_value());
     ASSERT_FALSE(hid_test::reports.empty());
     // Parking brake and door are bits 1 and 3 in the fourth bank.
@@ -183,7 +183,7 @@ TEST_F(runtime_test, loads_again_only_when_datarefs_are_added_after_a_failed_loa
     initialized.value()->data_refs_added();
     EXPECT_EQ(xplm_test::scheduled_interval, -1);
     EXPECT_FALSE(initialized.value()->active_plane().has_value());
-    EXPECT_EQ(xplm_test::tick(), -1);
+    EXPECT_EQ(xplm_test::tick(), state::state::powered_interval);
     EXPECT_TRUE(initialized.value()->active_plane().has_value());
 }
 
@@ -215,12 +215,20 @@ TEST_F(runtime_test, dataref_notifications_coalesce_and_allow_loading_after_anot
     EXPECT_EQ(xplm_test::tick(), 0); // An unrelated new DataRef did not fix the dependency.
     gear.available = true;
     runtime.data_refs_added();
-    EXPECT_EQ(xplm_test::tick(), -1);
+    EXPECT_EQ(xplm_test::tick(), state::state::powered_interval);
     EXPECT_TRUE(runtime.active_plane().has_value());
 
     const auto schedule_count = xplm_test::schedule_count;
     runtime.data_refs_added();
     EXPECT_EQ(xplm_test::schedule_count, schedule_count);
+}
+
+TEST_F(runtime_test, flight_loop_polls_at_a_slow_interval_instead_of_every_frame) {
+    static_assert(state::state::powered_interval > 0.0f);
+    static_assert(state::state::unpowered_interval >= state::state::powered_interval);
+    ASSERT_TRUE(start_plugin());
+    XPluginReceiveMessage(XPLM_PLUGIN_XPLANE, XPLM_MSG_PLANE_LOADED, nullptr);
+    EXPECT_EQ(xplm_test::tick(), state::state::powered_interval);
 }
 
 TEST_F(runtime_test, unloading_cancels_pending_binding) {
@@ -244,7 +252,7 @@ TEST_F(runtime_test, simulator_events_enable_notifications_and_defer_aircraft_bi
     XPluginReceiveMessage(XPLM_PLUGIN_XPLANE, XPLM_MSG_PLANE_LOADED, nullptr);
     EXPECT_EQ(xplm_test::schedule_count, 1);
     EXPECT_EQ(xplm_test::log.find("DataRef bound:"), std::string::npos);
-    EXPECT_EQ(xplm_test::tick(), -1);
+    EXPECT_EQ(xplm_test::tick(), state::state::powered_interval);
     EXPECT_NE(xplm_test::log.find("Aircraft enabled: 'Lancair Evolution' (EVOT) using profile 'Lancair Evolution'"), std::string::npos);
 }
 
@@ -258,7 +266,7 @@ TEST_F(runtime_test, simulator_dataref_notification_wakes_failed_binding_but_not
     int dataref_count = 2000;
     XPluginReceiveMessage(XPLM_PLUGIN_XPLANE, XPLM_MSG_DATAREFS_ADDED, &dataref_count);
     EXPECT_EQ(xplm_test::schedule_count, 2);
-    EXPECT_EQ(xplm_test::tick(), -1);
+    EXPECT_EQ(xplm_test::tick(), state::state::powered_interval);
     XPluginReceiveMessage(XPLM_PLUGIN_XPLANE, XPLM_MSG_PLANE_UNLOADED, nullptr);
     EXPECT_NE(xplm_test::log.find("Aircraft disabled: 'Lancair Evolution'"), std::string::npos);
     xplm_test::log.clear();
@@ -283,9 +291,9 @@ TEST_F(runtime_test, state_dump_menu_actions_are_immediate_repeatable_and_do_not
 #endif
     EXPECT_EQ(xplm_test::menu_items, expected_menu_items);
     initialized.value()->request_load_plane();
-    ASSERT_EQ(xplm_test::tick(), -1);
+    ASSERT_EQ(xplm_test::tick(), state::state::powered_interval);
     xplm_test::log.clear();
-    EXPECT_EQ(xplm_test::tick(), -1);
+    EXPECT_EQ(xplm_test::tick(), state::state::powered_interval);
     EXPECT_TRUE(xplm_test::log.empty());
     const auto reports = hid_test::reports.size();
     const auto schedules = xplm_test::schedule_count;
@@ -296,7 +304,7 @@ TEST_F(runtime_test, state_dump_menu_actions_are_immediate_repeatable_and_do_not
         EXPECT_EQ(logger::diagnostics::selected(), 0);
         EXPECT_EQ(xplm_test::log.find(id == 2 ? "[Autopilot dump]" : "[LED dump]"), std::string::npos);
         xplm_test::log.clear();
-        EXPECT_EQ(xplm_test::tick(), -1);
+        EXPECT_EQ(xplm_test::tick(), state::state::powered_interval);
         EXPECT_TRUE(xplm_test::log.empty());
     }
     // Dump actions have no checkboxes. The mock includes the parent menu item.
@@ -317,7 +325,7 @@ TEST_F(runtime_test, autopilot_dump_reads_current_dials_and_modes_even_without_l
     auto initialized = state::state::init();
     ASSERT_TRUE(initialized.has_value());
     initialized.value()->request_load_plane();
-    ASSERT_EQ(xplm_test::tick(), -1);
+    ASSERT_EQ(xplm_test::tick(), state::state::unpowered_interval);
     const auto & heading = initialized.value()->active_plane().value()->autopilot()->dials()->heading().value();
     const auto reports = hid_test::reports.size();
     for(float value : {123.0f, 247.0f}) {
@@ -372,7 +380,7 @@ TEST_F(runtime_test, power_gate_keeps_all_leds_off_and_dump_reports_array_read_f
     xplm_test::menu_handler(xplm_test::menu_refcon, reinterpret_cast<void *>(5));
 #endif
     initialized.value()->request_load_plane();
-    EXPECT_EQ(xplm_test::tick(), -1);
+    EXPECT_EQ(xplm_test::tick(), state::state::unpowered_interval);
 #if !defined(NDEBUG)
     xplm_test::menu_handler(xplm_test::menu_refcon, reinterpret_cast<void *>(2));
 #endif
@@ -442,7 +450,7 @@ TEST_F(runtime_test, plugin_stop_attempts_all_off_even_when_led_writes_are_in_co
     ASSERT_TRUE(start_plugin());
     XPluginReceiveMessage(XPLM_PLUGIN_XPLANE, XPLM_MSG_PLANE_LOADED, nullptr);
     hid_test::result = -1;
-    ASSERT_EQ(xplm_test::tick(), -1);
+    ASSERT_EQ(xplm_test::tick(), state::state::powered_interval);
     const auto reports = hid_test::reports.size();
     hid_test::result = 65;
     XPluginStop();
@@ -532,7 +540,7 @@ TEST_F(runtime_test, diagnostic_toggles_do_not_produce_flight_loop_output) {
     auto initialized = state::state::init();
     ASSERT_TRUE(initialized.has_value());
     initialized.value()->request_load_plane();
-    ASSERT_EQ(xplm_test::tick(), -1);
+    ASSERT_EQ(xplm_test::tick(), state::state::powered_interval);
 #if !defined(NDEBUG)
     EXPECT_EQ(logger::diagnostics::selected(), 0);
     for(const auto & entry : xplm_test::menu_checks) EXPECT_EQ(entry.second, xplm_Menu_Unchecked);
@@ -542,14 +550,14 @@ TEST_F(runtime_test, diagnostic_toggles_do_not_produce_flight_loop_output) {
         EXPECT_EQ(xplm_test::menu_checks.at(static_cast<int>(id + 1)), xplm_Menu_Checked);
     }
     xplm_test::log.clear();
-    EXPECT_EQ(xplm_test::tick(), -1);
-    EXPECT_EQ(xplm_test::tick(), -1);
+    EXPECT_EQ(xplm_test::tick(), state::state::powered_interval);
+    EXPECT_EQ(xplm_test::tick(), state::state::powered_interval);
     EXPECT_TRUE(xplm_test::log.empty());
     for(size_t id : {4, 5, 6}) {
         xplm_test::menu_handler(xplm_test::menu_refcon, reinterpret_cast<void *>(id));
         EXPECT_EQ(xplm_test::menu_checks.at(static_cast<int>(id + 1)), xplm_Menu_Unchecked);
         xplm_test::log.clear();
-        EXPECT_EQ(xplm_test::tick(), -1);
+        EXPECT_EQ(xplm_test::tick(), state::state::powered_interval);
         EXPECT_TRUE(xplm_test::log.empty());
     }
 #else
@@ -561,7 +569,7 @@ TEST_F(runtime_test, knob_diagnostics_are_event_driven_and_do_not_enable_other_c
     auto initialized = state::state::init();
     ASSERT_TRUE(initialized.has_value());
     initialized.value()->request_load_plane();
-    ASSERT_EQ(xplm_test::tick(), -1);
+    ASSERT_EQ(xplm_test::tick(), state::state::powered_interval);
     xplm_test::log.clear();
     xplm_test::invoke("HCBravo/HDG", xplm_CommandBegin);
     xplm_test::invoke("HCBravo/Inc", xplm_CommandEnd);
@@ -602,7 +610,7 @@ TEST_F(runtime_test, configuration_diagnostics_are_opt_in_and_independent_from_d
     expect_debug_message("[Configuration debug] Loading YAML File");
     EXPECT_EQ(xplm_test::log.find("DataRef bound:"), std::string::npos);
     initialized.value()->request_load_plane();
-    EXPECT_EQ(xplm_test::tick(), -1);
+    EXPECT_EQ(xplm_test::tick(), state::state::powered_interval);
     EXPECT_EQ(xplm_test::log.find("DataRef bound:"), std::string::npos);
 }
 
