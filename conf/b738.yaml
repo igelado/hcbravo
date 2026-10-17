@@ -1,10 +1,8 @@
 # Zibo B737-800X profile.
 #
-# 🔴 EVERY DataRef here needs an explicit `type: float`. The Zibo creates its
-# DataRefs from xlua with create_dataref(..., "number"), which publishes a
-# float accessor and NO integer one. The plugin defaults an untyped entry to
-# `bool`, which reads through XPLMGetDatai, and that returns 0 on a float-only
-# DataRef with no error -- so every lamp stays dark and nothing is logged.
+# The Zibo creates float-only DataRefs from xlua with
+# create_dataref(..., "number"). The plugin discovers their numeric types
+# when binding this profile and selects the matching accessor automatically.
 #
 # Every path below was taken from the aircraft itself: create_dataref() calls
 # in plugins/xlua/scripts/, or the strings of the compiled
@@ -105,7 +103,37 @@ system:
   - key: 'laminar/B738/dc_volt_value'
 
  gear:
-  - key: 'sim/flightmodel2/gear/deploy_ratio'
+  # 0 = fully up, 1 = locked down; intermediate ratios indicate transit.
+  left:
+   safe:
+    - key: 'sim/flightmodel2/gear/deploy_ratio'
+      index: 1
+      values: [1]
+   unsafe:
+    - key: 'sim/flightmodel2/gear/deploy_ratio'
+      index: 1
+      values: [0, 1]
+      invert: true
+  nose:
+   safe:
+    - key: 'sim/flightmodel2/gear/deploy_ratio'
+      index: 0
+      values: [1]
+   unsafe:
+    - key: 'sim/flightmodel2/gear/deploy_ratio'
+      index: 0
+      values: [0, 1]
+      invert: true
+  right:
+   safe:
+    - key: 'sim/flightmodel2/gear/deploy_ratio'
+      index: 2
+      values: [1]
+   unsafe:
+    - key: 'sim/flightmodel2/gear/deploy_ratio'
+      index: 2
+      values: [0, 1]
+      invert: true
 
 
 annunciator:

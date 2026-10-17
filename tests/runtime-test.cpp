@@ -45,6 +45,8 @@ protected:
             "laminar/n844x/lights/any_gear_in_transit"
         }) xplm_test::data_refs[path].type = xplmType_Float;
         xplm_test::data_refs["sim/cockpit2/electrical/bus_volts"] = {xplmType_FloatArray, true, 1, 28};
+        xplm_test::data_refs["sim/cockpit2/controls/parking_brake_ratio"].type = xplmType_Float;
+        xplm_test::data_refs["sim/flightmodel2/misc/door_open_ratio"].type = xplmType_FloatArray;
         // X-Plane publishes the per-engine pump under engine/actuators, not fuel.
         xplm_test::data_refs["sim/cockpit2/fuel/fuel_pump_on"].available = false;
         xplm_test::data_refs["sim/cockpit2/engine/actuators/fuel_pump_on"].type = xplmType_IntArray;
@@ -146,6 +148,19 @@ TEST_F(runtime_test, defers_binding_and_dumps_raw_values_gear_decisions_and_cach
     expect_debug_message("DataRef bound:");
     expect_debug_message("Loading YAML File");
     expect_debug_message("Checking for required");
+}
+
+TEST_F(runtime_test, evolution_uses_parking_brake_and_float_door_inputs_for_annunciators) {
+    xplm_test::data_refs["sim/cockpit2/controls/parking_brake_ratio"].value = 0.5;
+    xplm_test::data_refs["sim/flightmodel2/misc/door_open_ratio"].value = 0.25;
+    auto initialized = state::init();
+    ASSERT_TRUE(initialized.has_value());
+    initialized.value()->request_load_plane();
+    ASSERT_EQ(xplm_test::tick(), -1);
+    ASSERT_TRUE(initialized.value()->active_plane().has_value());
+    ASSERT_FALSE(hid_test::reports.empty());
+    // Parking brake and door are bits 1 and 3 in the fourth bank.
+    EXPECT_EQ(hid_test::reports.back()[4] & 0x0a, 0x0a);
 }
 
 TEST_F(runtime_test, loads_again_only_when_datarefs_are_added_after_a_failed_load) {
