@@ -15,7 +15,7 @@ set(hcbravo_TEST ${PROJECT_SOURCE_DIR}/tests)
 
 add_executable(profile-test
     ${hcbravo_TEST}/profile-test.cpp
-    ${hcbravo_SRC}/logger.cpp
+    ${hcbravo_SRC}/xplane-logger.cpp
     ${hcbravo_SRC}/profile.cpp
 )
 
@@ -27,7 +27,7 @@ gtest_discover_tests(profile-test)
 
 add_executable(conf-test
     ${hcbravo_TEST}/conf-test.cpp
-    ${hcbravo_SRC}/logger.cpp
+    ${hcbravo_SRC}/xplane-logger.cpp
 )
 
 target_include_directories(conf-test PRIVATE ${hcbravo_SRC} ${hcbravo_TEST}/XPSDK ${yaml-cpp_SOURCE_DIR}/include/yaml-cpp)

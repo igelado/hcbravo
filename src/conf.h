@@ -9,15 +9,18 @@
 #define CONF_H_
 
 #include "logger.h"
-#include "conf-validation.h"
 
 #include <yaml-cpp/yaml.h>
 
 #include <optional>
 #include <expected>
+#include <string>
 #include <vector>
 
 namespace conf {
+
+// Validates profile structure and values without resolving simulator DataRefs.
+std::expected<void, std::string> validate_file(const std::string & path);
 
 class key {
 protected:

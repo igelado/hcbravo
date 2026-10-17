@@ -29,7 +29,7 @@ CPMAddPackage(
 set(hcbravo_SRC ${PROJECT_SOURCE_DIR}/src)
 set(hcbravo_EXT ${PROJECT_SOURCE_DIR}/ext)
 
-add_library(hcbravo-conf STATIC ${hcbravo_SRC}/conf.cpp ${hcbravo_SRC}/conf-validation.cpp)
+add_library(hcbravo-conf STATIC ${hcbravo_SRC}/conf.cpp)
 set_target_properties(hcbravo-conf PROPERTIES POSITION_INDEPENDENT_CODE ON)
 target_include_directories(hcbravo-conf PUBLIC ${hcbravo_SRC})
 target_link_libraries(hcbravo-conf PUBLIC yaml-cpp::yaml-cpp)
@@ -39,7 +39,7 @@ target_link_libraries(hcbravo-validate PRIVATE hcbravo-conf)
 
 add_library(hcbravo SHARED)
 target_sources(hcbravo PRIVATE
-    ${hcbravo_SRC}/logger.cpp
+    ${hcbravo_SRC}/xplane-logger.cpp
     ${hcbravo_SRC}/knob.cpp
     ${hcbravo_SRC}/led.cpp
     ${hcbravo_SRC}/main.cpp

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: LGPL-2.1-only
-#include "conf-validation.h"
+#include "conf.h"
 #include "configuration-files.h"
 
 #include <gtest/gtest.h>
