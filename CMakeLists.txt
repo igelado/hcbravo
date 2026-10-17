@@ -17,12 +17,17 @@ project(HCBravo)
 set(CMAKE_CXX_STANDARD 23)
 
 include(cmake/CPM.cmake)
+# Dependencies are pinned by full commit hash: tags are mutable, hashes are not.
 CPMAddPackage(
-    URI "gh:libusb/hidapi#hidapi-0.15.0"
+    NAME hidapi
+    GITHUB_REPOSITORY libusb/hidapi
+    GIT_TAG d6b2a974608dec3b76fb1e36c189f22b9cf3650c # hidapi-0.15.0
     OPTIONS "BUILD_SHARED_LIBS FALSE"
 )
 CPMAddPackage(
-    URI "gh:jbeder/yaml-cpp#yaml-cpp-0.9.0"
+    NAME yaml-cpp
+    GITHUB_REPOSITORY jbeder/yaml-cpp
+    GIT_TAG 56e3bb550c91fd7005566f19c079cb7a503223cf # yaml-cpp-0.9.0
     OPTIONS "YAML_MSVC_SHARED_RT ON"
 )
 CPMAddPackage(
@@ -81,6 +86,21 @@ target_include_directories(hcbravo PRIVATE "${XPlaneSDK_SOURCE_DIR}/CHeaders" hi
 target_link_libraries(hcbravo PRIVATE hidapi::hidapi yaml-cpp::yaml-cpp hcbravo-conf)
 set_target_properties(hcbravo PROPERTIES PREFIX "")
 set_target_properties(hcbravo PROPERTIES SUFFIX ".xpl")
+
+# Warnings and hardening for the plugin itself (dependencies and tests keep their defaults).
+if(MSVC)
+    target_compile_options(hcbravo PRIVATE /W4 /GS /guard:cf)
+    target_link_options(hcbravo PRIVATE /guard:cf /DYNAMICBASE)
+else()
+    target_compile_options(hcbravo PRIVATE
+        -Wall -Wextra
+        # Only the SDK's PLUGIN_API entry points are exported.
+        -fvisibility=hidden -fvisibility-inlines-hidden
+        $<$<CONFIG:Release>:-fstack-protector-strong>
+        $<$<CONFIG:Release>:-U_FORTIFY_SOURCE>
+        $<$<CONFIG:Release>:-D_FORTIFY_SOURCE=2>
+    )
+endif()
 
 enable_testing()
 # Keep tests registered from the project root for CI path filters.
