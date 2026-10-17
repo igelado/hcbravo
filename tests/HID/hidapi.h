@@ -9,12 +9,18 @@ using hid_device = hid_device_;
 namespace hid_test {
 inline hid_device device;
 inline int result = 65;
+inline bool present = true;
+inline int open_count = 0;
+inline int close_count = 0;
 inline std::vector<std::vector<unsigned char>> reports;
 }
 static inline int hid_init() { return 0; }
 static inline int hid_exit() { return 0; }
-static inline hid_device * hid_open(unsigned short, unsigned short, const wchar_t *) { return &hid_test::device; }
-static inline void hid_close(hid_device *) {}
+static inline hid_device * hid_open(unsigned short, unsigned short, const wchar_t *) {
+    ++hid_test::open_count;
+    return hid_test::present ? &hid_test::device : nullptr;
+}
+static inline void hid_close(hid_device *) { ++hid_test::close_count; }
 static inline const wchar_t * hid_error(hid_device *) { return L"test HID failure"; }
 static inline int hid_send_feature_report(hid_device *, const unsigned char * data, size_t size) {
     hid_test::reports.emplace_back(data, data + size);
