@@ -42,6 +42,10 @@ protected:
 #endif
         hid_test::reports.clear();
         hid_test::result = 65;
+        hid_test::present = true;
+        hid_test::open_count = 0;
+        hid_test::close_count = 0;
+        state::state::hid_reconnect_interval = std::chrono::seconds(0);
         for(const auto path : {
             "sim/cockpit2/autopilot/airspeed_dial_kts_mach",
             "sim/cockpit2/radios/actuators/nav1_obs_deg_mag_pilot",
@@ -63,6 +67,9 @@ protected:
 
     void TearDown() override {
         if(plugin_started_) XPluginStop();
+        state::state::hid_reconnect_interval = std::chrono::seconds(5);
+        led::led_state::retry_interval = std::chrono::seconds(5);
+        led::led_state::probe_interval = std::chrono::seconds(5);
     }
 
     bool start_plugin() {
@@ -452,6 +459,108 @@ TEST_F(runtime_test, power_gate_keeps_all_leds_off_and_dump_reports_array_read_f
     expect_debug_message("All LEDs off: electrical power gate disabled");
     ASSERT_EQ(hid_test::reports.size(), 1);
     for(const auto byte : hid_test::reports[0]) EXPECT_EQ(byte, 0);
+}
+
+TEST_F(runtime_test, plugin_loads_without_device_and_keeps_polling_flight_loop) {
+    hid_test::present = false;
+    ASSERT_TRUE(start_plugin());
+    EXPECT_NE(xplm_test::log.find("Plugin loaded"), std::string::npos);
+    EXPECT_NE(xplm_test::log.find("not detected; will retry"), std::string::npos);
+    EXPECT_FALSE(xplm_test::commands.empty());
+    EXPECT_FALSE(xplm_test::menu_items.empty());
+    state::state::hid_reconnect_interval = std::chrono::seconds(5);
+    EXPECT_EQ(xplm_test::tick(), state::state::powered_interval); // profile bound; loop keeps running
+    EXPECT_GT(hid_test::open_count, 1); // device polled from the flight loop
+    // A plane without a profile still keeps the loop alive to poll for the device.
+    xplm_test::strings["sim/aircraft/view/acf_ui_name"] = "Unknown";
+    xplm_test::strings["sim/aircraft/view/acf_ICAO"] = "ZZZZ";
+    XPluginReceiveMessage(XPLM_PLUGIN_XPLANE, XPLM_MSG_PLANE_LOADED, nullptr);
+    EXPECT_EQ(xplm_test::tick(), 5.0f);
+    xplm_test::log.clear();
+    for(int n = 0; n < 5; ++n) xplm_test::tick();
+    EXPECT_TRUE(xplm_test::log.empty());
+    EXPECT_TRUE(hid_test::reports.empty());
+}
+
+TEST_F(runtime_test, hot_plugged_device_is_acquired_and_leds_resynchronize) {
+    hid_test::present = false;
+    ASSERT_TRUE(start_plugin());
+    XPluginReceiveMessage(XPLM_PLUGIN_XPLANE, XPLM_MSG_PLANE_LOADED, nullptr);
+    xplm_test::data_refs["laminar/n844x/lights/left_gear_down"].value = 1;
+    EXPECT_EQ(xplm_test::tick(), state::state::powered_interval);
+    EXPECT_TRUE(hid_test::reports.empty());
+    const int attempts = hid_test::open_count;
+    EXPECT_GT(attempts, 1); // retried from the flight loop
+    hid_test::present = true;
+    xplm_test::log.clear();
+    xplm_test::tick();
+    EXPECT_NE(xplm_test::log.find("Throttle Detected"), std::string::npos);
+    ASSERT_FALSE(hid_test::reports.empty());
+    const auto written = hid_test::reports.size();
+    xplm_test::tick();
+    EXPECT_EQ(hid_test::reports.size(), written); // synchronized, no further opens
+    EXPECT_EQ(hid_test::open_count, attempts + 1);
+}
+
+TEST_F(runtime_test, disabled_plugin_does_not_poll_or_open_the_device) {
+    hid_test::present = false;
+    ASSERT_TRUE(start_plugin());
+    xplm_test::tick();
+    XPluginDisable();
+    const int opens = hid_test::open_count;
+    hid_test::present = true;
+    xplm_test::tick(); // even a stray callback must not touch HID
+    xplm_test::tick();
+    EXPECT_EQ(hid_test::open_count, opens);
+    EXPECT_TRUE(hid_test::reports.empty());
+    XPluginEnable();
+    xplm_test::tick();
+    EXPECT_GT(hid_test::open_count, opens); // polling resumes on enable
+    EXPECT_NE(xplm_test::log.find("Throttle Detected"), std::string::npos);
+}
+
+TEST_F(runtime_test, repeated_write_failures_close_device_and_reconnect_later) {
+    led::led_state::retry_interval = std::chrono::seconds(0);
+    ASSERT_TRUE(start_plugin());
+    XPluginReceiveMessage(XPLM_PLUGIN_XPLANE, XPLM_MSG_PLANE_LOADED, nullptr);
+    const auto base = hid_test::reports.size();
+    hid_test::result = -1;
+    hid_test::present = false;
+    for(unsigned n = 0; n < led::led_state::max_consecutive_failures; ++n) xplm_test::tick();
+    EXPECT_EQ(hid_test::reports.size(), base + led::led_state::max_consecutive_failures);
+    EXPECT_EQ(hid_test::close_count, 0);
+    xplm_test::log.clear();
+    for(int n = 0; n < 5; ++n) xplm_test::tick();
+    EXPECT_EQ(hid_test::close_count, 1);
+    EXPECT_EQ(hid_test::reports.size(), base + led::led_state::max_consecutive_failures);
+    EXPECT_NE(xplm_test::log.find("disconnected"), std::string::npos);
+    EXPECT_EQ(xplm_test::log.find("disconnected"), xplm_test::log.rfind("disconnected")); // logged once
+    hid_test::present = true;
+    hid_test::result = 65;
+    xplm_test::tick();
+    EXPECT_GT(hid_test::reports.size(), base + led::led_state::max_consecutive_failures);
+    EXPECT_NE(xplm_test::log.find("Throttle Detected"), std::string::npos);
+}
+
+TEST_F(runtime_test, unplug_with_steady_leds_is_detected_by_periodic_probe) {
+    led::led_state::retry_interval = std::chrono::seconds(0);
+    led::led_state::probe_interval = std::chrono::seconds(0);
+    ASSERT_TRUE(start_plugin());
+    XPluginReceiveMessage(XPLM_PLUGIN_XPLANE, XPLM_MSG_PLANE_LOADED, nullptr);
+    xplm_test::tick();
+    xplm_test::tick(); // unchanged mask: resent as a probe
+    hid_test::result = -1;
+    hid_test::present = false;
+    xplm_test::log.clear();
+    for(int n = 0; n < 10; ++n) xplm_test::tick();
+    EXPECT_EQ(hid_test::close_count, 1);
+    EXPECT_NE(xplm_test::log.find("disconnected"), std::string::npos);
+    EXPECT_EQ(xplm_test::log.find("disconnected"), xplm_test::log.rfind("disconnected"));
+    hid_test::present = true;
+    hid_test::result = 65;
+    xplm_test::log.clear();
+    xplm_test::tick();
+    EXPECT_NE(xplm_test::log.find("Throttle Detected"), std::string::npos);
 }
 
 class test_led_state : public led::led_state {

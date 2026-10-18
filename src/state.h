@@ -12,6 +12,7 @@
 #include <XPLM/XPLMMenus.h>
 #include <XPLM/XPLMProcessing.h>
 
+#include <chrono>
 #include <optional>
 #include <array>
 #include <memory>
@@ -55,8 +56,13 @@ class state {
 #endif
 
     XPLMFlightLoopID flight_loop_;
+    std::chrono::steady_clock::time_point next_hid_open_ {};
 
     state();
+
+    // Open the Bravo when absent and drop it when it stopped answering.
+    void poll_hid() noexcept;
+    bool try_open_hid() noexcept;
 
     static
     void
@@ -71,6 +77,9 @@ class state {
     flight_iteration(float last_call, float last_iter, int counter, void * ref) noexcept;
 
 public:
+    // Delay between attempts to open a missing Bravo (adjustable for tests).
+    static inline std::chrono::steady_clock::duration hid_reconnect_interval = std::chrono::seconds(5);
+
     using ptr_type = std::unique_ptr<state>;
 
     // Seconds between LED refreshes. Annunciators do not need per-frame

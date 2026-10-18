@@ -96,6 +96,7 @@ state::flight_iteration(float call, float iter, int counter, void * _this) noexc
 {
     state * self = reinterpret_cast<state *>(_this);
     if(self == nullptr) return 0;
+    self->poll_hid();
     if(self->load_pending_) {
         self->load_pending_ = false;
         self->waiting_for_data_refs_ = !self->load_plane();
@@ -104,7 +105,9 @@ state::flight_iteration(float call, float iter, int counter, void * _this) noexc
         }
     }
     if(self->plane_.has_value() == false) {
-        return 0;
+        // Keep polling for a missing device; otherwise sleep until rescheduled.
+        return self->hid_ == nullptr
+            ? std::chrono::duration<float>(hid_reconnect_interval).count() : 0;
     }
     const auto plane = self->plane_.value();
     led::led_mask mask;
@@ -220,13 +223,10 @@ state::init() noexcept
         return std::unexpected(error::error::hid_error);
     }
     st->hid_initialized_ = true;
-    st->hid_ = hid_open(0x294b, 0x1901, nullptr);
-    if(st->hid_ == nullptr) {
-        logger::info() << "Open HoneyComb Bravo Quadrant not Detected";
-        return std::unexpected(error::error::not_detected);
+    if(!st->try_open_hid()) {
+        logger::info() << "HoneyComb Bravo not detected; will retry every "
+                 << std::chrono::duration_cast<std::chrono::seconds>(hid_reconnect_interval).count() << " seconds";
     }
-    logger::info() << "HoneyComb Bravo Throttle Detected";
-    st->leds_.hid_ = st->hid_;
 
     auto commands = knob::commands::init(*st);
     if(commands.has_value() == false) {
@@ -293,6 +293,36 @@ state::init() noexcept
     }
 
     return st;
+}
+
+bool
+state::try_open_hid() noexcept
+{
+    next_hid_open_ = std::chrono::steady_clock::now() + hid_reconnect_interval;
+    hid_device * device = hid_open(0x294b, 0x1901, nullptr);
+    if(device == nullptr) return false;
+    hid_ = device;
+    leds_.attach(device);
+    logger::info() << "HoneyComb Bravo Throttle Detected";
+    return true;
+}
+
+void
+state::poll_hid() noexcept
+{
+    // Disabled plugins must not touch the device or poll for it.
+    if(!hid_initialized_ || !enabled_) return;
+    if(hid_ != nullptr) {
+        if(!leds_.connection_lost()) return;
+        logger::info() << "HoneyComb Bravo disconnected after repeated write failures; will retry";
+        hid_close(hid_);
+        hid_ = nullptr;
+        leds_.detach();
+        next_hid_open_ = std::chrono::steady_clock::now() + hid_reconnect_interval;
+        return;
+    }
+    if(std::chrono::steady_clock::now() < next_hid_open_) return;
+    try_open_hid();
 }
 
 static const size_t FILES_PATH_SIZE = 64;

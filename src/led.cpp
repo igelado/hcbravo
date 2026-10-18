@@ -21,6 +21,8 @@ led_state::led_state() noexcept :
 led_state::led_state(led_state && other) noexcept :
     hid_(other.hid_),
     synchronized_(other.synchronized_),
+    consecutive_failures_(other.consecutive_failures_),
+    next_probe_(other.next_probe_),
     next_retry_(other.next_retry_)
 {
     ::memcpy(&u, &other.u, sizeof(u));
@@ -28,16 +30,34 @@ led_state::led_state(led_state && other) noexcept :
 }
 
 void
+led_state::attach(hid_device_ * hid) noexcept
+{
+    hid_ = hid;
+    synchronized_ = false;
+    consecutive_failures_ = 0;
+    next_retry_ = {};
+}
+
+void
+led_state::detach() noexcept
+{
+    hid_ = nullptr;
+    synchronized_ = false;
+    consecutive_failures_ = 0;
+    next_retry_ = {};
+}
+
+void
 led_state::update(const led_mask & mask)
 {
-    if(hid_ == nullptr) {
+    if(hid_ == nullptr || connection_lost()) {
         return;
     }
 
-    if(synchronized_ && ::memcmp(u.state_.banks_, mask.banks_, sizeof(mask.banks_)) == 0) {
+    const auto now = std::chrono::steady_clock::now();
+    if(synchronized_ && ::memcmp(u.state_.banks_, mask.banks_, sizeof(mask.banks_)) == 0 && now < next_probe_) {
         return;
     }
-    const auto now = std::chrono::steady_clock::now();
     if(now < next_retry_) {
         return;
     }
@@ -58,9 +78,12 @@ led_state::update(const led_mask & mask)
                  << " banks=[" << mask.describe() << "] bytes=" << ret << "/" << sizeof(next_state)
                  << " error=" << error_text << "; retrying in 5 seconds";
         synchronized_ = false;
-        next_retry_ = now + std::chrono::seconds(5);
+        next_retry_ = now + retry_interval;
+        ++consecutive_failures_;
         return;
     }
+    consecutive_failures_ = 0;
+    next_probe_ = now + probe_interval;
     ::memcpy(&u.state_, &next_state, sizeof(u.state_));
     synchronized_ = true;
 }
