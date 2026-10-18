@@ -9,11 +9,26 @@ on:
         type: string
 
 permissions:
-  actions: read
-  contents: write
+  contents: read
 
 jobs:
+  guard:
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Require release from main
+        env:
+          REF: ${{ github.ref }}
+        run: |
+          if [[ "$REF" != "refs/heads/main" ]]; then
+            echo "::error::Releases can only be created from main (dispatched on: $REF)"
+            exit 1
+          fi
+
   build:
+    needs: guard
+    permissions:
+      contents: read
     strategy:
       fail-fast: true
       matrix:
@@ -28,10 +43,14 @@ jobs:
   package:
     runs-on: ubuntu-latest
 
-    needs: build
+    needs: [guard, build]
+
+    permissions:
+      actions: read
+      contents: write
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Set reusable strings
         id: strings
@@ -52,7 +71,7 @@ jobs:
           echo "version=$RELEASE_VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Gather Linux Package
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
         with:
           name: output-ubuntu-latest
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -60,7 +79,7 @@ jobs:
           path: ${{ steps.strings.outputs.build-output-dir }}/ubuntu
 
       - name: Gather Windows Package
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
         with:
           name: output-windows-latest
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -68,7 +87,7 @@ jobs:
           path: ${{ steps.strings.outputs.build-output-dir }}/windows
       
       - name: Gather MacOS Package
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
         with:
           name: output-macos-latest
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -88,20 +107,23 @@ jobs:
           mkdir -p Output/preferences
           cp "${{ github.workspace }}"/profiles/*.prf Output/preferences/
           zip -r "hcbravo-v${RELEASE_VERSION}.zip" Resources Output
+          sha256sum "hcbravo-v${RELEASE_VERSION}.zip" > SHA256SUMS
 
       - name: Create Release Tag
         env:
           RELEASE_VERSION: ${{ steps.version.outputs.version }}
         run: |
-          git tag "v${RELEASE_VERSION}"
+          git tag "v${RELEASE_VERSION}" "$GITHUB_SHA"
           git push origin "v${RELEASE_VERSION}"
 
       - name: Create Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: v${{ steps.version.outputs.version }}
           name: 'HCBravo Release v${{ steps.version.outputs.version }}'
-          files: ${{ steps.strings.outputs.build-output-dir }}/hcbravo-v${{ steps.version.outputs.version }}.zip
+          files: |
+            ${{ steps.strings.outputs.build-output-dir }}/hcbravo-v${{ steps.version.outputs.version }}.zip
+            ${{ steps.strings.outputs.build-output-dir }}/SHA256SUMS
       
