@@ -86,6 +86,9 @@ public:
 };
 
 class float_data_ref final : public base_data_ref {
+    // Set once a failed indexed read was logged; cleared by the next success so a
+    // persistent failure does not flood the log every knob event.
+    mutable bool read_failure_logged_ = false;
     float_data_ref(binding && binding) noexcept;
 
 public:

@@ -5,6 +5,7 @@
 #include <gtest/gtest.h>
 
 #include <conf.h>
+#include <XPLM/XPLMUtilities.h>
 
 #include <filesystem>
 #include <fstream>
@@ -420,6 +421,43 @@ system:
     EXPECT_FALSE(invalid_aircraft.has_value());
     EXPECT_FALSE(empty_models.has_value());
     EXPECT_FALSE(invalid_model.has_value());
+}
+
+TEST(conf_test, configuration_rejects_anchors_and_aliases)
+{
+    EXPECT_FALSE(read_configuration(R"(
+name: Anchored
+aircrafts: &list [Anchored]
+models: [ANCH]
+system:
+  volts: sim/test/volts
+)").has_value());
+    EXPECT_FALSE(read_configuration(R"(
+name: Aliased
+aircrafts: [Aliased]
+models: [ALIA]
+system:
+  volts: &volts sim/test/volts
+  other: *volts
+)").has_value());
+}
+
+TEST(conf_test, configuration_rejects_oversized_files)
+{
+    std::string contents = "name: Big\naircrafts: [Big]\nmodels: [BIG]\nsystem:\n  volts: sim/test/volts\n# ";
+    contents.append(1024 * 1024 + 1, 'x');
+    EXPECT_FALSE(read_configuration(contents).has_value());
+    EXPECT_FALSE(conf::configuration::read("/nonexistent/hcbravo.yaml").has_value());
+}
+
+TEST(conf_test, error_messages_truncate_echoed_yaml)
+{
+    const std::string marker(500, 'z');
+    xplm_test::log.clear();
+    EXPECT_FALSE(read_configuration(
+        "name: Long\naircrafts: [Long]\nmodels: [LONG]\nsystem: " + marker + "\n").has_value());
+    EXPECT_NE(xplm_test::log.find("(truncated)"), std::string::npos);
+    EXPECT_EQ(xplm_test::log.find(std::string(300, 'z')), std::string::npos);
 }
 
 } // namespace conf_test

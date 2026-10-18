@@ -9,6 +9,8 @@
 
 #include <XPLM/XPLMUtilities.h>
 
+#include <algorithm>
+#include <cmath>
 #include <string>
 #include <utility>
 
@@ -17,6 +19,17 @@ namespace profile {
 static bool has_type(XPLMDataTypeID type, XPLMDataTypeID expected) noexcept
 {
     return (type & expected) != 0;
+}
+
+// X-Plane floats are single precision and are often produced by arithmetic
+// (ratios, unit conversions), so a configured value such as 0.3 rarely equals
+// the stored float bit-for-bit. Match within 1e-4, absolute near zero and
+// relative for larger magnitudes.
+static bool float_matches(float value, float expected) noexcept
+{
+    constexpr float tolerance = 1e-4f;
+    const float scale = (std::max)(1.0f, (std::max)(std::fabs(value), std::fabs(expected)));
+    return std::fabs(value - expected) <= tolerance * scale;
 }
 
 base_data_ref::base_data_ref(binding && binding) noexcept :
@@ -178,7 +191,7 @@ bool_data_ref::read() const noexcept
     if(!float_values_.empty()) {
         result = false;
         for(const auto expected : float_values_) {
-            if(value == expected) {
+            if(float_matches(value, expected)) {
                 result = true;
                 break;
             }
@@ -227,6 +240,12 @@ float_data_ref::build(const conf::key & key)
         logger::info() << "DataRef '" << key.path() << "' is not a float DataRef";
         return std::unexpected(0);
     }
+    // Float DataRefs are bound for the knob dials, which write them. A read-only
+    // DataRef would make knob turns silently do nothing, so say so at bind time.
+    if(!XPLMCanWriteDataRef(binding->data_ref)) {
+        logger::info() << "Dial DataRef '" << key.path()
+                       << "' is read-only; knob adjustments to it will have no effect";
+    }
     return float_data_ref(std::move(binding.value()));
 }
 
@@ -236,8 +255,13 @@ float_data_ref::get() const noexcept
     float value = 0.0f;
     if(index_) {
         if(XPLMGetDatavf(data_ref_, &value, *index_, 1) != 1) {
-            logger::info() << "Failed to read indexed float DataRef at " << *index_;
+            if(!read_failure_logged_) {
+                read_failure_logged_ = true;
+                logger::info() << "Failed to read indexed float DataRef at " << *index_
+                               << " ('" << path_ << "'); further failures are not logged until a read succeeds";
+            }
         }
+        else read_failure_logged_ = false;
     }
     else value = XPLMGetDataf(data_ref_);
 #if !defined(NDEBUG)

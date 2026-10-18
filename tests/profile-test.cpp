@@ -7,6 +7,7 @@
 #define HCBRAVO_PROFILE_TESTS
 #include <conf.h>
 #include <profile.h>
+#include <XPLM/XPLMUtilities.h>
 
 #include <filesystem>
 #include <fstream>
@@ -197,6 +198,65 @@ TEST(profile_test, float_bindings_ignore_integer_bits_and_use_supported_read_and
     const auto key = conf::key::build(YAML::Load("sim/test/integer_only"));
     ASSERT_TRUE(key.has_value());
     EXPECT_FALSE(profile::float_data_ref::build(key.value()).has_value());
+}
+
+TEST(profile_test, float_values_match_within_tolerance)
+{
+    const std::string path = "sim/test/float_values";
+    const auto key = conf::key::build(YAML::Load("{key: sim/test/float_values, values: [0.3, 1000]}"));
+    ASSERT_TRUE(key.has_value());
+    const struct { double value; bool set; } cases[] = {
+        {0.3, true}, {0.30004, true}, {0.3002, false}, {1000.05, true}, {1000.5, false}, {0.0, false}
+    };
+    for(const auto & entry : cases) {
+        SCOPED_TRACE(entry.value);
+        xplm_test::data_refs[path] = {xplmType_Float, true, 1, entry.value};
+        const auto bound = profile::bool_data_ref::build(key.value());
+        ASSERT_TRUE(bound.has_value());
+        EXPECT_EQ(bound.value()->is_set(), entry.set);
+    }
+}
+
+TEST(profile_test, warns_when_a_dial_dataref_is_read_only)
+{
+    const auto key = conf::key::build(YAML::Load("sim/test/readonly_dial"));
+    ASSERT_TRUE(key.has_value());
+    xplm_test::data_refs["sim/test/readonly_dial"] = {xplmType_Float, true, 1, 0, true};
+    xplm_test::log.clear();
+    ASSERT_TRUE(profile::float_data_ref::build(key.value()).has_value());
+    EXPECT_EQ(xplm_test::log.find("read-only"), std::string::npos);
+
+    xplm_test::data_refs["sim/test/readonly_dial"].writable = false;
+    xplm_test::log.clear();
+    EXPECT_TRUE(profile::float_data_ref::build(key.value()).has_value());
+    EXPECT_NE(xplm_test::log.find("Dial DataRef 'sim/test/readonly_dial' is read-only"), std::string::npos);
+}
+
+static size_t count_occurrences(const std::string & text, const std::string & needle)
+{
+    size_t count = 0;
+    for(auto at = text.find(needle); at != std::string::npos; at = text.find(needle, at + 1)) ++count;
+    return count;
+}
+
+TEST(profile_test, repeated_indexed_read_failures_are_logged_once_until_a_read_succeeds)
+{
+    const auto key = conf::key::build(YAML::Load("{key: sim/test/failing_array, index: 2}"));
+    ASSERT_TRUE(key.has_value());
+    xplm_test::data_refs["sim/test/failing_array"] = {xplmType_FloatArray, true, 0, 1.0};
+    const auto bound = profile::float_data_ref::build(key.value());
+    ASSERT_TRUE(bound.has_value());
+
+    xplm_test::log.clear();
+    for(int n = 0; n < 5; ++n) bound->get();
+    EXPECT_EQ(count_occurrences(xplm_test::log, "Failed to read indexed float DataRef"), 1u);
+
+    // A successful read re-arms the message for the next failure.
+    bound->data_ref()->array_read_count = 1;
+    bound->get();
+    bound->data_ref()->array_read_count = 0;
+    for(int n = 0; n < 3; ++n) bound->get();
+    EXPECT_EQ(count_occurrences(xplm_test::log, "Failed to read indexed float DataRef"), 2u);
 }
 
 } // namespace profile_test

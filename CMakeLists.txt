@@ -17,12 +17,17 @@ project(HCBravo)
 set(CMAKE_CXX_STANDARD 23)
 
 include(cmake/CPM.cmake)
+# Dependencies are pinned by full commit hash: tags are mutable, hashes are not.
 CPMAddPackage(
-    URI "gh:libusb/hidapi#hidapi-0.15.0"
+    NAME hidapi
+    GITHUB_REPOSITORY libusb/hidapi
+    GIT_TAG d6b2a974608dec3b76fb1e36c189f22b9cf3650c # hidapi-0.15.0
     OPTIONS "BUILD_SHARED_LIBS FALSE"
 )
 CPMAddPackage(
-    URI "gh:jbeder/yaml-cpp#yaml-cpp-0.9.0"
+    NAME yaml-cpp
+    GITHUB_REPOSITORY jbeder/yaml-cpp
+    GIT_TAG 56e3bb550c91fd7005566f19c079cb7a503223cf # yaml-cpp-0.9.0
     OPTIONS "YAML_MSVC_SHARED_RT ON"
 )
 CPMAddPackage(
@@ -35,10 +40,33 @@ CPMAddPackage(
 
 set(hcbravo_SRC ${PROJECT_SOURCE_DIR}/src)
 
+# Warnings and hardening for code shipped in the plugin: the plugin target and the
+# configuration library it links (which parses untrusted YAML). Dependencies,
+# tests and the validator keep their defaults.
+function(hcbravo_harden target)
+    if(MSVC)
+        target_compile_options(${target} PRIVATE /W4 /GS /guard:cf)
+        get_target_property(target_type ${target} TYPE)
+        if(NOT target_type STREQUAL "STATIC_LIBRARY")
+            target_link_options(${target} PRIVATE /guard:cf /DYNAMICBASE)
+        endif()
+    else()
+        target_compile_options(${target} PRIVATE
+            -Wall -Wextra
+            # Only the SDK's PLUGIN_API entry points are exported.
+            -fvisibility=hidden -fvisibility-inlines-hidden
+            $<$<CONFIG:Release>:-fstack-protector-strong>
+            $<$<CONFIG:Release>:-U_FORTIFY_SOURCE>
+            $<$<CONFIG:Release>:-D_FORTIFY_SOURCE=2>
+        )
+    endif()
+endfunction()
+
 add_library(hcbravo-conf STATIC ${hcbravo_SRC}/conf.cpp)
 set_target_properties(hcbravo-conf PROPERTIES POSITION_INDEPENDENT_CODE ON)
 target_include_directories(hcbravo-conf PUBLIC ${hcbravo_SRC})
 target_link_libraries(hcbravo-conf PUBLIC yaml-cpp::yaml-cpp)
+hcbravo_harden(hcbravo-conf)
 
 add_executable(hcbravo-validate ${hcbravo_SRC}/conf-validator.cpp ${hcbravo_SRC}/console-logger.cpp)
 target_link_libraries(hcbravo-validate PRIVATE hcbravo-conf)
@@ -81,6 +109,8 @@ target_include_directories(hcbravo PRIVATE "${XPlaneSDK_SOURCE_DIR}/CHeaders" hi
 target_link_libraries(hcbravo PRIVATE hidapi::hidapi yaml-cpp::yaml-cpp hcbravo-conf)
 set_target_properties(hcbravo PROPERTIES PREFIX "")
 set_target_properties(hcbravo PROPERTIES SUFFIX ".xpl")
+hcbravo_harden(hcbravo)
+
 
 enable_testing()
 # Keep tests registered from the project root for CI path filters.

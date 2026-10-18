@@ -32,6 +32,7 @@ struct data_ref_settings {
     bool available = true;
     int array_read_count = 1;
     double value = 0;
+    bool writable = true;
 };
 inline std::unordered_map<std::string, data_ref_settings> data_refs;
 inline std::unordered_map<std::string, int> read_counts;
@@ -49,6 +50,7 @@ struct xplm_data_ref {
 
     XPLMDataTypeID type;
     int array_read_count = 1;
+    bool writable = true;
 
     inline
     xplm_data_ref(std::string && name, int value) noexcept :
@@ -83,6 +85,11 @@ void XPLMGetDataRefInfo(const XPLMDataRef & data_ref, XPLMDataRefInfo * info) no
 }
 
 static inline
+int XPLMCanWriteDataRef(const XPLMDataRef & data_ref) noexcept {
+    return data_ref != nullptr && data_ref->writable ? 1 : 0;
+}
+
+static inline
 XPLMDataRef XPLMFindDataRef(const char * key) noexcept {
     const auto settings = xplm_test::data_refs.find(key);
     if(settings != xplm_test::data_refs.end() && !settings->second.available) return nullptr;
@@ -90,6 +97,7 @@ XPLMDataRef XPLMFindDataRef(const char * key) noexcept {
     if(settings != xplm_test::data_refs.end()) {
         result->type = settings->second.type;
         result->array_read_count = settings->second.array_read_count;
+        result->writable = settings->second.writable;
         result->value.f = static_cast<float>(settings->second.value);
         result->value.i = static_cast<int>(settings->second.value);
     }

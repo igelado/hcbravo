@@ -39,6 +39,10 @@ struct factor {
     const float fast;
 };
 
+// Upper bounds for the dials (ALT in feet, VS in feet per minute).
+static constexpr float max_altitude = 100000.0f;
+static constexpr float max_vertical_speed = 9900.0f;
+
 static const factor factors[] = {
     { 100.0f, 1000.0f },    // ALT
     { 100.0f, 500.0f },     // VS
@@ -151,9 +155,9 @@ commands::ap_knob_update(void * ref) noexcept
         case selector::alt:
             if(!dials.alt()) return 0;
             dials.alt().value().set(
-                std::max(
-                    0.0f,
-                    dials.alt().value().get() + get_update_value<selector::alt, Dir>(fast)
+                std::clamp(
+                    dials.alt().value().get() + get_update_value<selector::alt, Dir>(fast),
+                    0.0f, max_altitude
                 )
             );
             break;
@@ -161,7 +165,10 @@ commands::ap_knob_update(void * ref) noexcept
         case selector::vs:
             if(!dials.vs()) return 0;
             dials.vs().value().set(
-                dials.vs().value().get() + get_update_value<selector::vs, Dir>(fast)
+                std::clamp(
+                    dials.vs().value().get() + get_update_value<selector::vs, Dir>(fast),
+                    -max_vertical_speed, max_vertical_speed
+                )
             );
             break;
         case selector::hdg:
