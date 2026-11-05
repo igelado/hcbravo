@@ -23,6 +23,9 @@
 #include "led.h"
 #include "logger.h"
 #include "state.h"
+#ifdef HCBRAVO_XPLANE_EDITOR
+#include "profile-editor-xplane.h"
+#endif
 
 namespace state {
 
@@ -32,6 +35,21 @@ static constexpr std::array diagnostic_menu_entries {
     std::pair {"DataRef Diagnostics", logger::diagnostic_category::datarefs},
     std::pair {"Configuration Diagnostics", logger::diagnostic_category::configuration}
 };
+#endif
+
+static std::optional<std::filesystem::path>
+profile_directory()
+{
+    char path[256] {};
+    XPLMGetPluginInfo(XPLMGetMyID(), nullptr, path, nullptr, nullptr);
+    path[sizeof(path) - 1] = '\0';
+    if(path[0] == '\0') return std::nullopt;
+    XPLMExtractFileAndPath(path);
+    return std::filesystem::absolute(std::string(path) + "/../conf").lexically_normal();
+}
+
+#ifdef HCBRAVO_XPLANE_EDITOR
+static constexpr size_t edit_profiles_menu_id = 7;
 #endif
 
 void
@@ -57,6 +75,25 @@ state::menu_handler(void * _this, void * item) noexcept
     }
 #endif
     switch(id) {
+#ifdef HCBRAVO_XPLANE_EDITOR
+        case edit_profiles_menu_id:
+            if(!self->enabled_) break;
+            try {
+                if(!self->editor_) {
+                    const auto directory = profile_directory();
+                    if(!directory) {
+                        logger::info() << "Cannot determine plugin path";
+                        break;
+                    }
+                    self->editor_ = std::make_unique<xplane_profile_editor>(*directory, self->active_profile_path_);
+                }
+                self->editor_->show();
+            }
+            catch(const std::exception & ex) {
+                logger::info() << "Failed to open Aircraft Profile Editor: " << ex.what();
+            }
+            break;
+#endif
         case 0:
             logger::info() << "Reloading Aircraft Profiles";
             try {
@@ -257,6 +294,12 @@ state::init() noexcept
         logger::info() << "Failed to Create HoneyComb Bravo Menu (Reload Aircraft Profiles)";
         return std::unexpected(error::error::api_menu);
     }
+#ifdef HCBRAVO_XPLANE_EDITOR
+    if(XPLMAppendMenuItem(st->menu_, "Edit Aircraft Profiles...",
+                          reinterpret_cast<void *>(edit_profiles_menu_id), 0) < 0) {
+        logger::info() << "Failed to Create HoneyComb Bravo Menu (Edit Aircraft Profiles)";
+    }
+#endif
 #if !defined(NDEBUG)
     if(XPLMAppendMenuItem(st->menu_, "Reload All Plugins", reinterpret_cast<void *>(1), 0) < 0) {
         logger::info() << "Failed to Create HoneyComb Bravo Menu (Reload All Plugins)";
@@ -380,6 +423,9 @@ state::state() :
 
 state::~state() noexcept
 {
+#ifdef HCBRAVO_XPLANE_EDITOR
+    editor_.reset();
+#endif
     if(this->flight_loop_ != nullptr) {
         XPLMDestroyFlightLoop(this->flight_loop_);
         this->flight_loop_ = nullptr;
@@ -420,17 +466,12 @@ state::reload()
 #if !defined(NDEBUG)
     if(logger::diagnostics::enabled(logger::diagnostic_category::configuration)) logger::debug() << "[Configuration debug] Reading Plugin Configuration Files";
 #endif
-    auto id = XPLMGetMyID();
-    static char path[256];
-    path[0] = '\0';
-    XPLMGetPluginInfo(id, nullptr, path, nullptr, nullptr);
-    path[sizeof(path) - 1] = '\0';
-    if(path[0] == '\0') {
+    const auto directory = profile_directory();
+    if(!directory) {
         logger::info() << "Cannot determine plugin path";
         return;
     }
-    XPLMExtractFileAndPath(path);
-    auto config_file_path = std::filesystem::absolute(std::string(path) + "/../conf");
+    const auto & config_file_path = *directory;
 #if !defined(NDEBUG)
     if(logger::diagnostics::enabled(logger::diagnostic_category::configuration)) logger::debug() << "[Configuration debug] Reading Configurations from " << config_file_path;
 #endif
@@ -460,28 +501,29 @@ state::reload()
 #endif
             auto parsed = conf::configuration::read(config_file.string());
             if(parsed.has_value()) {
-                auto configuration = std::make_shared<conf::configuration>(std::move(parsed.value()));
-                for(const auto &aircraft : configuration->aircrafts()) {
+                auto configuration = std::make_shared<configuration_entry>(
+                    std::move(parsed.value()), config_file.filename());
+                for(const auto &aircraft : configuration->config.aircrafts()) {
                     auto ret = aircraft_configurations.emplace(aircraft, configuration);
                     if(ret.second == false) {
-                        logger::info() << "Not using '" << configuration->name() << "' for '" << aircraft
+                        logger::info() << "Not using '" << configuration->config.name() << "' for '" << aircraft
                                  << "' because another configuration already exists";
                     }
                     else {
 #if !defined(NDEBUG)
-                        if(logger::diagnostics::enabled(logger::diagnostic_category::configuration)) logger::debug() << "[Configuration debug] Using '" << configuration->name() << "' for '" << aircraft << "'";
+                        if(logger::diagnostics::enabled(logger::diagnostic_category::configuration)) logger::debug() << "[Configuration debug] Using '" << configuration->config.name() << "' for '" << aircraft << "'";
 #endif
                     }
                 }
-                for(const auto &model : configuration->models()) {
+                for(const auto &model : configuration->config.models()) {
                     auto ret = model_configurations.emplace(model, configuration);
                     if(ret.second == false) {
-                        logger::info() << "Not using '" << configuration->name() << "' for ICAO '" << model
+                        logger::info() << "Not using '" << configuration->config.name() << "' for ICAO '" << model
                                  << "' because another configuration already exists";
                     }
                     else {
 #if !defined(NDEBUG)
-                        if(logger::diagnostics::enabled(logger::diagnostic_category::configuration)) logger::debug() << "[Configuration debug] Using '" << configuration->name() << "' for ICAO '" << model << "'";
+                        if(logger::diagnostics::enabled(logger::diagnostic_category::configuration)) logger::debug() << "[Configuration debug] Using '" << configuration->config.name() << "' for ICAO '" << model << "'";
 #endif
                     }
                 }
@@ -515,15 +557,18 @@ state::load_plane() noexcept
     // First try to get a match for the specific Aircraft
     auto configuration = configuration_aircraft_map_.find(ui_name);
     if(configuration != configuration_aircraft_map_.end()) {
-        auto profile = profile::configuration::build(*configuration->second);
+        auto profile = profile::configuration::build(configuration->second->config);
         if(!profile) {
             logger::info() << "Failed to build profile for '" << ui_name << "'";
             return false;
         }
         plane_.emplace(std::move(profile.value()));
         active_aircraft_name_ = ui_name;
+#ifdef HCBRAVO_XPLANE_EDITOR
+        active_profile_path_ = configuration->second->filename;
+#endif
         logger::info() << "Aircraft enabled: '" << ui_name << "' (" << icao_name
-                 << ") using profile '" << configuration->second->name() << "'";
+                 << ") using profile '" << configuration->second->config.name() << "'";
         return true;
     }
 
@@ -531,15 +576,18 @@ state::load_plane() noexcept
              << "'. Falling back to profile for ICAO '" << icao_name << "'";
     configuration = configuration_model_map_.find(icao_name);
     if(configuration != configuration_model_map_.end()) {
-        auto profile = profile::configuration::build(*configuration->second);
+        auto profile = profile::configuration::build(configuration->second->config);
         if(!profile) {
             logger::info() << "Failed to build profile for ICAO '" << icao_name << "'";
             return false;
         }
         plane_.emplace(std::move(profile.value()));
         active_aircraft_name_ = ui_name;
+#ifdef HCBRAVO_XPLANE_EDITOR
+        active_profile_path_ = configuration->second->filename;
+#endif
         logger::info() << "Aircraft enabled: '" << ui_name << "' (" << icao_name
-                 << ") using profile '" << configuration->second->name() << "'";
+                 << ") using profile '" << configuration->second->config.name() << "'";
         return true;
     }
 
@@ -573,6 +621,9 @@ state::disable() noexcept
 {
     if(!enabled_) return;
     enabled_ = false;
+#ifdef HCBRAVO_XPLANE_EDITOR
+    editor_.reset();
+#endif
     unload_plane();
     // An interval of zero deactivates the flight loop.
     XPLMScheduleFlightLoop(flight_loop_, 0.0f, 1);
@@ -594,6 +645,9 @@ state::unload_plane() noexcept
     }
     this->plane_ = std::nullopt;
     active_aircraft_name_.clear();
+#ifdef HCBRAVO_XPLANE_EDITOR
+    active_profile_path_.clear();
+#endif
     load_pending_ = false;
     waiting_for_data_refs_ = false;
 

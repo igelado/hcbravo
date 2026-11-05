@@ -12,6 +12,7 @@
 
 #include <yaml-cpp/yaml.h>
 
+#include <cstdint>
 #include <optional>
 #include <expected>
 #include <string>
@@ -480,7 +481,9 @@ public:
 
     static
     std::expected<configuration, int>
-    read(const std::string & path);
+    read(const std::string & path, YAML::Node * document = nullptr);
+
+    static constexpr std::uintmax_t max_file_size = 1024 * 1024;
 
     inline
     const std::string &

@@ -103,8 +103,9 @@ voltage, and thus it can start lighting the Bravo throttle annunciators.
 The `system` map also has an optional `gear` field to define the DataRef used to know the state of the landing gear.
 Obviously, if a given aircraft has fixed gear, this field is not required and the landing gear LEDs will remain off.
 
-The `gear` map requires `left`, `nose`, and `right` entries. Each gear requires
-`safe` and `unsafe` DataRef entries, using the short or long form described above.
+The `gear` map requires `left`, `nose`, and `right` entries. Each gear accepts
+optional `safe` and `unsafe` DataRef entries in either form described above.
+An omitted signal evaluates to false.
 Its LED is green when `safe` is true, red when `safe` is false and `unsafe` is true,
 and off when both are false. Safe takes priority when both are true.
 
@@ -173,7 +174,8 @@ As in the case of the autopilot modes, all DataRefs are interpreted as boolean v
  ## Compiling from Source
 
  We use CMake to compile the plugin in all supported Operating Systems.
- CMake downloads X-Plane SDK 4.3.0 and the other build dependencies through CPM
+ The plugin on this branch requires X-Plane 12.4.4 or newer.
+ CMake downloads X-Plane SDK 4.4.0-r1 and the other build dependencies through CPM
  during configuration. The SDK archive is verified against a pinned SHA-256 checksum.
  After installing CMake, you only need to configure, build, and pack the project:
  ```
@@ -186,6 +188,51 @@ As in the case of the autopilot modes, all DataRefs are interpreted as boolean v
  After running those commands, there should a `hcbravo.zip` file that contains the plugin, configuration files, and joystick profiles.
  You can unzip that archive into the top-level X-Plane 12 installation directory.
 
+
+## Aircraft profile editor
+
+In X-Plane, open **Plugins → HoneyComb Bravo → Edit Aircraft Profiles…**. To
+build and run the same screen without X-Plane or a Bravo, run these commands
+from the repository root:
+
+```sh
+cmake -S . -B build/editor -DHCBRAVO_BUILD_PLUGIN=OFF -DHCBRAVO_BUILD_PROFILE_EDITOR=ON -DBUILD_TESTING=OFF
+cmake --build build/editor
+./build/editor/hcbravo-profile-editor --profiles-dir conf
+```
+
+With a multi-config generator, pass `--config Release` to the build command
+and run the executable from the `Release` subdirectory.
+
+Select a badge on the left to open a profile. Each badge shows the first
+ICAO code and aircraft name. Under **Aircraft matches**, add, edit, or remove
+aircraft names and fallback ICAO codes. Both lists need at least one entry.
+**Save** updates the open file. **Make copy** saves the current edits beside
+the open file, prefixes the profile name with “Copy of”, and opens the copy.
+
+X-Plane scans the installed plugin's top-level `conf` directory. Select
+**Reload Aircraft Profiles** from the plugin menu after saving there.
+
+The **Annunciators** section below the aircraft names and ICAO codes lights
+each Bravo label that has a DataRef configured
+in the profile. Hover over a light to see its DataRefs or select it to edit
+its mappings. Each mapping supports an optional array index, inversion,
+and a list of match values.
+
+Select the **GEAR** panel beside the annunciators to edit the left, nose,
+and right mappings together.
+Each light is green when both signals have a DataRef, orange when only Safe
+has one, red when only Unsafe has one, and off when neither has one.
+
+The **Autopilot** panel is below the annunciators. Select a mode button to
+edit its light mappings, or select either dial and choose ALT, VS, HDG, CRS,
+or IAS to edit its value mapping. IAS also needs a Mach indicator DataRef.
+Profiles with autopilot mappings require an **AUTO PILOT** DataRef.
+
+Standalone builds with libcurl download Laminar Research's public DataRef
+catalog in the background. Listed DataRefs appear green. The warnings show
+paths absent from the catalog, which may include custom aircraft and plugin
+DataRefs. The X-Plane plugin checks the running simulator.
 
  ## Testing Configuration Files
 

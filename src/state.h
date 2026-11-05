@@ -13,6 +13,7 @@
 #include <XPLM/XPLMProcessing.h>
 
 #include <chrono>
+#include <filesystem>
 #include <optional>
 #include <array>
 #include <memory>
@@ -27,6 +28,10 @@
 #include "led.h"
 #include "profile.h"
 
+#ifdef HCBRAVO_XPLANE_EDITOR
+class xplane_profile_editor;
+#endif
+
 namespace state {
 
 class state {
@@ -35,9 +40,17 @@ class state {
     led::led_state leds_;
     XPLMMenuID menu_;
     int menu_item_;
+#ifdef HCBRAVO_XPLANE_EDITOR
+    std::filesystem::path active_profile_path_;
+    std::unique_ptr<xplane_profile_editor> editor_;
+#endif
     knob::commands::ptr_type cmds_;
 
-    using configuration_ptr = std::shared_ptr<conf::configuration>;
+    struct configuration_entry {
+        conf::configuration config;
+        std::filesystem::path filename;
+    };
+    using configuration_ptr = std::shared_ptr<configuration_entry>;
     using configuration_map_type = std::unordered_map<std::string, configuration_ptr>;
     configuration_map_type configuration_aircraft_map_;
     configuration_map_type configuration_model_map_;

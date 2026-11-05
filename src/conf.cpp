@@ -462,9 +462,9 @@ gear_signals::build(const YAML::Node & node)
     if(!validate_map_keys(node, "Gear signals", {"safe", "unsafe"})) {
         return std::unexpected(0);
     }
-    auto safe = conf::build<value>(node, "safe");
+    auto safe = value::build(node["safe"]);
     if(safe.has_value() == false) return std::unexpected(safe.error());
-    auto unsafe = conf::build<value>(node, "unsafe");
+    auto unsafe = value::build(node["unsafe"]);
     if(unsafe.has_value() == false) return std::unexpected(unsafe.error());
 
     return gear_signals(std::move(safe.value()), std::move(unsafe.value()));
@@ -550,9 +550,6 @@ annunciator::build(const YAML::Node & node)
     );
 }
 
-// Largest accepted configuration file; the bundled ones are a few KiB.
-static constexpr std::uintmax_t max_configuration_size = 1024 * 1024;
-
 // Records whether a document uses anchors or aliases. Aliases let a tiny file
 // expand into an enormous tree ("billion laughs"), and no bundled configuration
 // needs them, so they are rejected before the real parse.
@@ -580,7 +577,7 @@ private:
 }
 
 std::expected<configuration, int>
-configuration::read(const std::string & path)
+configuration::read(const std::string & path, YAML::Node * document)
 {
     try {
 #if !defined(NDEBUG)
@@ -593,9 +590,9 @@ configuration::read(const std::string & path)
             logger::info() << "Cannot read configuration file '" << path << "': " << size_error.message();
             return std::unexpected(0);
         }
-        if(size > max_configuration_size) {
+        if(size > max_file_size) {
             logger::info() << "Configuration file '" << path << "' is " << size
-                     << " bytes, larger than the " << max_configuration_size << " byte limit";
+                     << " bytes, larger than the " << max_file_size << " byte limit";
             return std::unexpected(0);
         }
         std::ifstream file(path, std::ios::binary);
@@ -666,6 +663,7 @@ configuration::read(const std::string & path)
         auto annunciator = conf::build_optional<conf::annunciator>(node, "annunciator");
         if(annunciator.has_value() == false) return std::unexpected(annunciator.error());   
 
+        if(document != nullptr) *document = node;
         return configuration(
             std::move(name), std::move(aircrafts.value()),
             std::move(models.value()), std::move(system.value()),
