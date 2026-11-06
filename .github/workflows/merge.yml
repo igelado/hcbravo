@@ -10,6 +10,7 @@ on:
       - 'profiles/**'
       - 'src/**'
       - 'tests/**'
+      - 'tools/**'
 
 permissions:
   actions: read

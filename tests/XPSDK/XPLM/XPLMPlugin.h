@@ -11,6 +11,7 @@ inline constexpr int XPLM_MSG_DATAREFS_ADDED = 114;
 
 static inline int XPLMGetMyID() { return 1; }
 static inline void XPLMGetPluginInfo(int, char *, char * path, char *, char *) {
-    const std::string plugin_path = std::string(HCBRAVO_SOURCE_DIR) + "/src/test.xpl";
+    // Resolve ../conf relative to the fixture root, as in an installed plugin.
+    const std::string plugin_path = std::string(HCBRAVO_SOURCE_DIR) + "/test-platform/test.xpl";
     std::strcpy(path, plugin_path.c_str());
 }

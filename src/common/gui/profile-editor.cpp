@@ -453,6 +453,26 @@ void profile_editor::draw_autopilot() {
     ImGui::PopID();
 }
 
+void profile_editor::set_directory(const std::filesystem::path & directory) {
+    if(directory.empty()) throw std::runtime_error("Choose a configuration directory.");
+    const auto resolved = std::filesystem::canonical(directory);
+    if(!std::filesystem::is_directory(resolved)) {
+        throw std::runtime_error("The selected path is not a directory.");
+    }
+    std::error_code error;
+    if(std::filesystem::canonical(directory_, error) == resolved && !error) return;
+
+    // Scan before replacing the current editor so failed selections leave the
+    // current profile and its unsaved edits intact.
+    profile_editor next(resolved);
+    next.refresh_profiles();
+    next.refresh_profiles_ = false;
+    next.find_dataref_ = find_dataref_;
+    next.dataref_source_ = dataref_source_;
+    next.annunciator_font_ = annunciator_font_;
+    *this = std::move(next);
+}
+
 void profile_editor::refresh_profiles() {
     std::vector<profile_badge> profiles;
     for(const auto & entry : std::filesystem::directory_iterator(directory_)) {
@@ -775,7 +795,8 @@ void profile_editor::make_copy() {
     }
 }
 
-bool profile_editor::draw(const std::filesystem::path & active_profile, const char * lookup_status) {
+bool profile_editor::draw(const std::filesystem::path & active_profile, const char * lookup_status,
+                          const std::function<void()> & host_controls) {
     bool close = false;
     ImGui::SetNextWindowPos(ImVec2(0, 0));
     ImGui::SetNextWindowSize(ImGui::GetIO().DisplaySize);
@@ -784,6 +805,7 @@ bool profile_editor::draw(const std::filesystem::path & active_profile, const ch
         ImGui::TextUnformatted("Aircraft Profile Editor");
         ImGui::SameLine();
         close = ImGui::SmallButton("Close");
+        if(host_controls) host_controls();
         ImGui::Separator();
         const float sidebar_width = std::min(220.0f, ImGui::GetContentRegionAvail().x * 0.34f);
         if(ImGui::BeginChild("Profile list", ImVec2(sidebar_width, 0), ImGuiChildFlags_Borders)) {

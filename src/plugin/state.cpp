@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: LGPL-2.1-only
 //
-// src/state.cpp
+// src/plugin/state.cpp
 // XPlane Plugin for HoneyComb Bravo Throttle Controller
 //
 // Copyright (C) 2005 Isaac Gelado
@@ -24,7 +24,7 @@
 #include "logger.h"
 #include "state.h"
 #ifdef HCBRAVO_XPLANE_EDITOR
-#include "profile-editor-xplane.h"
+#include "gui/profile-editor-xplane.h"
 #endif
 
 namespace state {

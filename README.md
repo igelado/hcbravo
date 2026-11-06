@@ -173,10 +173,28 @@ As in the case of the autopilot modes, all DataRefs are interpreted as boolean v
 
  ## Compiling from Source
 
+Source code is organized by host and shared functionality:
+
+- `src/common`: configuration parsing, validation, and logging utilities.
+- `src/common/gui`: the shared ImGui profile editor and embedded font setup.
+- `src/plugin`: X-Plane lifecycle, runtime profiles, commands, and hardware control.
+- `src/plugin/gui`: X-Plane windows, input, and native/OpenGL rendering.
+- `src/profile-editor`: the standalone GLFW application and public DataRef catalog.
+- `tools`: the command-line configuration validator.
+
+Each component defines its own CMake targets. Tests are grouped under
+`tests/common` and `tests/plugin`; simulator and HID test doubles remain in
+`tests/XPSDK` and `tests/HID`.
+
  We use CMake to compile the plugin in all supported Operating Systems.
- The plugin on this branch requires X-Plane 12.4.4 or newer.
+ The plugin targets X-Plane 12.04 or newer. The profile editor uses native panel
+ graphics when the host provides the SDK 4.4 rendering API (X-Plane 12.4.4+),
+ and automatically uses the OpenGL plugin bridge on older hosts.
  CMake downloads X-Plane SDK 4.4.0-r1 and the other build dependencies through CPM
  during configuration. The SDK archive is verified against a pinned SHA-256 checksum.
+ New rendering functions are resolved at runtime, so the SDK download does not
+ impose a 12.4.4 runtime requirement. Linux builds also require the OpenGL
+ development package (`libgl1-mesa-dev` on Ubuntu).
  After installing CMake, you only need to configure, build, and pack the project:
  ```
  mkdir build && cd build
@@ -203,6 +221,15 @@ cmake --build build/editor
 
 With a multi-config generator, pass `--config Release` to the build command
 and run the executable from the `Release` subdirectory.
+
+In the standalone editor, use **Browse...** to choose a configuration directory,
+or enter its path and select **Open directory**. The profile list reloads from
+that directory. Save edits before switching: switching closes the current
+profile. The app starts in the current working directory. The `--profiles-dir`
+argument can set another initial directory; invalid initial paths fall back to
+the working directory. Use the **..** control with its parent-folder arrow to go to
+the parent directory. Relative paths such as `..` resolve from the directory
+currently shown in the editor or browser.
 
 Select a badge on the left to open a profile. Each badge shows the first
 ICAO code and aircraft name. Under **Aircraft matches**, add, edit, or remove

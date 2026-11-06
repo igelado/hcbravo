@@ -3,3 +3,4 @@
 .vscode
 .gemini/
 gha-creds-*.json
+.claude*

@@ -12,6 +12,8 @@
 
 #include "dataref-catalog.h"
 #include "profile-editor.h"
+#include "directory-selector.h"
+#include "directory-paths.h"
 
 int main(int argc, char ** argv) {
     if(argc == 2 && std::string_view(argv[1]) == "--help") {
@@ -22,7 +24,8 @@ int main(int argc, char ** argv) {
         std::cerr << "Usage: hcbravo-profile-editor [--profiles-dir DIRECTORY]\n";
         return 2;
     }
-    profile_editor editor(argc == 3 ? argv[2] : "conf");
+    profile_editor editor(initial_configuration_directory(argc == 3 ? argv[2] : ""));
+    directory_selector directories(editor);
 
     glfwSetErrorCallback([](int, const char * error) { std::cerr << "GLFW: " << error << '\n'; });
     if(!glfwInit()) return 1;
@@ -79,7 +82,8 @@ int main(int argc, char ** argv) {
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
-        if(editor.draw({}, lookup_status.c_str())) glfwSetWindowShouldClose(window, true);
+        if(editor.draw({}, lookup_status.c_str(), [&] { directories.draw(editor); }))
+            glfwSetWindowShouldClose(window, true);
         ImGui::Render();
 
         glViewport(0, 0, width, height);

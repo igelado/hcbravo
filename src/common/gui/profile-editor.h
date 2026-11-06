@@ -86,8 +86,11 @@ public:
     explicit profile_editor(std::filesystem::path directory,
                             bool (*find_dataref)(const char *) = nullptr);
     void load_fonts();
+    const std::filesystem::path & directory() const noexcept { return directory_; }
+    void set_directory(const std::filesystem::path & directory);
     void set_dataref_lookup(std::function<bool(const char *)> lookup, std::string source);
-    bool draw(const std::filesystem::path & active_profile = {}, const char * lookup_status = nullptr);
+    bool draw(const std::filesystem::path & active_profile = {}, const char * lookup_status = nullptr,
+              const std::function<void()> & host_controls = {});
 };
 
 #endif
